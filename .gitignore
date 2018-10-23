@@ -3,4 +3,6 @@ resources
 settings.py
 .vscode
 .DS_Store
+credentials.json
+token.json
 
