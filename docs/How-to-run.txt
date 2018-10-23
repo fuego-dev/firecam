@@ -1,0 +1,13 @@
+
+_From a new terminal window (Ctrl + Alt + T):
+
+cd Documents/fuego-server/fuego_server
+python live_fuego.py
+#OLD python all_cam_moving_smoke.py
+
+
+**IMPORTANT NOTE if you have recently retrained the network: Retraining the network will result in retrained_graph.pb and retrained_labels.txt being created (or overwritten) inside /home/fuego/tensorflow/tensorflow/examples/image_retraining. 
+If you want to use your new network in the form of server_reconstructed.py, copy the two files into the folder: /home/fuego/Documents/fuego-server/fuego_server 
+
+TROUBLESHOOTING:
+-If an error about CUDA drivers appears in the terminal window, try restarting the computer. A more permanent fix is necessary, but this often works. 

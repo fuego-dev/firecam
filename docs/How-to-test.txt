@@ -1,0 +1,32 @@
+
+cd /home/fuego/tensorflow/tensorflow/examples/image_retraining/
+
+
+python label_image.py PATH_TO_THE_IMAGE
+
+to get the path :
+*go in the folder 
+*open in a terminal
+*write : pwd
+the path is : the result given by the command + the name of the file
+for example : /home/fuego/Desktop/rosetta-db/landscape/55.jpg
+
+
+ALTERNATIVELY, to test on an image from a url, use:
+
+cd /home/fuego/tensorflow/tensorflow/examples/image_retraining/
+
+python label_image_reconstructed.py URL_OF_THE_IMAGE
+
+for example:
+
+python label_image_reconstructed.py https://c1.staticflickr.com/4/3154/2691792148_274b010bd2_b.jpg
+
+
+
+TO TEST SEGMENTATION+CLASSIFICATION, use:
+
+cd /home/fuego/tensorflow/tensorflow/examples/image_retraining/
+
+python segment_and_label.py PATH_TO_THE_IMAGE
+

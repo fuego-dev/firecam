@@ -1,0 +1,10 @@
+glare
+hills
+snow
+water
+fog
+green
+smoke
+night
+tower
+ground
