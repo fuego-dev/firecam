@@ -5,4 +5,5 @@ settings.py
 .DS_Store
 credentials.json
 token.json
+local.db
 
