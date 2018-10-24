@@ -26,12 +26,6 @@ sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
 import goog_helper
 
-IMG_CLASSES = {
-    'smoke': settings.smokePictures,
-    'nonSmoke': settings.nonSmokePictures,
-    'motion': settings.motionPictures,
-    'cropSmoke': settings.cropSmokePictures
-}
 
 def readFromMainSheet(service, cellRange):
     return goog_helper.readFromSheet(service, settings.imagesSheet, cellRange)
@@ -53,10 +47,10 @@ def main():
         values = readFromMainSheet(googleServices['sheet'], args.cellRange)
         for [fileName] in values:
             print(fileName)
-            goog_helper.downloadClassImage(googleServices['drive'], IMG_CLASSES,
+            goog_helper.downloadClassImage(googleServices['drive'], settings.IMG_CLASSES,
                                             args.imgClass, fileName, args.outputDir)
     if args.image:
-            goog_helper.downloadClassImage(googleServices['drive'], IMG_CLASSES,
+            goog_helper.downloadClassImage(googleServices['drive'], settings.IMG_CLASSES,
                                             args.imgClass, args.image, args.outputDir)
 
 if __name__=="__main__":

@@ -77,20 +77,7 @@ def readFromSheet(service, sheetID, cellRange):
     return values
 
 
-def downloadClassImage(service, classLocations, imgClass, fileName, outputDirectory):
-    localFilePath = os.path.join(outputDirectory, fileName)
-    if os.path.isfile(localFilePath):
-        return localFilePath # already downloaded, nothing to do
-
-    # parse cameraID from fileName
-    regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
-    matchesExp = re.findall(regexExpanded, fileName)
-    if len(matchesExp) != 1:
-        print('Failed to parse name', fileName)
-        exit(1)
-    cameraID = matchesExp[0][0]
-
-    # find subdir for camera
+def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     parent = classLocations[imgClass]
     dirs = driveListFiles(service, parent, cameraID)
     if len(dirs) != 1:
@@ -98,8 +85,10 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
         exit(1)
     dirID = dirs[0]['id']
     dirName = dirs[0]['name']
+    return (dirID, dirName)
 
-    # find file in camera subdir
+
+def downloadFile(service, dirID, fileName, localFilePath):
     files = driveListFiles(service, dirID, fileName)
     if len(files) != 1:
         print('Expected 1 file but found', len(files), files)
@@ -122,7 +111,40 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
     fh.seek(0)
     with open(localFilePath, 'wb') as f:
         shutil.copyfileobj(fh, f)
+
+
+def parseFilename(fileName):
+    regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
+    matchesExp = re.findall(regexExpanded, fileName)
+    if len(matchesExp) != 1:
+        print('Failed to parse name', fileName)
+        exit(1)
+    match = matchesExp[0]
+    return {
+        'cameraID': match[0],
+        'date': match[1],
+        'hours': match[2],
+        'minutes': match[3],
+        'seconds': match[4]
+    }
+
+
+def downloadClassImage(service, classLocations, imgClass, fileName, outputDirectory):
+    localFilePath = os.path.join(outputDirectory, fileName)
+    if os.path.isfile(localFilePath):
+        return localFilePath # already downloaded, nothing to do
+
+    # parse cameraID from fileName
+    parsed = parseFilename(fileName)
+    cameraID = parsed['cameraID']
+
+    # find subdir for camera
+    (dirID, dirName) = getDirForClassCamera(service, classLocations, imgClass, cameraID)
+
+    # find file in camera subdir
+    downloadFile(service, dirID, fileName, localFilePath)
     return localFilePath
+
 
 def getParentParser():
     return tools.argparser
