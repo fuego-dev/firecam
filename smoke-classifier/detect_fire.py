@@ -86,7 +86,9 @@ getNextImage.tmpDir = None
 def segmentImage(imgPath):
     img = Image.open(imgPath)
     ppath = pathlib.PurePath(imgPath)
-    return rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
+    segments = rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
+    img.close()
+    return segments
 
 
 def recordScores(dbManager, camera, timestamp, segments):

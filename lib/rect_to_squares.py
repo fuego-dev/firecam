@@ -116,6 +116,7 @@ def cutBoxes(imgOrig, outputDirectory, imageFileName, callBackFn=None):
             cropImgPath = os.path.join(outputDirectory, cropImgName)
             cropped_img = imgOrig.crop(coords)
             cropped_img.save(cropImgPath, format='JPEG')
+            cropped_img.close()
             segments.append({
                 'imgPath': cropImgPath,
                 'MinX': coords[0],
