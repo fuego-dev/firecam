@@ -14,18 +14,21 @@
 # ==============================================================================
 """
 
-Monitor fire detection process and restart if it dies
+Monitor fire detection process and restart if it dies.
+Also restart if the detection process is not making progress.
 
 """
 import time, datetime
 import os
 import psutil
 import subprocess
+import psutil
 
 import sys
 import settings
 sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
+import db_manager
 
 def findProcess(name):
     for proc in psutil.process_iter():
@@ -35,10 +38,10 @@ def findProcess(name):
             matches = list(filter(lambda x: name in x, pinfo['cmdline']))
             if len(matches) > 0:
                 # print(matches, pinfo)
-                return True
+                return pinfo['pid']
         except:
             pass
-    return False
+    return None
 
 
 def startProcess(name):
@@ -46,19 +49,39 @@ def startProcess(name):
         sys.executable,
         os.path.join(settings.fuegoRoot, "smoke-classifier", name)
     ]
-    print(pArgs)
+    print('Starting', pArgs)
     subprocess.Popen(pArgs)
 
+def lastScoreTimestamp(dbManager):
+    sqlStr = "SELECT max(timestamp) from scores"
+    dbResult = dbManager.query(sqlStr)
+    if len(dbResult) == 1:
+        return dbResult[0][0]
+    return 0
+
 def main():
+    dbManager = db_manager.DbManager(settings.db_file)
     scriptName = 'detect_fire.py'
     while True:
-        found = findProcess(scriptName)
-        if not found:
+        foundPid = findProcess(scriptName)
+        if foundPid:
+            # check DB progress
+            lastTS = lastScoreTimestamp(dbManager)
             timestamp = int(time.time())
-            timeStr = datetime.datetime.fromtimestamp(timestamp).strftime('%F %T')
+            if (timestamp - lastTS) > 2*60: # warn if stuck more than 2 minutes
+                timeStr = datetime.datetime.now().strftime('%F %T')
+                print('%s: Process %s: %d seconds since last image scanned' % (timeStr, foundPid, timestamp - lastTS))
+            if (timestamp - lastTS) > 5*60: # kill if stuck more than 5 minutes
+                proc = psutil.Process(foundPid)
+                print('Killing', proc.cmdline())
+                proc.kill()
+                foundPid = None
+        if not foundPid:
+            timeStr = datetime.datetime.now().strftime('%F %T')
             print('%s: Process not found' % timeStr)
             startProcess(scriptName)
-        time.sleep(10)
+            time.sleep(2*60) # give couple minutes for startup time
+        time.sleep(30)
 
 
 if __name__=="__main__":
