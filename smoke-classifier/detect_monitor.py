@@ -23,6 +23,7 @@ import os
 import psutil
 import subprocess
 import psutil
+import tempfile
 
 import sys
 import settings
@@ -44,29 +45,38 @@ def findProcess(name):
     return None
 
 
-def startProcess(name):
+def startProcess(detectFire, heartbeatFileName):
     pArgs = [
         sys.executable,
-        os.path.join(settings.fuegoRoot, "smoke-classifier", name)
+        os.path.join(settings.fuegoRoot, "smoke-classifier", detectFire),
+        '--heartbeat',
+        heartbeatFileName
     ]
     print('Starting', pArgs)
     subprocess.Popen(pArgs)
+
+
+def lastHeartbeat(heartbeatFileName):
+    return os.stat(heartbeatFileName).st_mtime
+
 
 def lastScoreTimestamp(dbManager):
     sqlStr = "SELECT max(timestamp) from scores"
     dbResult = dbManager.query(sqlStr)
     if len(dbResult) == 1:
-        return dbResult[0][0]
+        return dbResult[0]['max(timestamp)']
     return 0
 
 def main():
     dbManager = db_manager.DbManager(settings.db_file)
     scriptName = 'detect_fire.py'
+    heartbeatFile = tempfile.NamedTemporaryFile()
+    heartbeatFileName = heartbeatFile.name
     while True:
         foundPid = findProcess(scriptName)
         if foundPid:
-            # check DB progress
-            lastTS = lastScoreTimestamp(dbManager)
+            # lastTS = lastScoreTimestamp(dbManager) # check DB progress
+            lastTS = lastHeartbeat(heartbeatFileName) # check heartbeat
             timestamp = int(time.time())
             if (timestamp - lastTS) > 2*60: # warn if stuck more than 2 minutes
                 timeStr = datetime.datetime.now().strftime('%F %T')
@@ -79,7 +89,7 @@ def main():
         if not foundPid:
             timeStr = datetime.datetime.now().strftime('%F %T')
             print('%s: Process not found' % timeStr)
-            startProcess(scriptName)
+            startProcess(scriptName, heartbeatFileName)
             time.sleep(2*60) # give couple minutes for startup time
         time.sleep(30)
 

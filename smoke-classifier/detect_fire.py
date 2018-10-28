@@ -157,7 +157,16 @@ def getLastScoreCamera(dbManager):
         return dbResult[0]['CameraName']
     return None
 
+
+def heartBeat(filename):
+    pathlib.Path(filename).touch()
+
+
 def main():
+    optArgs = [
+        ["b", "heartbeat", "filename used for heartbeating check"],
+    ]
+    args = collect_args.collectArgs([], optionalArgs=optArgs)
     dbManager = db_manager.DbManager(settings.db_file)
     cameras = dbManager.get_sources()
     lastProcessCamera = getLastScoreCamera(dbManager)
@@ -182,6 +191,8 @@ def main():
             if newFireSegment:
                 alertFire(camera, imgPath, newFireSegment)
             deleteImageFiles(imgPath, segments)
+            if (args.heartbeat):
+                heartBeat(args.heartbeat)
 
 if __name__=="__main__":
     main()

@@ -43,6 +43,7 @@ def _dict_factory(cursor, row):
 class DbManager(object):
     def __init__(self, dbname='resources/local.db'):
         self.conn = sqlite3.connect(dbname)
+        self.conn.row_factory = _dict_factory
 
         sources_schema = [
             ('name', 'TEXT'),
