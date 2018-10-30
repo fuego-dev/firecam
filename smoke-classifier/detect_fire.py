@@ -203,7 +203,6 @@ def main():
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             newFireSegment = postFilter(dbManager, camera, timestamp, segments)
-            newFireSegment = {'score': .6789}
             if newFireSegment:
                 alertFire(googleServices['drive'], camera, imgPath, newFireSegment)
             deleteImageFiles(imgPath, segments)
