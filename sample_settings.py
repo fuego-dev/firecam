@@ -35,6 +35,8 @@ imagesSheetAppendRange = 'A1' # append below this cell
 cropImagesSheet = '18aNKMlPRgU3Xszj5XVMOt5zLkx6Gcy_ghTiFWPetM08' # Fuego cropped images
 cropImagesSheetAppendRange = 'A1' # append below this cell
 cropEveryNMinutes = 5 # crop smoke images that are at least 5 minutes apart
+fuegoEmail = 'fuego.response@gmail.com'
+fuegoPasswd = 'do not put real password in files in open source git repo'
 
 IMG_CLASSES = {
     'smoke': smokePictures,
