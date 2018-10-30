@@ -74,6 +74,10 @@ def smoke_check(tfSession, graph, labels, imgPath):
     
     results = tfSession.run(output_operation.outputs[0], {input_operation.outputs[0]: t})
     return results[0][1]
+    
+def deleteImageFiles(imgPath, segments):
+    for segmentInfo in segments:
+        os.remove(segmentInfo['imgPath'])
 
 def main():
     #header = np.array(['Filename','Score','Class'])
@@ -117,6 +121,7 @@ def main():
                 tf_helper.classifySegments(tfSession, graph, labels, segments)
                 for i in range(len(segments)):
                     writer.writerow([segments[i]['imgPath'][39:],segments[i]['score'],'other'])
+                deleteImageFiles(other_image, segments)
                     
     print("DONE")
 if __name__=="__main__":
