@@ -31,6 +31,7 @@ import rect_to_squares
 import goog_helper
 import tf_helper
 import db_manager
+import email_helper
 
 import os
 import pathlib
@@ -138,6 +139,11 @@ def alertFire(camera, imgPath, newFireSegment):
     # save file
     ppath = pathlib.PurePath(imgPath)
     copyfile(imgPath, os.path.join(settings.detectionDir, ppath.name))
+    # send email
+    fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
+    subject = 'Possible (%d%%) fire in camera %s' % (int(newFireSegment['score']*100), camera)
+    body = 'Please check the attached image for fire'
+    email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath])
 
 
 def deleteImageFiles(imgPath, segments):
