@@ -180,7 +180,7 @@ def main():
     optArgs = [
         ["b", "heartbeat", "filename used for heartbeating check"],
     ]
-    args = collect_args.collectArgs([], optionalArgs=optArgs)
+    args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(settings.db_file)
     cameras = dbManager.get_sources()
