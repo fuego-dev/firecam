@@ -134,15 +134,23 @@ def postFilter(dbManager, camera, timestamp, segments):
     return False
 
 
-def alertFire(camera, imgPath, newFireSegment):
+def alertFire(service, camera, imgPath, newFireSegment):
     print('New fire detected by camera, image, segment', camera, imgPath, newFireSegment)
-    # save file
+    # save file to local detection dir
     ppath = pathlib.PurePath(imgPath)
     copyfile(imgPath, os.path.join(settings.detectionDir, ppath.name))
+    # upload file to google drive detection dir
+    driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
+    if driveFile:
+        print('Uploaded to google drive detections folder', driveFile)
     # send email
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(newFireSegment['score']*100), camera)
-    body = 'Please check the attached image for fire'
+    body = 'Please check the attached image for fire.'
+    if driveFile:
+        driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
+        driveBody = driveTempl % driveFile['id']
+        body += driveBody
     email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath])
 
 
@@ -173,6 +181,7 @@ def main():
         ["b", "heartbeat", "filename used for heartbeating check"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs)
+    googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(settings.db_file)
     cameras = dbManager.get_sources()
     lastProcessCamera = getLastScoreCamera(dbManager)
@@ -194,8 +203,9 @@ def main():
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             newFireSegment = postFilter(dbManager, camera, timestamp, segments)
+            newFireSegment = {'score': .6789}
             if newFireSegment:
-                alertFire(camera, imgPath, newFireSegment)
+                alertFire(googleServices['drive'], camera, imgPath, newFireSegment)
             deleteImageFiles(imgPath, segments)
             if (args.heartbeat):
                 heartBeat(args.heartbeat)

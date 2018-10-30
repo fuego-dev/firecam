@@ -23,11 +23,13 @@ import sys
 import re
 import io
 import shutil
+import pathlib
 
 from googleapiclient.discovery import build
 from httplib2 import Http
 from oauth2client import file, client, tools
 from apiclient.http import MediaIoBaseDownload
+from apiclient.http import MediaFileUpload
 
 import collect_args
 
