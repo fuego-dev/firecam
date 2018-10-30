@@ -39,90 +39,19 @@ from apiclient.http import MediaFileUpload
 import settings
 sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
+import goog_helper
 
 import crop_single
 
-# If modifying these scopes, delete the file token.json.
-SCOPES = [
-    'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/spreadsheets'
-]
-IMG_CLASSES = {
-    'smoke': settings.smokePictures,
-    'nonSmoke': settings.nonSmokePictures,
-    'motion': settings.motionPictures,
-    'cropSmoke': settings.cropSmokePictures
-}
-
-
-def getGoogleServices(args):
-    store = file.Storage(settings.googleTokenFile)
-    creds = store.get()
-    if not creds or creds.invalid:
-        flow = client.flow_from_clientsecrets(settings.googleCredsFile, ' '.join(SCOPES))
-        creds = tools.run_flow(flow, store, args)
-    driveService = build('drive', 'v3', http=creds.authorize(Http()))
-    sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
-    return {
-        'drive': driveService,
-        'sheet': sheetService
-    }
-
-
-def driveListFiles(service, parentID, searchName=None):
-    page_token = None
-    param = {}
-    param['q'] = "'" + parentID + "' in parents and trashed = False"
-    if (searchName != None):
-        param['q'] = param['q'] + "and name = '" + searchName + "'"
-    param['fields'] = 'nextPageToken, files(id, name)'
-    param['pageToken'] = page_token
-    param['supportsTeamDrives'] = True
-    param['includeTeamDriveItems'] = True
-    # print(param)
-    results = service.files().list(**param).execute()
-    items = results.get('files', [])
-    # print('Files: ', items)
-    return items
-
 
 def uploadToDrive(service, imgPath, cameraID, imgClass):
-    # page_token = None
-    # param = {}
-    # param['fields'] = 'nextPageToken, teamDrives(id, name)'
-    # param['pageToken'] = page_token
-    # response = service.teamdrives().list(**param).execute()
-    # print('param resp', response)
-
-    # print('top')
-    # driveListFiles(service, settings.teamDriveID)
-    # print('pics')
-    # driveListFiles(service, settings.allPictures)
-    # print('smoke')
-    # driveListFiles(service, settings.smokePictures, cameraID)
-    # print('non')
-    # driveListFiles(service, settings.nonSmokePictures)
-    # print('motion')
-    # driveListFiles(service, settings.motionPictures)
-
-    parent = IMG_CLASSES[imgClass]
+    parent = settings.IMG_CLASSES[imgClass]
     dirName = ''
     dirID = parent
     if cameraID != None:
-        dirs = driveListFiles(service, parent, cameraID)
-        if len(dirs) != 1:
-            print('Expected 1 directory but found', len(dirs), dirs)
-            exit(1)
-        dirID = dirs[0]['id']
-        dirName = dirs[0]['name']
+        (dirID, dirName) = goog_helper.getDirForClassCamera(service, settings.IMG_CLASSES, imgClass, cameraID)
 
-    file_metadata = {'name': pathlib.PurePath(imgPath).name, 'parents': [dirID]}
-    media = MediaFileUpload(imgPath,
-                            mimetype='image/jpeg')
-    file2 = service.files().create(body=file_metadata,
-                                        media_body=media,
-                                        supportsTeamDrives=True,
-                                        fields='id').execute()
+    goog_helper.uploadFile(service, dirID, imgPath)
     print('Uploaded file ', imgPath, ' to ', imgClass, dirName)
 
 
@@ -272,7 +201,7 @@ def main():
         print('Zip file not found', args.zipFile)
         exit()
 
-    googleServices = getGoogleServices(args)
+    googleServices = goog_helper.getGoogleServices(settings, args)
     unzipFile(args, googleServices)
 
 if __name__=="__main__":

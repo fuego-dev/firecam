@@ -113,6 +113,17 @@ def downloadFile(service, dirID, fileName, localFilePath):
         shutil.copyfileobj(fh, f)
 
 
+def uploadFile(service, dirID, localFilePath):
+    file_metadata = {'name': pathlib.PurePath(localFilePath).name, 'parents': [dirID]}
+    media = MediaFileUpload(localFilePath,
+                            mimetype='image/jpeg')
+    file = service.files().create(body=file_metadata,
+                                    media_body=media,
+                                    supportsTeamDrives=True,
+                                    fields='id').execute()
+    return file
+
+
 def parseFilename(fileName):
     regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
     matchesExp = re.findall(regexExpanded, fileName)
