@@ -61,8 +61,8 @@ def read_tensor_from_array(data,
 
 def calcScoresInMemory(model_file, label_file, imgPath):
     # XXXX
-    # config = tf.ConfigProto()
-    # config.gpu_options.per_process_gpu_memory_fraction = 0.1
+    config = tf.ConfigProto()
+    config.gpu_options.per_process_gpu_memory_fraction = 0.1
 
     graph_def = tf.GraphDef()
     with tf.gfile.FastGFile(model_file, 'rb') as f:
@@ -71,7 +71,7 @@ def calcScoresInMemory(model_file, label_file, imgPath):
 
     # Unpersists graph from file
     # with tf.Session(config=config) as sess:  #config=tf.ConfigProto(log_device_placement=True)
-    with tf.Session() as sess:
+    with tf.Session(config=config) as sess:
 
         image = io.imread(imgPath, plugin='matplotlib')
         print(image.shape)
