@@ -94,6 +94,9 @@ def segmentImage(imgPath):
 
 def recordScores(dbManager, camera, timestamp, segments):
     # regexSize = '.+_Crop_(\d+)x(\d+)x(\d+)x(\d+)'
+    dt = datetime.datetime.fromtimestamp(timestamp)
+    secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
+
     for segmentInfo in segments:
         # matches = re.findall(regexSize, imgScore['imgPath'])
         # if len(matches) == 1:
@@ -105,7 +108,8 @@ def recordScores(dbManager, camera, timestamp, segments):
                 'MinY': segmentInfo['MinY'],
                 'MaxX': segmentInfo['MaxX'],
                 'MaxY': segmentInfo['MaxY'],
-                'Score': segmentInfo['score']
+                'Score': segmentInfo['score'],
+                'SecondsInDay': secondsInDay
             }
             dbManager.add_data('scores', dbRow, commit=False)
     dbManager.commit()
