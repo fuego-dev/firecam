@@ -116,13 +116,13 @@ def recordScores(dbManager, camera, timestamp, segments):
 
 
 def postFilter(dbManager, camera, timestamp, segments):
-    sqlTemplate = """SELECT * FROM scores
-    where CameraName='%s' and timestamp = (
-        SELECT timestamp FROM scores
-        where CameraName='%s' and timestamp > %d and timestamp < %d
-        order by abs(timestamp-%d) asc limit 1)"""
-    desiredTime = timestamp - 60*60*24
-    sqlStr = sqlTemplate % (camera, camera, desiredTime - 60*60, desiredTime + 60*60, desiredTime)
+    sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*),avg(score),max(score) FROM scores
+    WHERE CameraName='%s' and Timestamp > %s and Timestamp < %s and SecondsInDay > %s and SecondsInDay < %s
+    GROUP BY MinX,MinY,MaxX,MaxY"""
+
+    dt = datetime.datetime.fromtimestamp(timestamp)
+    secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
+    sqlStr = sqlTemplate % (camera, timestamp - 60*60*int(24*3.5), timestamp - 60*60*12, secondsInDay - 60*60, secondsInDay + 60*60)
     # print('sql', sqlStr, timestamp)
     dbResult = dbManager.query(sqlStr)
     # if len(dbResult) > 0:
@@ -133,7 +133,9 @@ def postFilter(dbManager, camera, timestamp, segments):
         for row in dbResult:
             if (row['MinX'] == segmentInfo['MinX'] and row['MinY'] == segmentInfo['MinY'] and
                 row['MaxX'] == segmentInfo['MaxX'] and row['MaxY'] == segmentInfo['MaxY']):
-                if segmentInfo['score'] - row['Score'] >= .5:
+                threshold = (row['max(score)'] + 1)/2 # threshold is halfway between max and 1
+                # print('thresh', row['MinX'], row['MinY'], row['MaxX'], row['MaxY'], row['max(score)'], threshold)
+                if segmentInfo['score'] > threshold:
                     return segmentInfo
     return None
 
