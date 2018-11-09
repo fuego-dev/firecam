@@ -127,6 +127,8 @@ def postFilter(dbManager, camera, timestamp, segments):
     dbResult = dbManager.query(sqlStr)
     # if len(dbResult) > 0:
     #     print('post filter result', dbResult)
+    maxFireSegment = None
+    maxFireScore = 0
     for segmentInfo in segments:
         if segmentInfo['score'] < .5:
             break
@@ -134,24 +136,45 @@ def postFilter(dbManager, camera, timestamp, segments):
             if (row['MinX'] == segmentInfo['MinX'] and row['MinY'] == segmentInfo['MinY'] and
                 row['MaxX'] == segmentInfo['MaxX'] and row['MaxY'] == segmentInfo['MaxY']):
                 threshold = (row['max(score)'] + 1)/2 # threshold is halfway between max and 1
+                threshold = max(threshold, row['max(score)'] + 0.1) # threshold at least .1 above max
                 # print('thresh', row['MinX'], row['MinY'], row['MaxX'], row['MaxY'], row['max(score)'], threshold)
-                if segmentInfo['score'] > threshold:
-                    return segmentInfo
-    return None
+                if (segmentInfo['score'] > threshold) and (segmentInfo['score'] > maxFireScore):
+                    maxFireScore = segmentInfo['score']
+                    maxFireSegment = segmentInfo
+                    maxFireSegment['HistAvg'] = row['avg(score)']
+                    maxFireSegment['HistMax'] = row['max(score)']
+                    maxFireSegment['HistNumSamples'] = row['count(*)']
+
+    return maxFireSegment
 
 
-def recordFire(service, camera, timestamp, imgPath, fireSegment):
+def recordFire(dbManager, service, camera, timestamp, imgPath, fireSegment):
     print('Fire detected by camera, image, segment', camera, imgPath, fireSegment)
     # save file to local detection dir
     ppath = pathlib.PurePath(imgPath)
     copyfile(imgPath, os.path.join(settings.detectionDir, ppath.name))
     # upload file to google drive detection dir
     driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
+    driveFileID = None
     if driveFile:
         print('Uploaded to google drive detections folder', driveFile)
         driveFileID = driveFile['id']
-        return driveFileID
-    return None
+
+    dbRow = {
+        'CameraName': camera,
+        'Timestamp': timestamp,
+        'MinX': fireSegment['MinX'],
+        'MinY': fireSegment['MinY'],
+        'MaxX': fireSegment['MaxX'],
+        'MaxY': fireSegment['MaxY'],
+        'Score': fireSegment['score'],
+        'HistAvg': fireSegment['HistAvg'],
+        'HistMax': fireSegment['HistMax'],
+        'HistNumSamples': fireSegment['HistNumSamples'],
+        'ImageID': driveFileID
+    }
+    dbManager.add_data('detections', dbRow)
+    return driveFileID
 
 
 def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
@@ -234,7 +257,7 @@ def main():
             recordScores(dbManager, camera, timestamp, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)
             if fireSegment:
-                driveFileID = recordFire(googleServices['drive'], camera, timestamp, imgPath, fireSegment)
+                driveFileID = recordFire(dbManager, googleServices['drive'], camera, timestamp, imgPath, fireSegment)
                 if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
                     alertFire(camera, imgPath, driveFileID, fireSegment)
             deleteImageFiles(imgPath, segments)

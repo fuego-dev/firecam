@@ -104,6 +104,20 @@ class DbManager(object):
             ('Score', 'REAL'),
         ]
 
+        detections_schema = [
+            ('CameraName', 'TEXT'),
+            ('Timestamp', 'INT'),
+            ('MinX', 'INT'),
+            ('MinY', 'INT'),
+            ('MaxX', 'INT'),
+            ('MaxY', 'INT'),
+            ('Score', 'REAL'),
+            ('HistAvg', 'REAL'),
+            ('HistMax', 'REAL'),
+            ('HistNumSamples', 'INT'),
+            ('ImageID', 'TEXT'),
+        ]
+
         alerts_schema = [
             ('CameraName', 'TEXT'),
             ('Timestamp', 'INT'),
@@ -117,6 +131,7 @@ class DbManager(object):
             'images': images_schema,
             'cropped': cropped_schema,
             'scores': scores_schema,
+            'detections': detections_schema,
             'alerts': alerts_schema,
         }
 
