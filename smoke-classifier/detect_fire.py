@@ -135,11 +135,11 @@ def postFilter(dbManager, camera, timestamp, segments):
                 row['MaxX'] == segmentInfo['MaxX'] and row['MaxY'] == segmentInfo['MaxY']):
                 if segmentInfo['score'] - row['Score'] >= .5:
                     return segmentInfo
-    return False
+    return None
 
 
-def alertFire(service, camera, imgPath, newFireSegment):
-    print('New fire detected by camera, image, segment', camera, imgPath, newFireSegment)
+def recordFire(service, camera, timestamp, imgPath, fireSegment):
+    print('Fire detected by camera, image, segment', camera, imgPath, fireSegment)
     # save file to local detection dir
     ppath = pathlib.PurePath(imgPath)
     copyfile(imgPath, os.path.join(settings.detectionDir, ppath.name))
@@ -147,13 +147,37 @@ def alertFire(service, camera, imgPath, newFireSegment):
     driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
     if driveFile:
         print('Uploaded to google drive detections folder', driveFile)
+        driveFileID = driveFile['id']
+        return driveFileID
+    return None
+
+
+def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
+    sqlTemplate = """SELECT * FROM alerts
+    where CameraName='%s' and timestamp > %s"""
+    sqlStr = sqlTemplate % (camera, timestamp - 60*60*12) # suppress alerts for 12 hours
+    dbResult = dbManager.query(sqlStr)
+    if len(dbResult) > 0:
+        print('Supressing new alert due to recent alert')
+        return False
+
+    dbRow = {
+        'CameraName': camera,
+        'Timestamp': timestamp,
+        'ImageID': driveFileID
+    }
+    dbManager.add_data('alerts', dbRow)
+    return True
+
+
+def alertFire(camera, imgPath, driveFileID, fireSegment):
     # send email
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
-    subject = 'Possible (%d%%) fire in camera %s' % (int(newFireSegment['score']*100), camera)
+    subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), camera)
     body = 'Please check the attached image for fire.'
-    if driveFile:
+    if driveFileID:
         driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
-        driveBody = driveTempl % driveFile['id']
+        driveBody = driveTempl % driveFileID
         body += driveBody
     email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath])
 
@@ -206,9 +230,11 @@ def main():
             print('%s: Highest score for camera %s: %f' % (timeStr, camera, segments[0]['score']))
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
-            newFireSegment = postFilter(dbManager, camera, timestamp, segments)
-            if newFireSegment:
-                alertFire(googleServices['drive'], camera, imgPath, newFireSegment)
+            fireSegment = postFilter(dbManager, camera, timestamp, segments)
+            if fireSegment:
+                driveFileID = recordFire(googleServices['drive'], camera, timestamp, imgPath, fireSegment)
+                if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
+                    alertFire(camera, imgPath, driveFileID, fireSegment)
             deleteImageFiles(imgPath, segments)
             if (args.heartbeat):
                 heartBeat(args.heartbeat)

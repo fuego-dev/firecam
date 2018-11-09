@@ -104,6 +104,12 @@ class DbManager(object):
             ('Score', 'REAL'),
         ]
 
+        alerts_schema = [
+            ('CameraName', 'TEXT'),
+            ('Timestamp', 'INT'),
+            ('ImageID', 'TEXT'),
+        ]
+
         self.tables = {
             'sources': sources_schema,
             'fires': fires_schema,
@@ -111,6 +117,7 @@ class DbManager(object):
             'images': images_schema,
             'cropped': cropped_schema,
             'scores': scores_schema,
+            'alerts': alerts_schema,
         }
 
         self.sources_table_name = 'sources'
