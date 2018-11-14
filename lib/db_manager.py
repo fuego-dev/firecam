@@ -20,12 +20,14 @@ we may be pulling from as well as information of past detected events.
 It can be used to read from the db by the image handler or to write to
 the database by tools we use to populate it.
 
-It runs on sqllite3
+It runs on sqllite3 currently, but transitioning to postgres to support
+multi-computer deployments.
 
 """
 
 import sqlite3
 import datetime
+import psycopg2
 
 def _dict_factory(cursor, row):
     """
@@ -199,3 +201,50 @@ class DbManager(object):
             )
             c.execute(db_command)
         self.conn.commit()
+
+
+class PsqlManager(object):
+    def __init__(self, psqlHost, psqlDb, psqlUser, psqlPasswd):
+        self.conn = psycopg2.connect(host=psqlHost, database=psqlDb, user=psqlUser, password=psqlPasswd)
+
+    def _incrementCounterInt(self, cursor, counterName):
+        sqlTemplate = 'SELECT * from counters where name=%s'
+        quotedCounterName = "'" + counterName + "'"
+        sqlStr = sqlTemplate % (quotedCounterName)
+        # print(sqlStr)
+        cursor.execute(sqlStr)
+        row = cursor.fetchone()
+        if not row:
+            print('failed to find counter')
+            exit(1)
+        # print(row)
+        assert row[0] == counterName
+        value = row[1]
+        sqlTemplate = 'UPDATE counters set counter=%d where counter=%d and name = %s'
+        sqlStr = sqlTemplate % (value+1, value, quotedCounterName)
+        cursor.execute(sqlStr)
+        updatedRows = cursor.rowcount
+        return (value, updatedRows)
+
+
+    def incrementCounter(self, counterName):
+        value = None
+        try:
+            cursor = self.conn.cursor()
+            (value, updatedRows) = self._incrementCounterInt(cursor, counterName)
+            if updatedRows != 1:
+                raise Exception('Conflict')
+            self.conn.commit()
+            cursor.close()
+            # print("Success", value, updatedRows)
+        except Exception as e:
+            self.conn.rollback()
+            cursor.close()
+            print("Error in increment.  Retrying", value, e)
+            return self.incrementCounter(counterName) # tail-recursive
+
+        return value
+
+
+    def getNextSourcesCounter(self):
+        return self.incrementCounter('sources')
