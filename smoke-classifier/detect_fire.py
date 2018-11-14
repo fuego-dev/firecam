@@ -45,23 +45,12 @@ import tensorflow as tf
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-def findCameraIndex(cameras, searchName):
-    for (index, camera) in enumerate(cameras):
-        if camera['name'] == searchName:
-            return index
-
-def getNextImage(cameras, lastProcessCamera):
+def getNextImage(psqlMgr, cameras):
     if getNextImage.tmpDir == None:
         getNextImage.tmpDir = tempfile.TemporaryDirectory()
         print('TempDir', getNextImage.tmpDir.name)
-        getNextImage.counter = findCameraIndex(cameras, lastProcessCamera)
-        print('lastCam', getNextImage.counter, lastProcessCamera)
-        if getNextImage.counter == None:
-            getNextImage.counter = random.randint(1,len(cameras))
-        getNextImage.counter += 1
 
-    index = getNextImage.counter % len(cameras)
-    getNextImage.counter += 1
+    index = psqlMgr.getNextSourcesCounter() % len(cameras)
     camera = cameras[index]
     timestamp = int(time.time())
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
@@ -73,9 +62,8 @@ def getNextImage(cameras, lastProcessCamera):
         urlretrieve(camera['url'], imgPath)
     except Exception as e:
         print('Error fetching image from', camera['name'], e)
-        return getNextImage(cameras, lastProcessCamera)
+        return getNextImage(psqlMgr, cameras)
     return (camera['name'], timestamp, imgPath)
-getNextImage.counter = 0
 getNextImage.tmpDir = None
 
 # XXXXX Use a fixed stable directory for testing
@@ -235,9 +223,10 @@ def main():
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
+    psqlMgr = db_manager.PsqlManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     dbManager = db_manager.DbManager(settings.db_file)
     cameras = dbManager.get_sources()
-    lastProcessCamera = getLastScoreCamera(dbManager)
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
     graph = tf_helper.load_graph(settings.model_file)
@@ -246,7 +235,7 @@ def main():
     config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
     with tf.Session(graph=graph, config=config) as tfSession:
         while True:
-            (camera, timestamp, imgPath) = getNextImage(cameras, lastProcessCamera)
+            (camera, timestamp, imgPath) = getNextImage(psqlMgr, cameras)
             segments = segmentImage(imgPath)
             # print('si', segments)
             tf_helper.classifySegments(tfSession, graph, labels, segments)
