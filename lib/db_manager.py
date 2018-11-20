@@ -20,14 +20,15 @@ we may be pulling from as well as information of past detected events.
 It can be used to read from the db by the image handler or to write to
 the database by tools we use to populate it.
 
-It runs on sqllite3 currently, but transitioning to postgres to support
-multi-computer deployments.
+It supports both sqllite3 (for local testing) and postgres (for real work)
+backends.
 
 """
 
 import sqlite3
 import datetime
 import psycopg2
+import psycopg2.extras
 
 def _dict_factory(cursor, row):
     """
@@ -43,14 +44,24 @@ def _dict_factory(cursor, row):
 
 
 class DbManager(object):
-    def __init__(self, dbname='resources/local.db'):
-        self.conn = sqlite3.connect(dbname)
-        self.conn.row_factory = _dict_factory
+    def __init__(self, sqliteFile=None, psqlHost=None, psqlDb=None, psqlUser=None, psqlPasswd=None):
+        if sqliteFile:
+            self.dbType = 'sqlite'
+            self.conn = sqlite3.connect(sqliteFile)
+            self.conn.row_factory = _dict_factory
+        elif psqlHost:
+            self.dbType = 'psql'
+            self.conn = psycopg2.connect(host=psqlHost, database=psqlDb, user=psqlUser, password=psqlPasswd)
 
         sources_schema = [
             ('name', 'TEXT'),
             ('url', 'TEXT'),
             ('last_date', 'TEXT')
+        ]
+
+        counters_schema = [
+            ('name', 'TEXT'),
+            ('counter', 'INT')
         ]
 
         fires_schema = [
@@ -104,6 +115,7 @@ class DbManager(object):
             ('MaxX', 'INT'),
             ('MaxY', 'INT'),
             ('Score', 'REAL'),
+            ('SecondsInDay', 'INT'),
         ]
 
         detections_schema = [
@@ -128,6 +140,7 @@ class DbManager(object):
 
         self.tables = {
             'sources': sources_schema,
+            'counters': counters_schema,
             'fires': fires_schema,
             'cameras': cameras_schema,
             'images': images_schema,
@@ -144,20 +157,17 @@ class DbManager(object):
     def __del__(self):
         self.conn.close()
 
-    def get_sources(self):
-        sources = []
-        self.conn.row_factory = _dict_factory
-        c = self.conn.cursor()
-        for row in c.execute("SELECT * FROM %s order by name" % self.sources_table_name):
-            sources.append(row)
-        return sources
+
+    def _getCursor(self):
+        if self.dbType == 'sqlite':
+            return self.conn.cursor()
+        elif self.dbType == 'psql':
+            return self.conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor)
+
 
     def create_db(self):
         pass
 
-    def add_url(self, url, urlname):
-        date = datetime.datetime.utcnow().isoformat()
-        self.add_data('sources', {'name': urlname, 'url': url, 'last_date': date})
 
     def add_data(self, tableName, keyValues, commit=True):
         sql_template = 'insert into {table_name} ({fields}) values ({values})'
@@ -166,9 +176,11 @@ class DbManager(object):
             fields = ", ".join(key for (key, _) in keyValues.items()),
             values = ", ".join(repr(val) for (_, val) in keyValues.items())
         )
-        self.conn.execute(db_command)
+        cursor = self._getCursor()
+        cursor.execute(db_command)
         if commit:
             self.conn.commit()
+        cursor.close()
 
 
     def commit(self):
@@ -177,9 +189,14 @@ class DbManager(object):
 
     def query(self, queryStr):
         result = []
-        c = self.conn.cursor()
-        for row in c.execute(queryStr):
+        cursor = self._getCursor()
+        cursor.execute(queryStr)
+        row = cursor.fetchone()
+        while row:
             result.append(row)
+            row = cursor.fetchone()
+        self.conn.commit() # stop idle read transacations
+        cursor.close()
         return result
 
 
@@ -190,7 +207,7 @@ class DbManager(object):
 
         """
         sql_create_template = 'create table if not exists {table_name} ({fields})'
-        c = self.conn.cursor()
+        cursor = self._getCursor()
         for tableName, tableSchema in self.tables.items():
             db_command = sql_create_template.format(
                 table_name = tableName,
@@ -199,13 +216,19 @@ class DbManager(object):
                     for (variable, data_type) in tableSchema
                 )
             )
-            c.execute(db_command)
-        self.conn.commit()
+            cursor.execute(db_command)
+        self.commit()
+        cursor.close()
 
 
-class PsqlManager(object):
-    def __init__(self, psqlHost, psqlDb, psqlUser, psqlPasswd):
-        self.conn = psycopg2.connect(host=psqlHost, database=psqlDb, user=psqlUser, password=psqlPasswd)
+    def get_sources(self):
+        return self.query("SELECT * FROM %s order by name" % self.sources_table_name)
+
+
+    def add_url(self, url, urlname):
+        date = datetime.datetime.utcnow().isoformat()
+        self.add_data('sources', {'name': urlname, 'url': url, 'last_date': date})
+
 
     def _incrementCounterInt(self, cursor, counterName):
         sqlTemplate = 'SELECT * from counters where name=%s'
@@ -218,8 +241,8 @@ class PsqlManager(object):
             print('failed to find counter')
             exit(1)
         # print(row)
-        assert row[0] == counterName
-        value = row[1]
+        assert row['name'] == counterName
+        value = row['counter']
         sqlTemplate = 'UPDATE counters set counter=%d where counter=%d and name = %s'
         sqlStr = sqlTemplate % (value+1, value, quotedCounterName)
         cursor.execute(sqlStr)
@@ -230,7 +253,7 @@ class PsqlManager(object):
     def incrementCounter(self, counterName):
         value = None
         try:
-            cursor = self.conn.cursor()
+            cursor = self._getCursor()
             (value, updatedRows) = self._incrementCounterInt(cursor, counterName)
             if updatedRows != 1:
                 raise Exception('Conflict')

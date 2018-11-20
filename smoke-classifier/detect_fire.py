@@ -223,9 +223,11 @@ def main():
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
-    psqlMgr = db_manager.PsqlManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-    dbManager = db_manager.DbManager(settings.db_file)
+    if settings.db_file:
+        dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
+    else:
+        dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                        psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources()
 
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
@@ -235,7 +237,7 @@ def main():
     config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
     with tf.Session(graph=graph, config=config) as tfSession:
         while True:
-            (camera, timestamp, imgPath) = getNextImage(psqlMgr, cameras)
+            (camera, timestamp, imgPath) = getNextImage(dbManager, cameras)
             segments = segmentImage(imgPath)
             # print('si', segments)
             tf_helper.classifySegments(tfSession, graph, labels, segments)
