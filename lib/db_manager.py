@@ -45,6 +45,21 @@ def _dict_factory(cursor, row):
 
 class DbManager(object):
     def __init__(self, sqliteFile=None, psqlHost=None, psqlDb=None, psqlUser=None, psqlPasswd=None):
+        """SQL DB connection class constructor
+
+        Connects to the SQL DB (either sqlite or postgres) and creates the
+        listed tables with schemas if the tables don't exist already.
+        The DB connection and cursors are setup to return a query results
+        in dictionory vs. list format for reliable processing.
+        To avoid dangling transactions, the default mode is to immediately commit tx.
+
+        Args:
+            sqliteFile (str): file path to SQLite DB (if specified postgres parameters are ignored)
+            psqlHost (str): IP address of postgreSQL server
+            psqlDb (str): Database name in postgreSQL server
+            psqlUser (str): Username for authentication to postgreSQL server
+            psqlPasswd (str): Password for authentication to postgreSQL server
+        """
         if sqliteFile:
             self.dbType = 'sqlite'
             self.conn = sqlite3.connect(sqliteFile)
@@ -159,6 +174,11 @@ class DbManager(object):
 
 
     def _getCursor(self):
+        """Return a cursor to operate on the DB
+
+        Returns:
+            DB cursor
+        """
         if self.dbType == 'sqlite':
             return self.conn.cursor()
         elif self.dbType == 'psql':
@@ -170,6 +190,13 @@ class DbManager(object):
 
 
     def add_data(self, tableName, keyValues, commit=True):
+        """Insert given data into given table
+
+        Args:
+            tableName (str):
+            keyValues (dict: str->str): Dictory of key/value pairs for data to insert
+            commit (bool): [default true] - If true, transaction is committed
+        """
         sql_template = 'insert into {table_name} ({fields}) values ({values})'
         db_command = sql_template.format(
             table_name = tableName,
@@ -188,6 +215,14 @@ class DbManager(object):
 
 
     def query(self, queryStr):
+        """Query DB with given SQL query
+
+        Args:
+            queryStr (str): SQL SELECT query
+
+        Returns:
+            Array of dictionary of name->value pairs
+        """
         result = []
         cursor = self._getCursor()
         cursor.execute(queryStr)
@@ -231,6 +266,19 @@ class DbManager(object):
 
 
     def _incrementCounterInt(self, cursor, counterName):
+        """Internal function to increment the given counter in counters table
+
+        Uses a read modify write pattern where the write only occurs if the
+        value hasn't changed underneath due to other DB connections updating
+        the same counter in parallel
+
+        Args:
+            cursor: DB cursor to use for the operation
+            counterName (str): name of the counter
+
+        Returns:
+            Old value and the number of updated rows from the write
+        """
         sqlTemplate = 'SELECT * from counters where name=%s'
         quotedCounterName = "'" + counterName + "'"
         sqlStr = sqlTemplate % (quotedCounterName)
@@ -251,6 +299,17 @@ class DbManager(object):
 
 
     def incrementCounter(self, counterName):
+        """Increment the given counter in counters table
+
+        To handle concurrent updates, keeps retrying until read-modify-write
+        pattern successfully updates the value
+
+        Args:
+            counterName (str): name of the counter
+
+        Returns:
+            Old value of the counter
+        """
         value = None
         try:
             cursor = self._getCursor()

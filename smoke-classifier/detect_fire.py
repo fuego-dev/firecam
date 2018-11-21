@@ -45,12 +45,26 @@ import tensorflow as tf
 from PIL import Image, ImageFile
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
-def getNextImage(psqlMgr, cameras):
+
+def getNextImage(dbManager, cameras):
+    """Gets the next image to check for smoke
+
+    Uses a shared counter being updated by all cooperating detection processes
+    to index into the list of cameras to download the image to a local
+    temporary directory
+
+    Args:
+        dbManager (DbManager):
+        cameras (list): list of cameras
+
+    Returns:
+        Tuple containing camera name, current timestamp, and filepath of the image
+    """
     if getNextImage.tmpDir == None:
         getNextImage.tmpDir = tempfile.TemporaryDirectory()
         print('TempDir', getNextImage.tmpDir.name)
 
-    index = psqlMgr.getNextSourcesCounter() % len(cameras)
+    index = dbManager.getNextSourcesCounter() % len(cameras)
     camera = cameras[index]
     timestamp = int(time.time())
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
@@ -62,7 +76,7 @@ def getNextImage(psqlMgr, cameras):
         urlretrieve(camera['url'], imgPath)
     except Exception as e:
         print('Error fetching image from', camera['name'], e)
-        return getNextImage(psqlMgr, cameras)
+        return getNextImage(dbManager, cameras)
     return (camera['name'], timestamp, imgPath)
 getNextImage.tmpDir = None
 
@@ -73,6 +87,14 @@ getNextImage.tmpDir = None
 
 
 def segmentImage(imgPath):
+    """Segment the given image into sections to for smoke classificaiton
+
+    Args:
+        imgPath (str): filepath of the image
+
+    Returns:
+        List of dictionary containing information on each segment
+    """
     img = Image.open(imgPath)
     ppath = pathlib.PurePath(imgPath)
     segments = rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
@@ -81,6 +103,14 @@ def segmentImage(imgPath):
 
 
 def recordScores(dbManager, camera, timestamp, segments):
+    """Record the smoke scores for each segment into SQL DB
+
+    Args:
+        dbManager (DbManager):
+        camera (str): camera name
+        timestamp (int):
+        segments (list): List of dictionary containing information on each segment
+    """
     # regexSize = '.+_Crop_(\d+)x(\d+)x(\d+)x(\d+)'
     dt = datetime.datetime.fromtimestamp(timestamp)
     secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
@@ -104,6 +134,24 @@ def recordScores(dbManager, camera, timestamp, segments):
 
 
 def postFilter(dbManager, camera, timestamp, segments):
+    """Post classification filter to reduce false positives
+
+    Many times smoke classification scores segments with haze and glare
+    above 0.5.  Haze and glare occur tend to occur at similar time over
+    multiple days, so this filter raises the threshold based on the max
+    smoke score for same segment at same time of day over the last few days.
+    Score must be > halfway between max value and 1.  Also, minimum .1 above max.
+
+    Args:
+        dbManager (DbManager):
+        camera (str): camera name
+        timestamp (int):
+        segments (list): List of dictionary containing information on each segment
+
+    Returns:
+        Dictionary with information for the segment most likely to be smoke
+        or None
+    """
     sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*),avg(score),max(score) FROM scores
     WHERE CameraName='%s' and Timestamp > %s and Timestamp < %s and SecondsInDay > %s and SecondsInDay < %s
     GROUP BY MinX,MinY,MaxX,MaxY"""
@@ -136,7 +184,23 @@ def postFilter(dbManager, camera, timestamp, segments):
     return maxFireSegment
 
 
-def recordFire(dbManager, service, camera, timestamp, imgPath, fireSegment):
+def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment):
+    """Record that a smoke/fire has been detected
+
+    Record the detection with useful metrics in 'detections' table in SQL DB.
+    Also, upload image file to google drive
+
+    Args:
+        dbManager (DbManager):
+        service:
+        camera (str): camera name
+        timestamp (int):
+        imgPath: filepath of the image
+        fireSegment (dictionary): dictionary with information for the segment with fire/smoke
+
+    Returns:
+        Google drive ID for the uploaded image file
+    """
     print('Fire detected by camera, image, segment', camera, imgPath, fireSegment)
     # save file to local detection dir
     ppath = pathlib.PurePath(imgPath)
@@ -166,6 +230,19 @@ def recordFire(dbManager, service, camera, timestamp, imgPath, fireSegment):
 
 
 def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
+    """Check if alert has been recently sent out for given camera
+
+    If an alert of this camera has't been recorded recently, record this as an alert
+
+    Args:
+        dbManager (DbManager):
+        camera (str): camera name
+        timestamp (int):
+        driveFileID (str): Google drive ID for the uploaded image file
+
+    Returns:
+        True if this is a new alert, False otherwise
+    """
     sqlTemplate = """SELECT * FROM alerts
     where CameraName='%s' and timestamp > %s"""
     sqlStr = sqlTemplate % (camera, timestamp - 60*60*12) # suppress alerts for 12 hours
@@ -184,6 +261,17 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
 
 
 def alertFire(camera, imgPath, driveFileID, fireSegment):
+    """Send an email alert for a potential new fire
+
+    Send email with information about the camera and fire score includeing
+    image attachments
+
+    Args:
+        camera (str): camera name
+        imgPath: filepath of the image
+        driveFileID (str): Google drive ID for the uploaded image file
+        fireSegment (dictionary): dictionary with information for the segment with fire/smoke
+    """
     # send email
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), camera)
@@ -196,6 +284,11 @@ def alertFire(camera, imgPath, driveFileID, fireSegment):
 
 
 def deleteImageFiles(imgPath, segments):
+    """Delete all image files given in segments
+
+    Args:
+        segments (list): List of dictionary containing information on each segment
+    """
     for segmentInfo in segments:
         os.remove(segmentInfo['imgPath'])
     os.remove(imgPath)
@@ -214,6 +307,13 @@ def getLastScoreCamera(dbManager):
 
 
 def heartBeat(filename):
+    """Inform monitor process that this detection process is alive
+
+    Informs by updating the timestamp on given file
+
+    Args:
+        filename (str): file path of file used for heartbeating
+    """
     pathlib.Path(filename).touch()
 
 
@@ -248,7 +348,7 @@ def main():
             recordScores(dbManager, camera, timestamp, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)
             if fireSegment:
-                driveFileID = recordFire(dbManager, googleServices['drive'], camera, timestamp, imgPath, fireSegment)
+                driveFileID = recordDetection(dbManager, googleServices['drive'], camera, timestamp, imgPath, fireSegment)
                 if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
                     alertFire(camera, imgPath, driveFileID, fireSegment)
             deleteImageFiles(imgPath, segments)
