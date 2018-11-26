@@ -322,10 +322,13 @@ def main():
         ["b", "heartbeat", "filename used for heartbeating check"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
     if settings.db_file:
+        print('using sqlite', settings.db_file)
         dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
     else:
+        print('using postgres', settings.psqlHost)
         dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources()

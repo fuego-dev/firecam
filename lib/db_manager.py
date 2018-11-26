@@ -60,6 +60,7 @@ class DbManager(object):
             psqlUser (str): Username for authentication to postgreSQL server
             psqlPasswd (str): Password for authentication to postgreSQL server
         """
+        self.dbType = None
         if sqliteFile:
             self.dbType = 'sqlite'
             self.conn = sqlite3.connect(sqliteFile)
@@ -67,6 +68,7 @@ class DbManager(object):
         elif psqlHost:
             self.dbType = 'psql'
             self.conn = psycopg2.connect(host=psqlHost, database=psqlDb, user=psqlUser, password=psqlPasswd)
+        print('DbType', self.dbType, sqliteFile, psqlHost)
 
         sources_schema = [
             ('name', 'TEXT'),
