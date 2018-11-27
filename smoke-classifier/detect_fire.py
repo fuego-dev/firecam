@@ -322,7 +322,8 @@ def main():
         ["b", "heartbeat", "filename used for heartbeating check"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
-    print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
+    # commenting out the print below to reduce showing secrets in settings
+    # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
     if settings.db_file:
         print('using sqlite', settings.db_file)
