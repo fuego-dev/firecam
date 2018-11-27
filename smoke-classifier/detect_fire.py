@@ -152,7 +152,7 @@ def postFilter(dbManager, camera, timestamp, segments):
         Dictionary with information for the segment most likely to be smoke
         or None
     """
-    sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*),avg(score),max(score) FROM scores
+    sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*) as cnt, avg(score) as avgs, max(score) as maxs FROM scores
     WHERE CameraName='%s' and Timestamp > %s and Timestamp < %s and SecondsInDay > %s and SecondsInDay < %s
     GROUP BY MinX,MinY,MaxX,MaxY"""
 
@@ -171,15 +171,15 @@ def postFilter(dbManager, camera, timestamp, segments):
         for row in dbResult:
             if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
                 row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
-                threshold = (row['max(score)'] + 1)/2 # threshold is halfway between max and 1
-                threshold = max(threshold, row['max(score)'] + 0.1) # threshold at least .1 above max
-                # print('thresh', row['minx'], row['miny'], row['maxx'], row['maxy'], row['max(score)'], threshold)
+                threshold = (row['maxs'] + 1)/2 # threshold is halfway between max and 1
+                threshold = max(threshold, row['maxs'] + 0.1) # threshold at least .1 above max
+                # print('thresh', row['minx'], row['miny'], row['maxx'], row['maxy'], row['maxs'], threshold)
                 if (segmentInfo['score'] > threshold) and (segmentInfo['score'] > maxFireScore):
                     maxFireScore = segmentInfo['score']
                     maxFireSegment = segmentInfo
-                    maxFireSegment['HistAvg'] = row['avg(score)']
-                    maxFireSegment['HistMax'] = row['max(score)']
-                    maxFireSegment['HistNumSamples'] = row['count(*)']
+                    maxFireSegment['HistAvg'] = row['avgs']
+                    maxFireSegment['HistMax'] = row['maxs']
+                    maxFireSegment['HistNumSamples'] = row['cnt']
 
     return maxFireSegment
 
