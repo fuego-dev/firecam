@@ -68,7 +68,7 @@ def lastScoreTimestamp(dbManager):
     return 0
 
 def main():
-    dbManager = db_manager.DbManager(settings.db_file)
+    # dbManager = db_manager.DbManager(settings.db_file)
     scriptName = 'detect_fire.py'
     heartbeatFile = tempfile.NamedTemporaryFile()
     heartbeatFileName = heartbeatFile.name
