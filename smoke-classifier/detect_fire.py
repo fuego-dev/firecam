@@ -169,11 +169,11 @@ def postFilter(dbManager, camera, timestamp, segments):
         if segmentInfo['score'] < .5:
             break
         for row in dbResult:
-            if (row['MinX'] == segmentInfo['MinX'] and row['MinY'] == segmentInfo['MinY'] and
-                row['MaxX'] == segmentInfo['MaxX'] and row['MaxY'] == segmentInfo['MaxY']):
+            if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
+                row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
                 threshold = (row['max(score)'] + 1)/2 # threshold is halfway between max and 1
                 threshold = max(threshold, row['max(score)'] + 0.1) # threshold at least .1 above max
-                # print('thresh', row['MinX'], row['MinY'], row['MaxX'], row['MaxY'], row['max(score)'], threshold)
+                # print('thresh', row['minx'], row['miny'], row['maxx'], row['maxy'], row['max(score)'], threshold)
                 if (segmentInfo['score'] > threshold) and (segmentInfo['score'] > maxFireScore):
                     maxFireScore = segmentInfo['score']
                     maxFireSegment = segmentInfo
