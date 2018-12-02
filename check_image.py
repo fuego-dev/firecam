@@ -30,7 +30,7 @@ import numpy as np
 import tensorflow as tf
 import math
 import tkinter as tk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 import sys
 import settings
@@ -155,6 +155,34 @@ def displayImageWithScores(imgOrig, segments):
         canvasTk.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
     rootTk.mainloop()
 
+
+def drawRect(imgDraw, x0, y0, x1, y1, width, color):
+    for i in range(width):
+        imgDraw.rectangle((x0+i,y0+i,x1-i,y1-i),outline=color)
+
+
+def drawBoxesAndScores(imgOrig, segments):
+    imgDraw = ImageDraw.Draw(imgOrig)
+    for counter, segmentInfo in enumerate(segments):
+        offset = ((counter%2) - 0.5)*2
+        x0 = segmentInfo['MinX'] + offset
+        y0 = segmentInfo['MinY'] + offset
+        x1 = segmentInfo['MaxX'] + offset
+        y1 = segmentInfo['MaxY'] + offset
+        color = colors[counter % len(colors)]
+        lineWidth=3
+        drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
+        centerX = (x0 + x1)/2
+        centerY = (y0 + y1)/2
+        fontSize=80
+        font = ImageFont.truetype('arial', size=fontSize)
+        scoreStr = '%.2f' % segmentInfo['score']
+        textSize = imgDraw.textsize(scoreStr, font=font)
+        centerX -= textSize[0]/2
+        centerY -= textSize[1]/2
+        imgDraw.text((centerX,centerY), scoreStr, font=font, fill=color)
+
+
 def main():
     reqArgs = [
         ["i", "image", "filename of the image"],
@@ -187,7 +215,8 @@ def main():
         for segmentInfo in segments:
             print(segmentInfo['imgPath'], segmentInfo['score'])
         if args.display:
-            displayImageWithScores(imgOrig, segments)
+            drawBoxesAndScores(imgOrig, segments)
+            displayImageWithScores(imgOrig, [])
 
 # for testing
 if __name__=="__main__":
