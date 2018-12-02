@@ -36,13 +36,12 @@ import email_helper
 import os
 import pathlib
 import tempfile
-from shutil import copyfile
 import time, datetime
 import random
 import re
 from urllib.request import urlretrieve
 import tensorflow as tf
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, ImageDraw, ImageFont
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
@@ -184,6 +183,55 @@ def postFilter(dbManager, camera, timestamp, segments):
     return maxFireSegment
 
 
+def drawRect(imgDraw, x0, y0, x1, y1, width, color):
+    for i in range(width):
+        imgDraw.rectangle((x0+i,y0+i,x1-i,y1-i),outline=color)
+
+
+def drawFireBox(imgPath, fireSegment):
+    """Draw bounding box with fire detection with score on image
+
+    Stores the resulting annotated image as new file
+
+    Args:
+        imgPath (str): filepath of the image
+
+    Returns:
+        filepath of new image file
+    """
+    img = Image.open(imgPath)
+    imgDraw = ImageDraw.Draw(img)
+    x0 = fireSegment['MinX']
+    y0 = fireSegment['MinY']
+    x1 = fireSegment['MaxX']
+    y1 = fireSegment['MaxY']
+    centerX = (x0 + x1)/2
+    centerY = (y0 + y1)/2
+    color = "red"
+    lineWidth=3
+    drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
+
+    fontSize=80
+    font = ImageFont.truetype('arial', size=fontSize)
+    scoreStr = '%.2f' % fireSegment['score']
+    textSize = imgDraw.textsize(scoreStr, font=font)
+    imgDraw.text((centerX - textSize[0]/2, centerY - textSize[1]), scoreStr, font=font, fill=color)
+
+    color = "blue"
+    fontSize=70
+    font = ImageFont.truetype('arial', size=fontSize)
+    scoreStr = '%.2f' % fireSegment['HistMax']
+    textSize = imgDraw.textsize(scoreStr, font=font)
+    imgDraw.text((centerX - textSize[0]/2, centerY), scoreStr, font=font, fill=color)
+
+    filePathParts = os.path.splitext(imgPath)
+    annotatedFile = filePathParts[0] + '_Score' + filePathParts[1]
+    img.save(annotatedFile, format="JPEG")
+    del imgDraw
+    img.close()
+    return annotatedFile
+
+
 def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment):
     """Record that a smoke/fire has been detected
 
@@ -202,9 +250,6 @@ def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment)
         Google drive ID for the uploaded image file
     """
     print('Fire detected by camera, image, segment', camera, imgPath, fireSegment)
-    # save file to local detection dir
-    ppath = pathlib.PurePath(imgPath)
-    copyfile(imgPath, os.path.join(settings.detectionDir, ppath.name))
     # upload file to google drive detection dir
     driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
     driveFileID = None
@@ -260,7 +305,7 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
     return True
 
 
-def alertFire(camera, imgPath, driveFileID, fireSegment):
+def alertFire(camera, imgPath, annotatedFile, driveFileID, fireSegment):
     """Send an email alert for a potential new fire
 
     Send email with information about the camera and fire score includeing
@@ -268,7 +313,8 @@ def alertFire(camera, imgPath, driveFileID, fireSegment):
 
     Args:
         camera (str): camera name
-        imgPath: filepath of the image
+        imgPath: filepath of the original image
+        annotatedFile: filepath of the annotated image
         driveFileID (str): Google drive ID for the uploaded image file
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
     """
@@ -280,18 +326,22 @@ def alertFire(camera, imgPath, driveFileID, fireSegment):
         driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
         driveBody = driveTempl % driveFileID
         body += driveBody
-    email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath])
+    email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath, annotatedFile])
 
 
-def deleteImageFiles(imgPath, segments):
+def deleteImageFiles(imgPath, annotatedFile, segments):
     """Delete all image files given in segments
 
     Args:
+        imgPath: filepath of the original image
+        annotatedFile: filepath of the annotated image
         segments (list): List of dictionary containing information on each segment
     """
     for segmentInfo in segments:
         os.remove(segmentInfo['imgPath'])
     os.remove(imgPath)
+    if annotatedFile:
+        os.remove(annotatedFile)
     ppath = pathlib.PurePath(imgPath)
     leftoverFiles = os.listdir(str(ppath.parent))
     if len(leftoverFiles) > 0:
@@ -351,11 +401,13 @@ def main():
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)
+            annotatedFile = None
             if fireSegment:
-                driveFileID = recordDetection(dbManager, googleServices['drive'], camera, timestamp, imgPath, fireSegment)
+                annotatedFile = drawFireBox(imgPath, fireSegment)
+                driveFileID = recordDetection(dbManager, googleServices['drive'], camera, timestamp, annotatedFile, fireSegment)
                 if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
-                    alertFire(camera, imgPath, driveFileID, fireSegment)
-            deleteImageFiles(imgPath, segments)
+                    alertFire(camera, imgPath, annotatedFile, driveFileID, fireSegment)
+            deleteImageFiles(imgPath, annotatedFile, segments)
             if (args.heartbeat):
                 heartBeat(args.heartbeat)
 
