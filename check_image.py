@@ -175,7 +175,7 @@ def drawBoxesAndScores(imgOrig, segments):
         centerX = (x0 + x1)/2
         centerY = (y0 + y1)/2
         fontSize=80
-        font = ImageFont.truetype('arial', size=fontSize)
+        font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
         scoreStr = '%.2f' % segmentInfo['score']
         textSize = imgDraw.textsize(scoreStr, font=font)
         centerX -= textSize[0]/2

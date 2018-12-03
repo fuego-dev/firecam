@@ -212,14 +212,14 @@ def drawFireBox(imgPath, fireSegment):
     drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
 
     fontSize=80
-    font = ImageFont.truetype('arial', size=fontSize)
+    font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
     scoreStr = '%.2f' % fireSegment['score']
     textSize = imgDraw.textsize(scoreStr, font=font)
     imgDraw.text((centerX - textSize[0]/2, centerY - textSize[1]), scoreStr, font=font, fill=color)
 
     color = "blue"
     fontSize=70
-    font = ImageFont.truetype('arial', size=fontSize)
+    font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
     scoreStr = '%.2f' % fireSegment['HistMax']
     textSize = imgDraw.textsize(scoreStr, font=font)
     imgDraw.text((centerX - textSize[0]/2, centerY), scoreStr, font=font, fill=color)
