@@ -24,12 +24,14 @@ import psutil
 import subprocess
 import psutil
 import tempfile
+import logging
+import pathlib
 
 import sys
 import settings
 sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
-import db_manager
+import goog_helper
 
 def findProcess(name):
     for proc in psutil.process_iter():
@@ -52,45 +54,61 @@ def startProcess(detectFire, heartbeatFileName):
         '--heartbeat',
         heartbeatFileName
     ]
-    print('Starting', pArgs)
-    subprocess.Popen(pArgs)
+    proc = subprocess.Popen(pArgs)
+    logging.warning('Started PID %d %s', proc.pid, pArgs)
+    heartBeat(heartbeatFileName) # reset heartbeat
+    return proc
+
+
+def heartBeat(filename):
+    """Inform monitor process that this detection process is alive
+
+    Informs by updating the timestamp on given file
+
+    Args:
+        filename (str): file path of file used for heartbeating
+    """
+    pathlib.Path(filename).touch()
 
 
 def lastHeartbeat(heartbeatFileName):
     return os.stat(heartbeatFileName).st_mtime
 
 
-def lastScoreTimestamp(dbManager):
-    sqlStr = "SELECT max(timestamp) from scores"
-    dbResult = dbManager.query(sqlStr)
-    if len(dbResult) == 1:
-        return dbResult[0]['max(timestamp)']
-    return 0
-
 def main():
-    # dbManager = db_manager.DbManager(settings.db_file)
+    optArgs = [
+        ["n", "numProcesses", "number of child prcesses to start (default 1)"],
+    ]
+    args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    numProcesses = int(args.numProcesses) if args.numProcesses else 1
+
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     scriptName = 'detect_fire.py'
-    heartbeatFile = tempfile.NamedTemporaryFile()
-    heartbeatFileName = heartbeatFile.name
+    procInfos = []
+    for i in range(numProcesses):
+        heartbeatFile = tempfile.NamedTemporaryFile()
+        heartbeatFileName = heartbeatFile.name
+        proc = startProcess(scriptName, heartbeatFileName)
+        procInfos.append({
+            'proc': proc,
+            'heartbeatFile': heartbeatFile,
+            'heartbeatFileName': heartbeatFileName,
+        })
+        time.sleep(10) # 10 seconds per process to allow startup
+
     while True:
-        foundPid = findProcess(scriptName)
-        if foundPid:
-            # lastTS = lastScoreTimestamp(dbManager) # check DB progress
-            lastTS = lastHeartbeat(heartbeatFileName) # check heartbeat
+        for procInfo in procInfos:
+            lastTS = lastHeartbeat(procInfo['heartbeatFileName']) # check heartbeat
             timestamp = int(time.time())
+            proc = procInfo['proc']
+            logging.debug('DBG: Process %d: %s: %d seconds since last image scanned, %d',
+                            proc.pid, procInfo['heartbeatFileName'], timestamp - lastTS, lastTS)
             if (timestamp - lastTS) > 2*60: # warn if stuck more than 2 minutes
-                timeStr = datetime.datetime.now().strftime('%F %T')
-                print('%s: Process %s: %d seconds since last image scanned' % (timeStr, foundPid, timestamp - lastTS))
+                logging.warning('Process %d: %d seconds since last image scanned', proc.pid, timestamp - lastTS)
             if (timestamp - lastTS) > 5*60: # kill if stuck more than 5 minutes
-                proc = psutil.Process(foundPid)
-                print('Killing', proc.cmdline())
+                logging.warning('Killing %d', proc.pid)
                 proc.kill()
-                foundPid = None
-        if not foundPid:
-            timeStr = datetime.datetime.now().strftime('%F %T')
-            print('%s: Process not found' % timeStr)
-            startProcess(scriptName, heartbeatFileName)
-            time.sleep(2*60) # give couple minutes for startup time
+                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'])
         time.sleep(30)
 
 
