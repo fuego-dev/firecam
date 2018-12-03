@@ -33,6 +33,7 @@ import tf_helper
 import db_manager
 import email_helper
 
+import logging
 import os
 import pathlib
 import tempfile
@@ -61,7 +62,7 @@ def getNextImage(dbManager, cameras):
     """
     if getNextImage.tmpDir == None:
         getNextImage.tmpDir = tempfile.TemporaryDirectory()
-        print('TempDir', getNextImage.tmpDir.name)
+        logging.warning('TempDir %s', getNextImage.tmpDir.name)
 
     index = dbManager.getNextSourcesCounter() % len(cameras)
     camera = cameras[index]
@@ -70,11 +71,11 @@ def getNextImage(dbManager, cameras):
     timeStr = timeStr.replace(':', ';') # make windows happy
     imgName = '_'.join([camera['name'], timeStr])
     imgPath = os.path.join(getNextImage.tmpDir.name, imgName + '.jpg')
-    # print('urlr', camera['url'], imgPath)
+    # logging.warning('urlr %s %s', camera['url'], imgPath)
     try:
         urlretrieve(camera['url'], imgPath)
     except Exception as e:
-        print('Error fetching image from', camera['name'], e)
+        logging.error('Error fetching image from %s %s', camera['name'], str(e))
         return getNextImage(dbManager, cameras)
     return (camera['name'], timestamp, imgPath)
 getNextImage.tmpDir = None
@@ -249,12 +250,12 @@ def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment)
     Returns:
         Google drive ID for the uploaded image file
     """
-    print('Fire detected by camera, image, segment', camera, imgPath, fireSegment)
+    logging.warning('Fire detected by camera %s, image %s, segment %s', camera, imgPath, str(fireSegment))
     # upload file to google drive detection dir
     driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
     driveFileID = None
     if driveFile:
-        print('Uploaded to google drive detections folder', driveFile)
+        logging.warning('Uploaded to google drive detections folder %s', str(driveFile))
         driveFileID = driveFile['id']
 
     dbRow = {
@@ -293,7 +294,7 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
     sqlStr = sqlTemplate % (camera, timestamp - 60*60*12) # suppress alerts for 12 hours
     dbResult = dbManager.query(sqlStr)
     if len(dbResult) > 0:
-        print('Supressing new alert due to recent alert')
+        logging.warning('Supressing new alert due to recent alert')
         return False
 
     dbRow = {
@@ -345,7 +346,7 @@ def deleteImageFiles(imgPath, annotatedFile, segments):
     ppath = pathlib.PurePath(imgPath)
     leftoverFiles = os.listdir(str(ppath.parent))
     if len(leftoverFiles) > 0:
-        print('leftover files', leftoverFiles)
+        logging.warning('leftover files %s', str(leftoverFiles))
 
 
 def getLastScoreCamera(dbManager):
@@ -376,10 +377,10 @@ def main():
     # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
     if settings.db_file:
-        print('using sqlite', settings.db_file)
+        logging.warning('using sqlite %s', settings.db_file)
         dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
     else:
-        print('using postgres', settings.psqlHost)
+        logging.warning('using postgres %s', settings.psqlHost)
         dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources()
@@ -396,8 +397,7 @@ def main():
             # print('si', segments)
             tf_helper.classifySegments(tfSession, graph, labels, segments)
             segments.sort(key=lambda x: -x['score'])
-            timeStr = datetime.datetime.fromtimestamp(timestamp).strftime('%F %T')
-            print('%s: Highest score for camera %s: %f' % (timeStr, camera, segments[0]['score']))
+            logging.warning('Highest score for camera %s: %f' % (camera, segments[0]['score']))
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)

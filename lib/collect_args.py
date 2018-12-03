@@ -35,7 +35,7 @@ def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None):
         if (vargs.get(arg[1]) == None):
             vargs[arg[1]] = input('Please enter the ' + arg[2] + ': ')
 
-    logging.warning('\nUsing these parameters')
+    logging.warning('Using these parameters')
     for arg in requiredArgs+optionalArgs:
         if vargs[arg[1]] != None:
             logging.warning(arg[2]+ ': ' + vargs[arg[1]])
