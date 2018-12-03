@@ -19,8 +19,12 @@ Simple utility to get args from command line or input
 """
 
 import argparse
+import logging
 
 def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None):
+    logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR) # silence googleapiclient logs
+    logging.basicConfig(format='%(asctime)s.%(msecs)03d: %(process)d: %(message)s', datefmt='%F %T')
+
     parser = argparse.ArgumentParser(parents=parentParsers if parentParsers != None else [])
     for arg in requiredArgs+optionalArgs:
         parser.add_argument('-'+arg[0], '--'+arg[1], help=arg[2], type=arg[3] if len(arg)>3 else None)
@@ -31,10 +35,10 @@ def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None):
         if (vargs.get(arg[1]) == None):
             vargs[arg[1]] = input('Please enter the ' + arg[2] + ': ')
 
-    print('\nUsing these parameters')
+    logging.warning('\nUsing these parameters')
     for arg in requiredArgs+optionalArgs:
         if vargs[arg[1]] != None:
-            print(arg[2]+ ': ', vargs[arg[1]])
+            logging.warning(arg[2]+ ': ' + vargs[arg[1]])
     return args
 
 def test():
