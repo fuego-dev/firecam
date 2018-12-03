@@ -233,7 +233,7 @@ def drawFireBox(imgPath, fireSegment):
     return annotatedFile
 
 
-def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment):
+def recordDetection(dbManager, service, camera, timestamp, imgPath, annotatedFile, fireSegment):
     """Record that a smoke/fire has been detected
 
     Record the detection with useful metrics in 'detections' table in SQL DB.
@@ -245,18 +245,22 @@ def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment)
         camera (str): camera name
         timestamp (int):
         imgPath: filepath of the image
+        annotatedFile: filepath of the image with annotated box and score
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
 
     Returns:
-        Google drive ID for the uploaded image file
+        List of Google drive IDs for the uploaded image files
     """
     logging.warning('Fire detected by camera %s, image %s, segment %s', camera, imgPath, str(fireSegment))
     # upload file to google drive detection dir
+    driveFileIDs = []
     driveFile = goog_helper.uploadFile(service, settings.detectionPictures, imgPath)
-    driveFileID = None
     if driveFile:
-        logging.warning('Uploaded to google drive detections folder %s', str(driveFile))
-        driveFileID = driveFile['id']
+        driveFileIDs.append(driveFile['id'])
+    driveFile = goog_helper.uploadFile(service, settings.detectionPictures, annotatedFile)
+    if driveFile:
+        driveFileIDs.append(driveFile['id'])
+    logging.warning('Uploaded to google drive detections folder %s', str(driveFileIDs))
 
     dbRow = {
         'CameraName': camera,
@@ -269,13 +273,13 @@ def recordDetection(dbManager, service, camera, timestamp, imgPath, fireSegment)
         'HistAvg': fireSegment['HistAvg'],
         'HistMax': fireSegment['HistMax'],
         'HistNumSamples': fireSegment['HistNumSamples'],
-        'ImageID': driveFileID
+        'ImageID': driveFileIDs[0] if driveFileIDs else ''
     }
     dbManager.add_data('detections', dbRow)
-    return driveFileID
+    return driveFileIDs
 
 
-def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
+def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     """Check if alert has been recently sent out for given camera
 
     If an alert of this camera has't been recorded recently, record this as an alert
@@ -284,7 +288,7 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
         dbManager (DbManager):
         camera (str): camera name
         timestamp (int):
-        driveFileID (str): Google drive ID for the uploaded image file
+        driveFileIDs (list): List of Google drive IDs for the uploaded image files
 
     Returns:
         True if this is a new alert, False otherwise
@@ -300,13 +304,13 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
     dbRow = {
         'CameraName': camera,
         'Timestamp': timestamp,
-        'ImageID': driveFileID
+        'ImageID': driveFileIDs[0] if driveFileIDs else ''
     }
     dbManager.add_data('alerts', dbRow)
     return True
 
 
-def alertFire(camera, imgPath, annotatedFile, driveFileID, fireSegment):
+def alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
     """Send an email alert for a potential new fire
 
     Send email with information about the camera and fire score includeing
@@ -316,14 +320,14 @@ def alertFire(camera, imgPath, annotatedFile, driveFileID, fireSegment):
         camera (str): camera name
         imgPath: filepath of the original image
         annotatedFile: filepath of the annotated image
-        driveFileID (str): Google drive ID for the uploaded image file
+        driveFileIDs (list): List of Google drive IDs for the uploaded image files
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
     """
     # send email
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), camera)
     body = 'Please check the attached image for fire.'
-    if driveFileID:
+    for driveFileID in driveFileIDs:
         driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
         driveBody = driveTempl % driveFileID
         body += driveBody
@@ -404,9 +408,9 @@ def main():
             annotatedFile = None
             if fireSegment:
                 annotatedFile = drawFireBox(imgPath, fireSegment)
-                driveFileID = recordDetection(dbManager, googleServices['drive'], camera, timestamp, annotatedFile, fireSegment)
-                if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileID):
-                    alertFire(camera, imgPath, annotatedFile, driveFileID, fireSegment)
+                driveFileIDs = recordDetection(dbManager, googleServices['drive'], camera, timestamp, imgPath, annotatedFile, fireSegment)
+                if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
+                    alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment)
             deleteImageFiles(imgPath, annotatedFile, segments)
             if (args.heartbeat):
                 heartBeat(args.heartbeat)
