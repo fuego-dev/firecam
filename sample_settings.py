@@ -54,3 +54,7 @@ IMG_CLASSES = {
     'motion': motionPictures,
     'cropSmoke': cropSmokePictures
 }
+
+import logging
+logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR) # silence googleapiclient logs
+logging.basicConfig(format='%(asctime)s.%(msecs)03d: %(process)d: %(message)s', datefmt='%F %T')
