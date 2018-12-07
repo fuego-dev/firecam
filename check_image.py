@@ -218,6 +218,6 @@ def main():
             drawBoxesAndScores(imgOrig, segments)
             displayImageWithScores(imgOrig, [])
 
-# for testing
+
 if __name__=="__main__":
     main()
