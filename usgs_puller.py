@@ -22,6 +22,7 @@ import numpy as np
 import time
 from urllib.request import urlretrieve
 import logging
+from multiprocessing import Pool
 
 import sys
 import settings
@@ -36,26 +37,40 @@ def rhook(blockcount, blocksize, totalsize):
     # logging.warning('blockcount %d, blocksize %d, totalsize %d', blockcount, blocksize, totalsize)
     hookTotalSize = totalsize
 
-def usgs_puller(camera, date, start, end, output_folder):
+
+def timeDiff(startHour, startMinute, endHour, endMinute):
+    return (endHour*60 + endMinute) - (startHour*60 + startMinute)
+
+
+def calcTime(startHour, startMinute, minuteOffset):
+    newHour = startHour + int((startMinute + minuteOffset)/60)
+    newMinute = (startMinute + minuteOffset) % 60
+    return [newHour, newMinute]
+
+
+def usgs_puller(args):
     """Fetch images from USGS archives
 
-    Args:
+    Args: list of following:
         camera (str): name of camera (part of URL)
         date (str): date in YYYYMMDD format
         start (list): starting time in [HH, mm] format"
         end (list): ending time in [HH, mm] format
-        output_folder (str): path to folder where images are stored
+        camera_dir (str): path to folder where images are stored
     """
     global hookTotalSize
 
+    camera = args[0]
+    date = args[1]
+    start = args[2]
+    end = args[3]
+    camera_dir = args[4]
+    logging.warning('Processing from time %s to %s', start, end)
+
     start_time = time.time()
-    camera_dir = output_folder + '/' + camera + '/'
-    if not os.path.exists(camera_dir):
-        os.makedirs(camera_dir)
-        
     image_url = 'https://rockyags.cr.usgs.gov/outgoing/camHist/swfrs/'+ date[:4] + '/' + camera + '/'+ date + '/'+ camera + '-'
     
-    #This currently renames the image to our google drive naming format, we may want to change this to a unix time name to better match sort_images.py    
+    #This currently renames the image to our google drive naming format, we may want to change this to a unix time name to better match sort_images.py
     image_filename = camera_dir + camera + '__' + date[:4] + '-' + date[4:6] + '-' + date[6:8] + 'T'
     
     start_hour = int(start[0])
@@ -63,7 +78,7 @@ def usgs_puller(camera, date, start, end, output_folder):
     end_hour = int(end[0])
     end_minute = int(end[1])
     
-    time_elapsed = (end_hour*60 + end_minute) - (start_hour*60 + start_minute)
+    time_elapsed = timeDiff(start_hour, start_minute, end_hour, end_minute)
     
     #Initialize counting and timing variables. These are commented out, but can be reintroduced for testing purposes.
     count = 0
@@ -72,7 +87,7 @@ def usgs_puller(camera, date, start, end, output_folder):
     #fail_time = 0
     
     for minute in range(time_elapsed):
-        current_minute = int(start_minute + minute - np.floor((start_minute + minute)/60)*60)
+        current_minute = int(start_minute + minute) % 60
         current_hour = int(start_hour + np.floor((start_minute + minute)/60))
         
         filetime = str(current_hour).zfill(2) + str(current_minute).zfill(2) + '.jpg'
@@ -108,8 +123,28 @@ def main():
         ["e", "endTime", "ending time in HH:mm format"],
         ["o", "output", "path to folder where images are stored"],
     ]
-    args = collect_args.collectArgs(reqArgs)
-    usgs_puller(args.camera, args.date, args.startTime.split(':'), args.endTime.split(':'), args.output)
+    optArgs = [
+        ["n", "numProcesses", "number of child prcesses to start (default 1)"],
+    ]
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs)
+    numProcesses = int(args.numProcesses) if args.numProcesses else 1
+    camera_dir = args.output + '/' + args.camera + '/'
+    if not os.path.exists(camera_dir):
+        os.makedirs(camera_dir)
+    startTime = list(map(lambda x: int(x), args.startTime.split(':')))
+    endTime = list(map(lambda x: int(x), args.endTime.split(':')))
+    timeSpan = timeDiff(startTime[0], startTime[1], endTime[0], endTime[1])
+    timePerProcess = int(timeSpan/numProcesses)
+    allArgs = []
+    for i in range(numProcesses):
+        procStartTime = calcTime(startTime[0], startTime[1], timePerProcess*i)
+        procEndTime = calcTime(startTime[0], startTime[1], timePerProcess*(i+1))
+        if i == (numProcesses - 1):  # special handling to deal with rounding errors
+            procEndTime = endTime
+        procArgs = [args.camera, args.date, procStartTime, procEndTime, camera_dir]
+        allArgs.append(procArgs)
+    with Pool(numProcesses) as pool:
+        pool.map(usgs_puller, allArgs)
 
 
 if __name__=="__main__":
