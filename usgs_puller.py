@@ -88,12 +88,13 @@ def usgs_puller(camera, date, start, end, output_folder):
             if hookTotalSize < 0:
                 fail_count += 1
                 os.remove(filename)
+                #fail_time += time.time() - start_read_time
             else:
                 logging.warning('Fetched %s successfully', image_time)
                 count += 1
-            #read_time += time.time() - start_read_time
+                #read_time += time.time() - start_read_time
         except Exception as e:
-            # logging.error('Error fetching image from %s %s', url, str(e))
+            logging.error('Error fetching image from %s %s', url, str(e))
             fail_count += 1
             #fail_time += time.time() - start_read_time
     logging.warning('Fetched %d files in %d seconds. %d failures', count, int(time.time() - start_time), fail_count)
