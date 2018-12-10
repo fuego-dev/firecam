@@ -30,6 +30,7 @@ import datetime
 import dateutil.parser
 import time
 import re
+import logging
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -41,6 +42,7 @@ sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
 import goog_helper
 
+sys.path.insert(0, settings.fuegoRoot + '/image_crop')
 import crop_single
 
 
@@ -72,7 +74,7 @@ def getTimeFromName(imgName):
         isoStr = datetime.datetime.fromtimestamp(unixTime).isoformat()
     else:
         print('Failed to parse image name', imgName)
-        barf()
+        exit(1)
     return {
         'unixTime': unixTime,
         'isoStr': isoStr
@@ -88,19 +90,6 @@ def renameToIso(dirName, imgName, times, cameraId):
     print(oldFullPath, newFullPath)
     os.rename(oldFullPath, newFullPath)
     return newFullPath
-
-
-def getClass(times, initialTime, enoughTime):
-    unixTime = times['unixTime']
-    initialTime = int(initialTime)
-    enoughTime = int(enoughTime)
-    # print(unixTime, initialTime, enoughTime)
-    if unixTime < initialTime:
-        return 'nonSmoke'
-    elif unixTime < enoughTime:
-        return 'motion'
-    else:
-        return 'smoke'
 
 
 def appendToMainSheet(service, imgPath, times, cameraID, imgClass, fireID):
@@ -156,12 +145,16 @@ def appendToCropSheet(service, cropPath, coords, basePath):
     print('{0} cells updated.'.format(result.get('updatedCells')))
 
 
-def unzipFile(args, googleServices):
+def unzipFile(zipFile):
     tempDir = tempfile.TemporaryDirectory()
     print('tempDir', tempDir.name)
-    with zipfile.ZipFile(args.zipFile, "r") as zip_ref:
-        zip_ref.extractall(tempDir.name)
-        imageFileNames = os.listdir(tempDir.name)
+    zip_ref = zipfile.ZipFile(zipFile, "r")
+    zip_ref.extractall(tempDir.name)
+    return tempDir
+
+
+def processFolder(imgDirectory, camera, fire, googleServices):
+        imageFileNames = os.listdir(imgDirectory)
         # print('images', imageFileNames)
         # we want to process in time order, so first create tuples with associated time
         tuples=list(map(lambda x: (x,getTimeFromName(x)['unixTime']), imageFileNames))
@@ -169,40 +162,48 @@ def unzipFile(args, googleServices):
         for tuple in sorted(tuples, key=lambda x: x[1]):
             imgName=tuple[0]
             times = getTimeFromName(imgName)
-            newPath = renameToIso(tempDir.name, imgName, times, args.camera)
-            imgClass = getClass(times, args.initialTime, args.enoughTime)
+            newPath = renameToIso(imgDirectory, imgName, times, camera)
+            imgClass = 'smoke'
             print(imgClass, newPath)
-            uploadToDrive(googleServices['drive'], newPath, args.camera, imgClass)
-            appendToMainSheet(googleServices['sheet'], newPath, times, args.camera, imgClass, args.fire)
-            if (imgClass == 'smoke'):
-                if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
-                    lastSmokeTimestamp = times['unixTime']
-                    result = crop_single.imageDisplay(newPath, settings.localCropDir)
-                    if len(result) > 0:
-                        for entry in result:
-                            print('crop data', entry['name'], entry['coords'])
-                            uploadToDrive(googleServices['drive'], entry['name'], None, 'cropSmoke')
-                            appendToCropSheet(googleServices['sheet'], entry['name'], entry['coords'], newPath)
+            uploadToDrive(googleServices['drive'], newPath, camera, imgClass)
+            appendToMainSheet(googleServices['sheet'], newPath, times, camera, imgClass, fire)
+            if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
+                lastSmokeTimestamp = times['unixTime']
+                result = crop_single.imageDisplay(newPath, settings.localCropDir)
+                if len(result) > 0:
+                    for entry in result:
+                        print('crop data', entry['name'], entry['coords'])
+                        uploadToDrive(googleServices['drive'], entry['name'], None, 'cropSmoke')
+                        appendToCropSheet(googleServices['sheet'], entry['name'], entry['coords'], newPath)
 
-        imageFileNames = os.listdir(tempDir.name)
+        imageFileNames = os.listdir(imgDirectory)
         print('images2', imageFileNames)
 
 
 def main():
-    allArgs = [
-        ["z", "zipFile", "Name of the zip file containing the images"],
+    reqArgs = [
         ["f", "fire", "ID of the fire in the images"],
         ["c", "camera", "ID of the camera used in the images"],
-        ["i", "initialTime", "Time of initial image with smoke"],
-        ["e", "enoughTime", "Time of first image with enough smoke"],
     ]
-    args = collect_args.collectArgs(allArgs, parentParsers=[tools.argparser])
-    if not os.path.isfile(args.zipFile):
-        print('Zip file not found', args.zipFile)
-        exit()
+    optArgs = [
+        ["z", "zipFile", "Name of the zip file containing the images"],
+        ["d", "imgDirectory", "Name of the directory containing the images"],
+    ]
+    args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[tools.argparser])
+    imgDirectory = None
+    if args.imgDirectory:
+        imgDirectory = args.imgDirectory
+    elif args.zipFile:
+        tempDir = unzipFile(args.zipFile)
+        imgDirectory = tempDir.name
+
+    if not imgDirectory:
+        logging.error('Must specify either zipFile or imgDirectory')
+        exit(1)
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    unzipFile(args, googleServices)
+    processFolder(imgDirectory, args.camera, args.fire, googleServices)
+
 
 if __name__=="__main__":
     main()
