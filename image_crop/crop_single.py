@@ -55,7 +55,8 @@ global rectangleShapes, rectangleCoords
 global squareShapes
 #Final result returned to caller
 global result
-
+#Boolean to control whether to show squares
+global showSquares
 #===============
 
 # minimum size for squares shown inside bounding box
@@ -81,11 +82,12 @@ def holdLeftClick(event):
         cadre.delete(square)
 
     # make new squares
-    squareCoords = rect_to_squares.rect_to_squares(x1, y1, x2, y2, img.size[0], img.size[1], MIN_SIZE)
-    for coords in squareCoords:
-        (sx0, sy0, sx1, sy1) = coords
-        square = cadre.create_rectangle(sx0, sy0, sx1, sy1, outline='red', width=2)
-        squareShapes.append(square)
+    if showSquares:
+        squareCoords = rect_to_squares.rect_to_squares(x1, y1, x2, y2, img.size[0], img.size[1], MIN_SIZE)
+        for coords in squareCoords:
+            (sx0, sy0, sx1, sy1) = coords
+            square = cadre.create_rectangle(sx0, sy0, sx1, sy1, outline='red', width=2)
+            squareShapes.append(square)
 
 
 def releaseLeftClick(event):
@@ -145,13 +147,14 @@ def rightClick(event):
 
 
 
-def imageDisplay(name, outputDir):
-    global chaine, cadre, selectionBox, aff, fen, img, imgOrig, photo2, x1,x2,y1,y2, rectangleShapes, rectangleCoords, squareShapes, result, imageFileName, outputDirectory, scaleFactor
+def imageDisplay(name, outputDir, showSquaresArg=True):
+    global chaine, cadre, selectionBox, aff, fen, img, imgOrig, photo2, x1,x2,y1,y2, rectangleShapes, rectangleCoords, squareShapes, result, imageFileName, outputDirectory, scaleFactor, showSquares
     x1,x2,y1,y2=0,0,0,0
     rectangleShapes = []
     rectangleCoords = []
     squareShapes = []
     result = []
+    showSquares = showSquaresArg
 
     fen = tk.Tk()
     fen.title('Very Fast Multiple Cropping Tool')
