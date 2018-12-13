@@ -24,6 +24,8 @@ import re
 import io
 import shutil
 import pathlib
+import logging
+import time
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -119,11 +121,21 @@ def uploadFile(service, dirID, localFilePath):
     file_metadata = {'name': pathlib.PurePath(localFilePath).name, 'parents': [dirID]}
     media = MediaFileUpload(localFilePath,
                             mimetype='image/jpeg')
-    file = service.files().create(body=file_metadata,
-                                    media_body=media,
-                                    supportsTeamDrives=True,
-                                    fields='id').execute()
-    return file
+    retriesLeft = 5
+    while retriesLeft > 0:
+        retriesLeft -= 1
+        try:
+            file = service.files().create(body=file_metadata,
+                                            media_body=media,
+                                            supportsTeamDrives=True,
+                                            fields='id').execute()
+            return file
+        except Exception as e:
+            logging.warn('Error uploading image %s. %d retries left. %s', localFilePath, retriesLeft, str(e))
+            if retriesLeft > 0:
+                time.sleep(5) # wait 5 seconds before retrying
+    logging.error('Too many upload failures')
+    return None
 
 
 def parseFilename(fileName):

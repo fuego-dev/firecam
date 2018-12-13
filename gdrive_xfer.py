@@ -14,7 +14,7 @@
 # ==============================================================================
 """
 
-Simple wrapper to download files from google drive using stored credentials
+Simple wrapper to download or upload files from google drive using stored credentials
 
 """
 
@@ -35,9 +35,16 @@ def main():
         ["d", "dirID", "ID of google drive directory"],
         ["f", "fileName", "fileName of google drive file"],
     ]
-    args = collect_args.collectArgs(reqArgs, parentParsers=[goog_helper.getParentParser()])
+    optArgs = [
+        ["u", "upload", "(optional) performs upload vs. download"]
+    ]
+    
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
-    goog_helper.downloadFile(googleServices['drive'], args.dirID, args.fileName, args.fileName)
+    if (args.upload):
+        goog_helper.uploadFile(googleServices['drive'], args.dirID, args.fileName)
+    else:
+        goog_helper.downloadFile(googleServices['drive'], args.dirID, args.fileName, args.fileName)
 
 if __name__=="__main__":
     main()
