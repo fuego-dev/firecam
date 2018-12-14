@@ -78,11 +78,14 @@ def lastHeartbeat(heartbeatFileName):
 def main():
     optArgs = [
         ["n", "numProcesses", "number of child prcesses to start (default 1)"],
+        ["g", "useGpu", "(optional) specify any value to use gpu (default off)"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     numProcesses = int(args.numProcesses) if args.numProcesses else 1
+    useGpu = True if args.useGpu else False
 
-    os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+    if not useGpu:
+        os.environ["CUDA_VISIBLE_DEVICES"]="-1"
     scriptName = 'detect_fire.py'
     procInfos = []
     for i in range(numProcesses):
@@ -105,7 +108,7 @@ def main():
                             proc.pid, procInfo['heartbeatFileName'], timestamp - lastTS, lastTS)
             if (timestamp - lastTS) > 2*60: # warn if stuck more than 2 minutes
                 logging.warning('Process %d: %d seconds since last image scanned', proc.pid, timestamp - lastTS)
-            if (timestamp - lastTS) > 5*60: # kill if stuck more than 5 minutes
+            if (timestamp - lastTS) > 4*60: # kill if stuck more than 4 minutes
                 logging.warning('Killing %d', proc.pid)
                 proc.kill()
                 procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'])
