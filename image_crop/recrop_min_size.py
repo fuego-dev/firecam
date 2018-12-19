@@ -93,14 +93,39 @@ def getCameraDir(service, cameraCache, fileName):
     return dirID
 
 
-def ensureMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+def expandRange(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+    """Expand the image dimension range
+
+    Inceases the min/max of the range by growRatio while maintaining
+    the same center. Also, ensures the range is at least minimumDiff.
+    Finally, limits the increases to ensure values are still within
+    the entire range of the image (minLimit, maxLimit)
+
+    Args:
+        val0 (int): starting (minimum) value of the input range
+        val1 (int): ending (maximum) value of the input range
+        minimumDiff (int): mimimum size of the output range
+        growRatio (float): ratio (expected > 1) to expand the range by
+        minLimit (int): absolute minimum value of the output range
+        maxLimit (int): absolute maximum value of the output range
+
+    Returns:
+        (int, int): start, end of the adjusted range
+    """
     diff = val1 - val0
     center = val0 + int(diff/2)
     minimumDiff = max(minimumDiff, int(diff*growRatio))
     if diff < minimumDiff:
-        val0 = max(center - int(minimumDiff/2), minLimit)
-        val1 = min(center + int(minimumDiff/2), maxLimit)
-    return (val0, val1)    
+        if (center - int(minimumDiff/2)) < minLimit:   # left edge limited
+            val0 = minLimit
+            val1 = min(val0 + minimumDiff, maxLimit)
+        elif (center + int(minimumDiff/2)) > maxLimit: # right edge limited
+            val1 = maxLimit
+            val0 = max(val1 - minimumDiff, minLimit)
+        else:                                          # unlimited
+            val0 = center - int(minimumDiff/2)
+            val1 = min(val0 + minimumDiff, maxLimit)
+    return (val0, val1)
 
 
 def main():
@@ -151,8 +176,8 @@ def main():
                 print('download', fileName)
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
             imgOrig = Image.open(localFilePath)
-            (newMinX, newMaxX) = ensureMin(minX, maxX, minDiffX, growRatio, 0, imgOrig.size[0])
-            (newMinY, newMaxY) = ensureMin(minY, maxY, minDiffY, growRatio, 0, imgOrig.size[1])
+            (newMinX, newMaxX) = expandRange(minX, maxX, minDiffX, growRatio, 0, imgOrig.size[0])
+            (newMinY, newMaxY) = expandRange(minY, maxY, minDiffY, growRatio, 0, imgOrig.size[1])
             newCoords = (newMinX, newMinY, newMaxX, newMaxY)
             # XXXX - save work if old=new?
             print('coords old,new', oldCoords, newCoords)
