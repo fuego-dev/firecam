@@ -127,6 +127,89 @@ def cutBoxes(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     return segments
 
 
+def getSegmentRanges(fullSize, segmentSize):
+    """Break the given fullSize into ranges of segmentSize
+
+    Divide the range (0,fullSize) into multiple ranges of size
+    segmentSize that are equally spaced apart and have approximately
+    10% overlap (overlapRatio)
+
+    Args:
+        fullSize (int): size of the full range (0, fullSize)
+        segmentSize (int): size of each segment
+
+    Returns:
+        (list): list of tuples (start, end) marking each segment's range
+    """
+    overlapRatio = 1.1
+    assert fullSize > segmentSize
+    firstCenter = int(segmentSize/2)
+    lastCenter = fullSize - int(segmentSize/2)
+    assert lastCenter > firstCenter
+    flexSize = lastCenter - firstCenter
+    numSegments = math.ceil(flexSize / (segmentSize/overlapRatio))
+    offset = flexSize / numSegments
+    ranges = []
+    for i in range(numSegments):
+        center = firstCenter + round(i * offset)
+        start = center - int(segmentSize/2)
+        end = min(start + segmentSize, fullSize)
+        ranges.append((start,end))
+    ranges.append((fullSize - segmentSize, fullSize))
+    # print('ranges', fullSize, segmentSize, ranges)
+    # lastC = 0
+    # for i, r in enumerate(ranges):
+    #     c = (r[0] + r[1])/2
+    #     print(i, r[0], r[1], c, c - lastC)
+    #     lastC = c
+    return ranges
+
+
+def cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None):
+    """Cut the given image into fixed size boxes
+
+    Divide the given image into square segments of 299x299 (segmentSize below)
+    to match the size of images used by InceptionV3 image classification
+    machine learning model.  This function uses the getSegmentRanges() function
+    above to calculate the exact start and end of each square
+
+    Args:
+        imgOrig (Image): Image object of the original image
+        outputDirectory (str): name of directory to store the segments
+        imageFileName (str): nane of image file (used as segment file prefix)
+        callBackFn (function): callback function that's called for each square
+
+    Returns:
+        (list): list of segments with filename and coordinates
+    """
+    segmentSize = 299
+    segments = []
+    imgName = pathlib.PurePath(imageFileName).name
+    imgNameNoExt = str(os.path.splitext(imgName)[0])
+    xRanges = getSegmentRanges(imgOrig.size[0], segmentSize)
+    yRanges = getSegmentRanges(imgOrig.size[1], segmentSize)
+
+    for yRange in yRanges:
+        for xRange in xRanges:
+            coords = (xRange[0], yRange[0], xRange[1], yRange[1])
+            if callBackFn != None:
+                callBackFn(coords)
+            # output cropped image
+            cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), coords))) + '.jpg'
+            cropImgPath = os.path.join(outputDirectory, cropImgName)
+            cropped_img = imgOrig.crop(coords)
+            cropped_img.save(cropImgPath, format='JPEG')
+            cropped_img.close()
+            segments.append({
+                'imgPath': cropImgPath,
+                'MinX': coords[0],
+                'MinY': coords[1],
+                'MaxX': coords[2],
+                'MaxY': coords[3]
+            })
+    return segments
+
+
 def test():
     argDefs = [
         ["a", "X0", "X coord of first corner", int],

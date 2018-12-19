@@ -83,7 +83,8 @@ def showSquares(coords):
 
     scaled = list(map(lambda x: int(x*scaleFactor), coords))
     (sx0, sy0, sx1, sy1) = scaled
-    square = cadre.create_rectangle(sx0, sy0, sx1, sy1, outline=colors[colorIndex], width=2)
+    offset = ((colorIndex%2) - 0.5)*2 # stagger to avoid overlap of lines
+    square = cadre.create_rectangle(sx0 + offset, sy0 + offset, sx1 + offset, sy1 + offset, outline=colors[colorIndex], width=2)
     colorIndex = (colorIndex + 1 ) % len(colors)
 
 
