@@ -117,6 +117,10 @@ def middleClick(event):
         area = rectangleCoords[rectNum]
         print('raw coords:', area, ', scale:', scaleFactor)
         area = list(map(lambda x: int(x/scaleFactor), area))
+        area[0] = max(area[0], 0)
+        area[1] = max(area[1], 0)
+        area[2] = min(area[2], imgOrig.size[0])
+        area[3] = min(area[3], imgOrig.size[1])
         cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), area))) + '.jpg'
         cropImgPath = os.path.join(outputDirectory, cropImgName)
         print('coords:'+str(area), cropImgName)
