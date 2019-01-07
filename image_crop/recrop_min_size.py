@@ -112,6 +112,8 @@ def expandRange(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     Returns:
         (int, int): start, end of the adjusted range
     """
+    val0 = max(val0, minLimit)
+    val1 = min(val1, maxLimit)
     diff = val1 - val0
     center = val0 + int(diff/2)
     minimumDiff = max(minimumDiff, int(diff*growRatio))
