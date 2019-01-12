@@ -193,7 +193,9 @@ def cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None):
         for xRange in xRanges:
             coords = (xRange[0], yRange[0], xRange[1], yRange[1])
             if callBackFn != None:
-                callBackFn(coords)
+                skip = callBackFn(coords)
+                if skip:
+                    continue
             # output cropped image
             cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), coords))) + '.jpg'
             cropImgPath = os.path.join(outputDirectory, cropImgName)
