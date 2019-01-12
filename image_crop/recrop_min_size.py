@@ -188,6 +188,10 @@ def main():
             cropImgPath = os.path.join(args.outputDir, 'cropped', cropImgName)
             cropped_img = imgOrig.crop(newCoords)
             cropped_img.save(cropImgPath, format='JPEG')
+            flipped_img = cropped_img.transpose(Image.FLIP_LEFT_RIGHT)
+            flipImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '_Flip.jpg'
+            flipImgPath = os.path.join(args.outputDir, 'cropped', flipImgName)
+            flipped_img.save(flipImgPath, format='JPEG')
             print('Processed row: %s, file: %s' % (rowIndex, fileName))
             if args.display:
                 displayCoords = [oldCoords, newCoords]
