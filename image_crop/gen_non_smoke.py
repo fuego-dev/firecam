@@ -36,7 +36,7 @@ import rect_to_squares
 
 def getCameraDir(service, cameraCache, fileName):
     parsed = goog_helper.parseFilename(fileName)
-    logging.warn('parsed: %s', parsed)
+    # logging.warn('parsed: %s', parsed)
     cameraID = parsed['cameraID']
     dirID = cameraCache.get(cameraID)
     if not dirID:
@@ -49,7 +49,7 @@ def checkCoords(coords, cropInfo):
     if (coords[0] > cropInfo[2]) or (coords[2] < cropInfo[0]) or (coords[1] > cropInfo[3]) or (coords[3] < cropInfo[1]):
         return False
     else:
-        print('intersect', coords, cropInfo)
+        logging.warn('Skipping intersection: %s, %s', coords, cropInfo)
         return True
 
 
@@ -78,7 +78,7 @@ def main():
             if rowIndex > endRow:
                 logging.warn('Reached end row: %d, %d', rowIndex, endRow)
                 exit(0)
-            logging.warn('row: %s', csvRow[:2])
+            logging.warn('row %d: %s', rowIndex, csvRow[:2])
             [cameraName, cropName] = csvRow[:2]
             if not cameraName:
                 continue
