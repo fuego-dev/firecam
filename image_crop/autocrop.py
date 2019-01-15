@@ -95,7 +95,8 @@ def main():
         ["o", "output", "output directory name"],
     ]
     optArgs = [
-        ["d", "display", "(optional) specify any value to display image and boxes"]
+        ["d", "display", "(optional) specify any value to display image and boxes"],
+        ["f", "fixedSize", "(optional) use 299x299 segments"]
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs)
     # print(args)
@@ -104,7 +105,10 @@ def main():
     if args.display:
         imageDisplay(imgOrig)
         callBackFn = showSquares
-    rect_to_squares.cutBoxes(imgOrig, args.output, args.image, callBackFn)
+    if args.fixedSize:
+        rect_to_squares.cutBoxesFixed(imgOrig, args.output, args.image, callBackFn)
+    else:
+        rect_to_squares.cutBoxes(imgOrig, args.output, args.image, callBackFn)
     if args.display:
         fen.mainloop()
 
