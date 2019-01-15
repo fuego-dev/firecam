@@ -23,6 +23,7 @@ import os
 import pathlib
 import math
 import collect_args
+import logging
 
 MIN_SQUARE_SIZE = 150
 
@@ -142,7 +143,8 @@ def getSegmentRanges(fullSize, segmentSize):
         (list): list of tuples (start, end) marking each segment's range
     """
     overlapRatio = 1.1
-    assert fullSize > segmentSize
+    if fullSize <= segmentSize:
+        return [(0, fullSize)]
     firstCenter = int(segmentSize/2)
     lastCenter = fullSize - int(segmentSize/2)
     assert lastCenter > firstCenter
