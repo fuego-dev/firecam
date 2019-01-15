@@ -174,7 +174,7 @@ def drawBoxesAndScores(imgOrig, segments):
         drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
         centerX = (x0 + x1)/2
         centerY = (y0 + y1)/2
-        fontSize=80
+        fontSize=60
         font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
         scoreStr = '%.2f' % segmentInfo['score']
         textSize = imgDraw.textsize(scoreStr, font=font)

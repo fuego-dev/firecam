@@ -90,7 +90,7 @@ MAX_ROWS=7
 # Also want to maintain approximate minimum of 300 pixels to match inception v3 299 size
 MIN_ROW_HEIGHT=300
 
-def cutBoxes(imgOrig, outputDirectory, imageFileName, callBackFn=None):
+def cutBoxesOld(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     segments = []
     imgName = pathlib.PurePath(imageFileName).name
     imgNameNoExt = str(os.path.splitext(imgName)[0])
@@ -210,6 +210,10 @@ def cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None):
                 'MaxY': coords[3]
             })
     return segments
+
+
+def cutBoxes(imgOrig, outputDirectory, imageFileName, callBackFn=None):
+    return cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None)
 
 
 def test():
