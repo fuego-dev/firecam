@@ -60,7 +60,7 @@ def uploadToDrive(service, imgPath, cameraID, imgClass):
 def getTimeFromName(imgName):
     # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
     # and bm-n-mobo-c__2017-06-25z11;53;33.jpg
-    regexExpanded = '([A-Za-z0-9-]+)_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
+    regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
     # regex to match names like 1499546263.jpg
     regexUnixTime = '1\d{9}'
     matchesExp = re.findall(regexExpanded, imgName)
@@ -154,30 +154,30 @@ def unzipFile(zipFile):
 
 
 def processFolder(imgDirectory, camera, fire, googleServices):
-        imageFileNames = os.listdir(imgDirectory)
-        # print('images', imageFileNames)
-        # we want to process in time order, so first create tuples with associated time
-        tuples=list(map(lambda x: (x,getTimeFromName(x)['unixTime']), imageFileNames))
-        lastSmokeTimestamp=None
-        for tuple in sorted(tuples, key=lambda x: x[1]):
-            imgName=tuple[0]
-            times = getTimeFromName(imgName)
-            newPath = renameToIso(imgDirectory, imgName, times, camera)
-            imgClass = 'smoke'
-            print(imgClass, newPath)
-            uploadToDrive(googleServices['drive'], newPath, camera, imgClass)
-            appendToMainSheet(googleServices['sheet'], newPath, times, camera, imgClass, fire)
-            if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
-                lastSmokeTimestamp = times['unixTime']
-                result = crop_single.imageDisplay(newPath, settings.localCropDir, showSquaresArg=False)
-                if len(result) > 0:
-                    for entry in result:
-                        print('crop data', entry['name'], entry['coords'])
-                        uploadToDrive(googleServices['drive'], entry['name'], None, 'cropSmoke')
-                        appendToCropSheet(googleServices['sheet'], entry['name'], entry['coords'], newPath)
+    imageFileNames = os.listdir(imgDirectory)
+    # print('images', imageFileNames)
+    # we want to process in time order, so first create tuples with associated time
+    tuples=list(map(lambda x: (x,getTimeFromName(x)['unixTime']), imageFileNames))
+    lastSmokeTimestamp=None
+    for tuple in sorted(tuples, key=lambda x: x[1]):
+        imgName=tuple[0]
+        times = getTimeFromName(imgName)
+        newPath = renameToIso(imgDirectory, imgName, times, camera)
+        imgClass = 'smoke'
+        print(imgClass, newPath)
+        uploadToDrive(googleServices['drive'], newPath, camera, imgClass)
+        appendToMainSheet(googleServices['sheet'], newPath, times, camera, imgClass, fire)
+        if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
+            lastSmokeTimestamp = times['unixTime']
+            result = crop_single.imageDisplay(newPath, settings.localCropDir, showSquaresArg=False)
+            if len(result) > 0:
+                for entry in result:
+                    print('crop data', entry['name'], entry['coords'])
+                    uploadToDrive(googleServices['drive'], entry['name'], None, 'cropSmoke')
+                    appendToCropSheet(googleServices['sheet'], entry['name'], entry['coords'], newPath)
 
-        imageFileNames = os.listdir(imgDirectory)
-        print('images2', imageFileNames)
+    imageFileNames = os.listdir(imgDirectory)
+    print('images2', imageFileNames)
 
 
 def main():
