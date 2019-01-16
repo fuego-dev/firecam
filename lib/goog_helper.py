@@ -25,7 +25,7 @@ import io
 import shutil
 import pathlib
 import logging
-import time
+import time, dateutil.parser
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -145,13 +145,19 @@ def parseFilename(fileName):
         print('Failed to parse name', fileName)
         exit(1)
     match = matchesExp[0]
-    return {
+    parsed = {
         'cameraID': match[0],
         'date': match[1],
         'hours': match[2],
         'minutes': match[3],
         'seconds': match[4]
     }
+    isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'],hour=parsed['hours'],min=parsed['minutes'],sec=parsed['seconds'])
+    dt = dateutil.parser.parse(isoStr)
+    unixTime = time.mktime(dt.timetuple())
+    parsed['isoStr'] = isoStr
+    parsed['unixTime'] = unixTime
+    return parsed
 
 
 def downloadClassImage(service, classLocations, imgClass, fileName, outputDirectory):
