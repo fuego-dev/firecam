@@ -37,6 +37,7 @@ import logging
 import os
 import pathlib
 import tempfile
+import shutil
 import time, datetime
 import random
 import re
@@ -167,7 +168,7 @@ def postFilter(dbManager, camera, timestamp, segments):
     maxFireScore = 0
     for segmentInfo in segments:
         if segmentInfo['score'] < .5:
-            break
+            continue
         for row in dbResult:
             if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
                 row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
@@ -182,6 +183,29 @@ def postFilter(dbManager, camera, timestamp, segments):
                     maxFireSegment['HistNumSamples'] = row['cnt']
 
     return maxFireSegment
+
+
+def collectPositves(imgPath, segments):
+    """Collect all positive scoring segments
+
+    Copy the images for all segments that score highter than > .5 to
+    settings.collectPosDir. These will be used to train future models
+
+    Args:
+        imgPath (str): path name for main image
+        segments (list): List of dictionary containing information on each segment
+    """
+    positiveSegments = 0
+    for segmentInfo in segments:
+        if segmentInfo['score'] > .5:
+            pp = pathlib.PurePath(segmentInfo['imgPath'])
+            destPath = os.path.join(settings.collectPosDir, pp.name)
+            shutil.copyfile(segmentInfo['imgPath'], destPath)
+            positiveSegments += 1
+
+    if positiveSegments > 0:
+        pp = pathlib.PurePath(imgPath)
+        logging.warning('Found %d positives in image %s', positiveSegments, pp.name)
 
 
 def drawRect(imgDraw, x0, y0, x1, y1, width, color):
@@ -375,6 +399,7 @@ def heartBeat(filename):
 def main():
     optArgs = [
         ["b", "heartbeat", "filename used for heartbeating check"],
+        ["c", "collectPositves", "collect positive segments for training data"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     # commenting out the print below to reduce showing secrets in settings
@@ -404,6 +429,8 @@ def main():
             logging.warning('Highest score for camera %s: %f' % (camera, segments[0]['score']))
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
+            if args.collectPositves:
+                collectPositves(imgPath, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)
             annotatedFile = None
             if fireSegment:
