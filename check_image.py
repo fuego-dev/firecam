@@ -187,16 +187,19 @@ def main():
     reqArgs = [
         ["i", "image", "filename of the image"],
         ["o", "output", "output directory name"],
-        ["l", "labels", "labels file generated during retraining"],
-        ["m", "model", "model file generated during retraining"],
     ]
     optArgs = [
+        ["l", "labels", "labels file generated during retraining"],
+        ["m", "model", "model file generated during retraining"],
         ["d", "display", "(optional) specify any value to display image and boxes"]
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs)
+    model_file = args.model if args.model else settings.model_file
+    labels_file = args.labels if args.labels else settings.labels_file
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-    graph = tf_helper.load_graph(args.model)
-    labels = tf_helper.load_labels(args.labels)
+    graph = tf_helper.load_graph(model_file)
+    labels = tf_helper.load_labels(labels_file)
     segments = []
     with tf.Session(graph=graph) as tfSession:
         if True: # chops image in segment files and classifies each segment
