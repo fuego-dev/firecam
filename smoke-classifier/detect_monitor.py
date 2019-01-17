@@ -47,13 +47,15 @@ def findProcess(name):
     return None
 
 
-def startProcess(detectFire, heartbeatFileName):
+def startProcess(detectFire, heartbeatFileName, collectPositves):
     pArgs = [
         sys.executable,
         os.path.join(settings.fuegoRoot, "smoke-classifier", detectFire),
         '--heartbeat',
         heartbeatFileName
     ]
+    if collectPositves:
+        pArgs += ['--collectPositves', '1']
     proc = subprocess.Popen(pArgs)
     logging.warning('Started PID %d %s', proc.pid, pArgs)
     heartBeat(heartbeatFileName) # reset heartbeat
@@ -79,6 +81,7 @@ def main():
     optArgs = [
         ["n", "numProcesses", "number of child prcesses to start (default 1)"],
         ["g", "useGpu", "(optional) specify any value to use gpu (default off)"],
+        ["c", "collectPositves", "collect positive segments for training data"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     numProcesses = int(args.numProcesses) if args.numProcesses else 1
@@ -91,7 +94,7 @@ def main():
     for i in range(numProcesses):
         heartbeatFile = tempfile.NamedTemporaryFile()
         heartbeatFileName = heartbeatFile.name
-        proc = startProcess(scriptName, heartbeatFileName)
+        proc = startProcess(scriptName, heartbeatFileName, args.collectPositves)
         procInfos.append({
             'proc': proc,
             'heartbeatFile': heartbeatFile,
@@ -111,7 +114,7 @@ def main():
             if (timestamp - lastTS) > 4*60: # kill if stuck more than 4 minutes
                 logging.warning('Killing %d', proc.pid)
                 proc.kill()
-                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'])
+                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves)
         time.sleep(30)
 
 

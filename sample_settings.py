@@ -18,6 +18,7 @@ googleCredsFile = 'XXX/credentials.json'
 localCropDir = 'XXX/cropped' #local system directory with cropped images
 model_file = 'XXX/output_graph.pb'
 labels_file = 'XXX/output_labels.txt'
+collectPosDir = 'XXX/positives'
 db_file = 'XXX/local.db'
 
 teamDriveID = '0ADX9uPkOmsDJUk9PVA' # Fuego Smoke
