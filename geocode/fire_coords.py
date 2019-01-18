@@ -20,30 +20,45 @@ the augmented data.
 
 """
 
+import sys
+import settings
+sys.path.insert(0, settings.fuegoRoot + '/lib')
+import collect_args
+import goog_helper
+
 import ast
 import googlemaps
 
-fileName = '../fires_parsed.txt'
-key = 'AIzaSyBZ9NnCWPwm6Y7gfXiKJXgi8ha13X295o8' #dkgu-dev
-# key = 'AIzaSyBh2KIAcK7ueQrI8dMXT_sW-ICPqtL_O60' #fuego-detect
+def getCoords(gmaps, fileName):
+    lineNumber = 1
+    skipped=[]
+    with open(fileName, 'r') as myfile:
+        for line in myfile:
+            # print("raw", line)
+            parsed = ast.literal_eval(line)
+            # print("parsed", parsed['Name'], parsed['Location'] + ',' + parsed['County'])
+            geocode_result = gmaps.geocode(parsed['Location'] + ',' + parsed['County'])
+            # print(geocode_result)
+            if (len(geocode_result) != 0):
+                parsed['Latitude'] = geocode_result[0]['geometry']['location']['lat']
+                parsed['Longitude'] = geocode_result[0]['geometry']['location']['lng']
+            else:
+                skipped.append([lineNumber, parsed['Name']])
+            print(parsed)
+            lineNumber += 1
 
-gmaps = googlemaps.Client(key=key)
+    print('Skipped:', skipped)
 
-lineNumber = 1
-skipped=[]
-with open(fileName, 'r') as myfile:
-    for line in myfile:
-        # print("raw", line)
-        parsed = ast.literal_eval(line)
-        # print("parsed", parsed['Name'], parsed['Location'] + ',' + parsed['County'])
-        geocode_result = gmaps.geocode(parsed['Location'] + ',' + parsed['County'])
-        # print(geocode_result)
-        if (len(geocode_result) != 0):
-            parsed['Latitude'] = geocode_result[0]['geometry']['location']['lat']
-            parsed['Longitude'] = geocode_result[0]['geometry']['location']['lng']
-        else:
-            skipped.append([lineNumber, parsed['Name']])
-        print(parsed)
-        lineNumber += 1
 
-print(skipped)
+def main():
+    reqArgs = [
+        ["k", "key", "api key for google geocoding service"],
+        ["f", "fileName", "name of file containing calfire_parse.py output"],
+    ]
+    args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
+    gmaps = googlemaps.Client(key=args.key)
+    getCoords(gmaps, args.fileName)
+
+
+if __name__=="__main__":
+    main()
