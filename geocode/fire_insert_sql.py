@@ -20,34 +20,46 @@ With the fire and camera data in the DB, matches can be found with following que
 select fires.name, (fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude) as distance, fires.Started, fires.Updated, fires.Url, fires.Location, fires.County, fires.Latitude, fires.Longitude, cameras.Name, cameras.Latitude, cameras.Longitude from fires cross join cameras where fires.started is not null and distance < 0.02 order by distance;
 """
 
+import sys
+import settings
+sys.path.insert(0, settings.fuegoRoot + '/lib')
+import collect_args
+import goog_helper
+import db_manager
+
 import datetime
 import ast
 import sys
 
-import settings
-print(settings)
-print(settings.fuegoRoot)
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import db_manager
 
-fileName = '../fires_geocoded.txt'
-manager = db_manager.DbManager(settings.fuegoRoot + '/resources/local.db')
+def insertFires(dbManager, fileName):
+    lineNumber = 1
+    skipped=[]
+    with open(fileName, 'r') as myfile:
+        for line in myfile:
+            # print("raw", line)
+            parsed = ast.literal_eval(line)
+            # print("parsed", parsed)
+            url = parsed.get('href')
+            if (url != None):
+                parsed['url'] = url
+            parsed.pop('href', None)
+            parsed.pop('Extra', None)
+            # print("parsed2", lineNumber, parsed)
+            lineNumber += 1
+            dbManager.add_data('fires', parsed)
 
-lineNumber = 1
-skipped=[]
-with open(fileName, 'r') as myfile:
-    for line in myfile:
-        # print("raw", line)
-        parsed = ast.literal_eval(line)
-        # print("parsed", parsed)
-        url = parsed.get('href')
-        if (url != None):
-            parsed['url'] = url
-        parsed.pop('href', None)
-        parsed.pop('Extra', None)
-        # print("parsed2", lineNumber, parsed)
-        lineNumber += 1
-        manager.add_data('fires', parsed)
+    print('Skipped:', skipped)
 
 
-print(skipped)
+def main():
+    reqArgs = [
+        ["f", "fileName", "name of file containing fire_coords.py output"],
+    ]
+    args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
+    insertFires(dbManager, args.fileName)
+
+
+if __name__=="__main__":
+    main()
