@@ -78,8 +78,10 @@ def classifySegments(tfSession, graph, labels, segments):
     input_width = 299
     input_mean = 0
     input_std = 255
-    input_layer = "Placeholder"
-    output_layer = "final_result"
+    # input_layer = "Placeholder"
+    # output_layer = "final_result"
+    input_layer = "input"
+    output_layer = "InceptionV3/Predictions/Reshape_1"
     input_name = "import/" + input_layer
     output_name = "import/" + output_layer
     input_operation = graph.get_operation_by_name(input_name)
