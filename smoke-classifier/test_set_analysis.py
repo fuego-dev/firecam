@@ -78,7 +78,7 @@ def main():
     class_name += ["Class"]
     
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
-    graph = tf_helper.load_graph('/home/fuego/Desktop/output_graph_Oct23.pb')#settings.model_file)
+    graph = tf_helper.load_graph('/home/fuego/firecam/frozen-214171.pb')#settings.model_file)##
     labels = tf_helper.load_labels(settings.labels_file)
     
     smoke_directory = os.walk('/home/fuego/Desktop/test_set_smoke')
@@ -103,30 +103,79 @@ def main():
             
     np.savetxt('/home/fuego/Desktop/test_smoke.txt', smoke_image_list, fmt = "%s")
     np.savetxt('/home/fuego/Desktop/test_other.txt', other_image_list, fmt = "%s")
-    
-    with tf.Session(graph=graph) as tfSession:
-        for smoke_image in smoke_image_list:
-            segments = segmentImage(smoke_image)
-            tf_helper.classifySegments(tfSession, graph, labels, segments)
-            for i in range(len(segments)):
-                image_name += [smoke_image[35:]]
-                crop_name += [segments[i]['imgPath'][35:]]
-                score_name += [segments[i]['score']]
-                class_name += ['smoke']
-            deleteImageFiles(segments)
+    count = 0
+    try:
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
+        with tf.Session(graph=graph, config=config) as tfSession:
+            count = 0
+            for smoke_image in smoke_image_list:
+                segments = segmentImage(smoke_image)
+                try:
+                    tf_helper.classifySegments(tfSession, graph, labels, segments)
+                    for i in range(len(segments)):
+                        image_name += [smoke_image[35:]]
+                        crop_name += [segments[i]['imgPath'][35:]]
+                        score_name += [segments[i]['score']]
+                        class_name += ['smoke']
+                except:
+                    print("FAILURE")
+                    print(count, smoke_image)
+                    test_data = [image_name, crop_name, score_name, class_name]
+                    np.savetxt('/home/fuego/Desktop/frozen-214171' + smoke_image + '.txt', np.transpose(test_data), fmt = "%s")
+                    deleteImageFiles(segments)
+                    sys.exit()
                 
-        for other_image in other_image_list:
-            segments = segmentImage(other_image)
-            tf_helper.classifySegments(tfSession, graph, labels, segments)
-            for i in range(len(segments)):
-                image_name += [other_image[35:]]
-                crop_name += [segments[i]['imgPath'][35:]]
-                score_name += [segments[i]['score']]
-                class_name += ['other']            
+                deleteImageFiles(segments)
+                count += 1
+    except:
+        print("Segmentation Fault, Smoke")
+        try:
+            print("FAILURE")
+            print(count, smoke_image)
+            test_data = [image_name, crop_name, score_name, class_name]
+            np.savetxt('/home/fuego/Desktop/frozen-214171' + smoke_image + '.txt', np.transpose(test_data), fmt = "%s")
             deleteImageFiles(segments)
-
+        except:
+            print("Total Failure, Moving On")
+            
+    try:
+        config = tf.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
+        with tf.Session(graph=graph, config=config) as tfSession:
+            count = 0
+            for other_image in other_image_list:
+                segments = segmentImage(other_image)
+                try:
+                    tf_helper.classifySegments(tfSession, graph, labels, segments)
+                    for i in range(len(segments)):
+                        image_name += [other_image[35:]]
+                        crop_name += [segments[i]['imgPath'][35:]]
+                        score_name += [segments[i]['score']]
+                        class_name += ['other']
+                except:
+                    print("FAILURE")
+                    print(count, other_image)
+                    test_data = [image_name, crop_name, score_name, class_name]
+                    np.savetxt('/home/fuego/Desktop/frozen-214171' + other_image + '.txt', np.transpose(test_data), fmt = "%s")
+                    deleteImageFiles(segments)
+                    sys.exit()
+                
+                deleteImageFiles(segments)
+                count += 1
+    except:
+        print("Segmentation Fault, Other")
+        try:
+            print("FAILURE")
+            print(count, other_image)
+            test_data = [image_name, crop_name, score_name, class_name]
+            np.savetxt('/home/fuego/Desktop/frozen-214171' + other_image + '.txt', np.transpose(test_data), fmt = "%s")
+            deleteImageFiles(segments)
+        except:
+            print("Total Failure, Moving On")
+            
     test_data = [image_name, crop_name, score_name, class_name]
-    np.savetxt('/home/fuego/Desktop/test_scores_Oct23.txt', np.transpose(test_data), fmt = "%s")             
+    np.savetxt('/home/fuego/Desktop/frozen-214171.txt', np.transpose(test_data), fmt = "%s")             
     print("DONE")
 if __name__=="__main__":
     main()
