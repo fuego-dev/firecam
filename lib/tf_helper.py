@@ -76,12 +76,21 @@ def read_tensor_from_image_file(file_name,
 def classifySegments(tfSession, graph, labels, segments):
     input_height = 299
     input_width = 299
-    input_mean = 0
-    input_std = 255
+    # These commented out values are appropriate for tf_retrain
+    # https://github.com/tensorflow/hub/raw/master/examples/image_retraining/retrain.py
+
+    # input_mean = 0
+    # input_std = 255
     # input_layer = "Placeholder"
     # output_layer = "final_result"
+
+    # These values we're using now are appropriate for the fine-tuning and full training models
+    # https://github.com/tensorflow/models/tree/master/research/slim
+    input_mean = 128
+    input_std = 128
     input_layer = "input"
     output_layer = "InceptionV3/Predictions/Reshape_1"
+
     input_name = "import/" + input_layer
     output_name = "import/" + output_layer
     input_operation = graph.get_operation_by_name(input_name)
