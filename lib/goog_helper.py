@@ -25,7 +25,7 @@ import io
 import shutil
 import pathlib
 import logging
-import time, dateutil.parser
+import time, datetime, dateutil.parser
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -139,22 +139,39 @@ def uploadFile(service, dirID, localFilePath):
 
 
 def parseFilename(fileName):
+    # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
+    # and bm-n-mobo-c__2017-06-25z11;53;33.jpg
     regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
     matchesExp = re.findall(regexExpanded, fileName)
-    if len(matchesExp) != 1:
-        print('Failed to parse name', fileName)
-        exit(1)
-    match = matchesExp[0]
-    parsed = {
-        'cameraID': match[0],
-        'date': match[1],
-        'hours': match[2],
-        'minutes': match[3],
-        'seconds': match[4]
-    }
-    isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'],hour=parsed['hours'],min=parsed['minutes'],sec=parsed['seconds'])
-    dt = dateutil.parser.parse(isoStr)
-    unixTime = time.mktime(dt.timetuple())
+    # regex to match names like 1499546263.jpg
+    regexUnixTime = '1\d{9}'
+    matchesUnix = re.findall(regexUnixTime, fileName)
+    if len(matchesExp) == 1:
+        match = matchesExp[0]
+        parsed = {
+            'cameraID': match[0],
+            'date': match[1],
+            'hours': match[2],
+            'minutes': match[3],
+            'seconds': match[4]
+        }
+        isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'],hour=parsed['hours'],min=parsed['minutes'],sec=parsed['seconds'])
+        dt = dateutil.parser.parse(isoStr)
+        unixTime = time.mktime(dt.timetuple())
+    elif len(matchesUnix) == 1:
+        unixTime = int(matchesUnix[0])
+        dt = datetime.datetime.fromtimestamp(unixTime)
+        isoStr = datetime.datetime.fromtimestamp(unixTime).isoformat()
+        parsed = {
+            'cameraID': 'UNKNOWN_' + fileName,
+            'date': dt.date().isoformat(),
+            'hours': str(dt.hour),
+            'minutes': str(dt.minute),
+            'seconds': str(dt.second)
+        }
+    else:
+        logging.error('Failed to parse name %s', fileName)
+        return None
     parsed['isoStr'] = isoStr
     parsed['unixTime'] = unixTime
     return parsed

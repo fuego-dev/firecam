@@ -114,6 +114,9 @@ def getNextImageFromDir(imgDirectory):
         destPath = os.path.join(getNextImageFromDir.tmpDir.name, fileName)
         shutil.copyfile(origPath, destPath)
         parsed = goog_helper.parseFilename(fileName)
+        if not parsed:
+            # failed to parse, so skip to next image
+            return getNextImageFromDir(imgDirectory)
         return (parsed['cameraID'], parsed['unixTime'], destPath)
     logging.warning('Finished processing all images in directory. Exiting')
     exit(0)
@@ -220,11 +223,12 @@ def postFilter(dbManager, camera, timestamp, segments):
     return maxFireSegment
 
 
-def collectPositves(imgPath, segments):
+def collectPositves(service, imgPath, segments):
     """Collect all positive scoring segments
 
-    Copy the images for all segments that score highter than > .5 to
-    settings.collectPosDir. These will be used to train future models
+    Copy the images for all segments that score highter than > .5 to google drive folder
+    settings.positivePictures. These will be used to train future models.
+    Also, copy the full image for reference.
 
     Args:
         imgPath (str): path name for main image
@@ -233,13 +237,11 @@ def collectPositves(imgPath, segments):
     positiveSegments = 0
     for segmentInfo in segments:
         if segmentInfo['score'] > .5:
-            pp = pathlib.PurePath(segmentInfo['imgPath'])
-            destPath = os.path.join(settings.collectPosDir, pp.name)
-            shutil.copyfile(segmentInfo['imgPath'], destPath)
+            goog_helper.uploadFile(service, settings.positivePictures, segmentInfo['imgPath'])
             positiveSegments += 1
 
     if positiveSegments > 0:
-        pp = pathlib.PurePath(imgPath)
+        goog_helper.uploadFile(service, settings.positivePictures, imgPath)
         logging.warning('Found %d positives in image %s', positiveSegments, pp.name)
 
 
@@ -469,7 +471,7 @@ def main():
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             if args.collectPositves:
-                collectPositves(imgPath, segments)
+                collectPositves(googleServices['drive'], imgPath, segments)
             fireSegment = postFilter(dbManager, camera, timestamp, segments)
             annotatedFile = None
             if fireSegment:
