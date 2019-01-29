@@ -18,7 +18,6 @@ googleCredsFile = 'XXX/credentials.json'
 localCropDir = 'XXX/cropped' #local system directory with cropped images
 model_file = 'XXX/output_graph.pb'
 labels_file = 'XXX/output_labels.txt'
-collectPosDir = 'XXX/positives'
 db_file = 'XXX/local.db'
 
 teamDriveID = '0ADX9uPkOmsDJUk9PVA' # Fuego Smoke
@@ -33,6 +32,7 @@ nonSmokePictures = '1PolO0-LCSST8bgjtEBHxCQM8Nl_X-O9_' # test-other
 motionPictures = '1etxLJp-J6R4uXET2MhdPIIdQdlyCOVjf' # test-motion
 cropSmokePictures = '15mtvAWTtFV8if1y-isKFDKlxUdlB4Wfm' # test-crop-smoke
 detectionPictures = '1cNe2ohmCAJwgFPh5_nT4zaTwlHRtMRw6' # test-detections
+positivePictures = '154ayDGQ-cc89eGbbj48byTe1K4Lvnwan' # test-positives
 
 imagesSheet = '1QJgeJc3YIERxoYR-iKvgbTlRoLa_OVnXE_8LQX1Tb0Y' # Images
 imagesSheetAppendRange = 'A1' # append below this cell
