@@ -161,7 +161,7 @@ def _get_dataset_filename(dataset_dir, split_name, shard_id, numShards):
     return os.path.join(dataset_dir, output_filename)
 
 
-def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir, numShards):
+def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
     """Converts the given filenames to a TFRecord dataset.
 
     Args:
@@ -173,6 +173,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir, num
     """
     assert split_name in ['train', 'validation']
 
+    numShards = int(math.ceil(len(filenames) / 3000)) # 3000 images results in ~30MB shards
     num_per_shard = int(math.ceil(len(filenames) / float(numShards)))
 
     with tf.Graph().as_default():
@@ -229,11 +230,8 @@ def writeTFRecords(inputDir, outputDir, trainPercentage):
     logging.warn('Splitting into %d for training and %d for validation', len(training_filenames), len(validation_filenames))
 
     # First, convert the training and validation sets.
-    numShards = 5
-    _convert_dataset('train', training_filenames, class_names_to_ids,
-                    outputDir, numShards)
-    _convert_dataset('validation', validation_filenames, class_names_to_ids,
-                    outputDir, numShards)
+    _convert_dataset('train', training_filenames, class_names_to_ids, outputDir)
+    _convert_dataset('validation', validation_filenames, class_names_to_ids, outputDir)
 
     # Finally, write the labels file:
     labels_to_class_names = dict(zip(range(len(class_names)), class_names))
