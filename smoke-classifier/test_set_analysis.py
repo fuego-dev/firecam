@@ -58,6 +58,7 @@ def deleteImageFiles(segments):
 
 
 def classifyImages(graph, labels, imageList, className, outFile):
+    numPositive = 0
     count = 0
     image_name = []
     crop_name = []
@@ -68,6 +69,7 @@ def classifyImages(graph, labels, imageList, className, outFile):
         config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
         with tf.Session(graph=graph, config=config) as tfSession:
             for image in imageList:
+                isPositive = False
                 segments = segmentImage(image)
                 try:
                     tf_helper.classifySegments(tfSession, graph, labels, segments)
@@ -76,6 +78,9 @@ def classifyImages(graph, labels, imageList, className, outFile):
                         crop_name += [segments[i]['imgPath'][35:]]
                         score_name += [segments[i]['score']]
                         class_name += [className]
+                        if segments[i]['score'] > .5:
+                            isPositive = True
+
                 except Exception as e:
                     logging.error('FAILURE processing %s. Count: %d, Error: %s', image, count, str(e))
                     test_data = [image_name, crop_name, score_name, class_name]
@@ -85,6 +90,8 @@ def classifyImages(graph, labels, imageList, className, outFile):
                 
                 deleteImageFiles(segments)
                 count += 1
+                if isPositive:
+                    numPositive += 1
                 sys.stdout.write('\r>> Caclulated %d/%d of class %s' % (
                     count, len(imageList), className))
                 sys.stdout.flush()
@@ -98,7 +105,7 @@ def classifyImages(graph, labels, imageList, className, outFile):
             logging.error('Total Failure, Moving On. Error: %s', str(e))
     sys.stdout.write('\n')
     sys.stdout.flush()
-    return (image_name, crop_name, score_name, class_name)
+    return (image_name, crop_name, score_name, class_name, numPositive)
 
 
 def main():
@@ -115,17 +122,17 @@ def main():
     labels_file = args.labels if args.labels else settings.labels_file
 
     test_data = []
-    
+
     image_name = []
     crop_name = []
     score_name = []
     class_name = []
-    
+
     image_name += ["Image"]
     crop_name += ["Crop"]
     score_name += ["Score"]
     class_name += ["Class"]
-    
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
     graph = tf_helper.load_graph(model_file)
     labels = tf_helper.load_labels(labels_file)
@@ -142,22 +149,39 @@ def main():
     nonSmokeFile = os.path.join(args.directory, 'test_other.txt')
     np.savetxt(nonSmokeFile, other_image_list, fmt = "%s")
 
-    (i,cr,s,cl) = classifyImages(graph, labels, smoke_image_list, 'smoke', args.outputFile)
+    (i,cr,s,cl, numPositive) = classifyImages(graph, labels, smoke_image_list, 'smoke', args.outputFile)
     image_name += i
     crop_name += cr
     score_name += s
     class_name += cl
     logging.warn('Done with smoke images')
+    truePositive = numPositive
+    falseNegative = len(smoke_image_list) - numPositive
+    logging.warn('True Positive: %d', truePositive)
+    logging.warn('False Negative: %d', falseNegative)
 
-    (i,cr,s,cl) = classifyImages(graph, labels, other_image_list, 'other', args.outputFile)
+    (i,cr,s,cl, numPositive) = classifyImages(graph, labels, other_image_list, 'other', args.outputFile)
     image_name += i
     crop_name += cr
     score_name += s
     class_name += cl
     logging.warn('Done with nonSmoke images')
-            
+    falsePositive = numPositive
+    trueNegative = len(other_image_list) - numPositive
+    logging.warn('False Positive: %d', falsePositive)
+    logging.warn('True Negative: %d', trueNegative)
+
+    accuracy = (truePositive + trueNegative)/(truePositive + trueNegative + falsePositive + falseNegative)
+    logging.warn('Accuracy: %f', accuracy)
+    precision = truePositive/(truePositive + falsePositive)
+    logging.warn('Precision: %f', precision)
+    recall = truePositive/(truePositive + falseNegative)
+    logging.warn('Recall: %f', recall)
+    f1 = 2 * precision*recall/(precision + recall)
+    logging.warn('F1: %f', f1)
+
     test_data = [image_name, crop_name, score_name, class_name]
-    np.savetxt(args.outputFile, np.transpose(test_data), fmt = "%s")             
+    np.savetxt(args.outputFile, np.transpose(test_data), fmt = "%s")
     print("DONE")
 
 
