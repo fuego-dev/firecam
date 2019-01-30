@@ -241,7 +241,8 @@ def collectPositves(service, imgPath, segments):
             positiveSegments += 1
 
     if positiveSegments > 0:
-        goog_helper.uploadFile(service, settings.positivePictures, imgPath)
+        # Commenting out saving full images for now to reduce data
+        # goog_helper.uploadFile(service, settings.positivePictures, imgPath)
         pp = pathlib.PurePath(imgPath)
         logging.warning('Found %d positives in image %s', positiveSegments, pp.name)
 
