@@ -26,9 +26,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-"""Generic training script that trains a model using a given dataset."""
+"""Generic training script that trains a model using a given dataset.
 
-"""
 Minor changes made for Fuego project to use firecam dataset
 These changes are annotated by comment "### Fuego:"
 """
