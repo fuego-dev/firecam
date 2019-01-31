@@ -92,16 +92,7 @@ def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     return (dirID, dirName)
 
 
-def downloadFile(service, dirID, fileName, localFilePath):
-    files = driveListFiles(service, dirID, fileName)
-    if len(files) != 1:
-        print('Expected 1 file but found', len(files), files)
-    if len(files) < 1:
-        exit(1)
-    fileID = files[0]['id']
-    fileName = files[0]['name']
-    print(fileID, fileName)
-
+def downloadFileByID(service, fileID, localFilePath):
     # download file from drive to memory object
     request = service.files().get_media(fileId=fileID)
     fh = io.BytesIO()
@@ -115,6 +106,19 @@ def downloadFile(service, dirID, fileName, localFilePath):
     fh.seek(0)
     with open(localFilePath, 'wb') as f:
         shutil.copyfileobj(fh, f)
+
+
+def downloadFile(service, dirID, fileName, localFilePath):
+    files = driveListFiles(service, dirID, fileName)
+    if len(files) != 1:
+        print('Expected 1 file but found', len(files), files)
+    if len(files) < 1:
+        exit(1)
+    fileID = files[0]['id']
+    fileName = files[0]['name']
+    print(fileID, fileName)
+
+    downloadFileByID(service, fileID, localFilePath)
 
 
 def uploadFile(service, dirID, localFilePath):
