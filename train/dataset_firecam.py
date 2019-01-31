@@ -48,7 +48,7 @@ slim = tf.contrib.slim
 
 _FILE_PATTERN = 'firecam_%s_*.tfrecord'
 
-SPLITS_TO_SIZES = {'train': 13873, 'validation': 1542}
+SPLITS_TO_SIZES = {'train': 18186, 'validation': 2021}
 
 _NUM_CLASSES = 2
 
