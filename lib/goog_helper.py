@@ -56,12 +56,12 @@ def getGoogleServices(settings, args):
     }
 
 
-def driveListFiles(service, parentID, searchName=None):
+def driveListFilesQuery(service, parentID, customQuery=None):
     page_token = None
     param = {}
     param['q'] = "'" + parentID + "' in parents and trashed = False"
-    if (searchName != None):
-        param['q'] = param['q'] + "and name = '" + searchName + "'"
+    if customQuery:
+        param['q'] += " and " + customQuery
     param['fields'] = 'nextPageToken, files(id, name)'
     param['pageToken'] = page_token
     param['supportsTeamDrives'] = True
@@ -71,6 +71,12 @@ def driveListFiles(service, parentID, searchName=None):
     items = results.get('files', [])
     # print('Files: ', items)
     return items
+
+
+def driveListFilesByName(service, parentID, searchName=None):
+    if searchName:
+        customQuery = "name = '" + searchName + "'"
+    return driveListFilesQuery(service, parentID, customQuery)
 
 
 def readFromSheet(service, sheetID, cellRange):
@@ -83,7 +89,7 @@ def readFromSheet(service, sheetID, cellRange):
 
 def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     parent = classLocations[imgClass]
-    dirs = driveListFiles(service, parent, cameraID)
+    dirs = driveListFilesByName(service, parent, cameraID)
     if len(dirs) != 1:
         print('Expected 1 directory with name', cameraID, 'but found', len(dirs), dirs)
         exit(1)
@@ -109,7 +115,7 @@ def downloadFileByID(service, fileID, localFilePath):
 
 
 def downloadFile(service, dirID, fileName, localFilePath):
-    files = driveListFiles(service, dirID, fileName)
+    files = driveListFilesByName(service, dirID, fileName)
     if len(files) != 1:
         print('Expected 1 file but found', len(files), files)
     if len(files) < 1:
