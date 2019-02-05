@@ -185,12 +185,16 @@ def postFilter(dbManager, camera, timestamp, segments):
         dbManager (DbManager):
         camera (str): camera name
         timestamp (int):
-        segments (list): List of dictionary containing information on each segment
+        segments (list): Sorted List of dictionary containing information on each segment
 
     Returns:
         Dictionary with information for the segment most likely to be smoke
         or None
     """
+    # segments is sorted, so skip all work if max score is < .5
+    if segments[0]['score'] < .5:
+        return None
+
     sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*) as cnt, avg(score) as avgs, max(score) as maxs FROM scores
     WHERE CameraName='%s' and Timestamp > %s and Timestamp < %s and SecondsInDay > %s and SecondsInDay < %s
     GROUP BY MinX,MinY,MaxX,MaxY"""
@@ -205,8 +209,8 @@ def postFilter(dbManager, camera, timestamp, segments):
     maxFireSegment = None
     maxFireScore = 0
     for segmentInfo in segments:
-        if segmentInfo['score'] < .5:
-            continue
+        if segmentInfo['score'] < .5: # segments is sorted. we've reached end of segments >= .5
+            break
         for row in dbResult:
             if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
                 row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
@@ -440,6 +444,7 @@ def main():
         ["b", "heartbeat", "filename used for heartbeating check"],
         ["c", "collectPositves", "collect positive segments for training data"],
         ["d", "imgDirectory", "Name of the directory containing the images"],
+        ["t", "time", "Time breakdown for processing images"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     # commenting out the print below to reduce showing secrets in settings
@@ -461,15 +466,17 @@ def main():
     config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
     with tf.Session(graph=graph, config=config) as tfSession:
         while True:
+            timeStart = time.time()
             if args.imgDirectory:
                 (camera, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
             else:
                 (camera, timestamp, imgPath) = getNextImage(dbManager, cameras)
+            timeFetch = time.time()
             segments = segmentImage(imgPath)
             # print('si', segments)
             tf_helper.classifySegments(tfSession, graph, labels, segments)
             segments.sort(key=lambda x: -x['score'])
-            logging.warning('Highest score for camera %s: %f' % (camera, segments[0]['score']))
+            timeClassify = time.time()
             # print('cs', segments)
             recordScores(dbManager, camera, timestamp, segments)
             if args.collectPositves:
@@ -484,6 +491,11 @@ def main():
             deleteImageFiles(imgPath, annotatedFile, segments)
             if (args.heartbeat):
                 heartBeat(args.heartbeat)
+            timePost = time.time()
+            logging.warning('Highest score for camera %s: %f' % (camera, segments[0]['score']))
+            if args.time:
+                logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
+                    timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
 
 if __name__=="__main__":
     main()
