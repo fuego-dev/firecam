@@ -72,7 +72,7 @@ def classifySegments(tfSession, graph, labels, segments):
         output_name = "normalized"
         file_name_placeholder = tf.placeholder(tf.string, shape=[])
         file_reader = tf.read_file(file_name_placeholder, input_name)
-        image_reader = tf.image.decode_jpeg(file_reader, channels=3, name="jpeg_reader")
+        image_reader = tf.image.decode_jpeg(file_reader, channels=3, name="jpeg_reader",dct_method="INTEGER_ACCURATE")
         float_caster = tf.cast(image_reader, tf.float32)
         dims_expander = tf.expand_dims(float_caster, 0)
         resized = tf.image.resize_bilinear(dims_expander, [input_height, input_width])
