@@ -93,7 +93,7 @@ def getCameraDir(service, cameraCache, fileName):
     return dirID
 
 
-def expandRange(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+def expandMinAndMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     """Expand the image dimension range
 
     Inceases the min/max of the range by growRatio while maintaining
@@ -128,6 +128,75 @@ def expandRange(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
             val0 = center - int(minimumDiff/2)
             val1 = min(val0 + minimumDiff, maxLimit)
     return (val0, val1)
+
+
+def expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+    val0 = max(val0, minLimit)
+    val1 = min(val1, maxLimit)
+    diff = val1 - val0
+    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    if diff < minimumDiff:
+        if val0 + minimumDiff < maxLimit:
+            minVal = val0
+            maxVal = val0 + minimumDiff
+        else:
+            maxVal = maxLimit
+            minVal = max(maxVal - minimumDiff, minLimit)
+    else:
+        minVal = val0
+        maxVal = val1
+    return (minVal, maxVal)
+
+
+def expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+    val0 = max(val0, minLimit)
+    val1 = min(val1, maxLimit)
+    diff = val1 - val0
+    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    if diff < minimumDiff:
+        if val1 - minimumDiff >= minLimit:
+            maxVal = val1
+            minVal = maxVal - minimumDiff
+        else:
+            minVal = minLimit
+            maxVal = min(minVal + minimumDiff, maxLimit)
+    else:
+        minVal = val0
+        maxVal = val1
+    return (minVal, maxVal)
+
+
+def appendIfDifferent(array, newItem):
+    hasAlready = list(filter(lambda x: x==newItem, array))
+    if not hasAlready:
+        array.append(newItem)
+
+
+def getCropCoords(smokeCoords, minDiffX, minDiffY, growRatio, imgSize):
+    cropCoords = []
+    (minX, minY, maxX, maxY) = smokeCoords
+    (imgSizeX, imgSizeY) = imgSize
+    #centered box
+    (newMinX, newMaxX) = expandMinAndMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMinAndMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
+    #top left box
+    (newMinX, newMaxX) = expandMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
+    #top right box
+    (newMinX, newMaxX) = expandMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMin(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
+    #bottom left box
+    (newMinX, newMaxX) = expandMin(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
+    #bottom right box
+    (newMinX, newMaxX) = expandMin(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMin(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
+    return cropCoords
 
 
 def main():
@@ -178,23 +247,22 @@ def main():
                 print('download', fileName)
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
             imgOrig = Image.open(localFilePath)
-            (newMinX, newMaxX) = expandRange(minX, maxX, minDiffX, growRatio, 0, imgOrig.size[0])
-            (newMinY, newMaxY) = expandRange(minY, maxY, minDiffY, growRatio, 0, imgOrig.size[1])
-            newCoords = (newMinX, newMinY, newMaxX, newMaxY)
-            # XXXX - save work if old=new?
-            print('coords old,new', oldCoords, newCoords)
-            imgNameNoExt = str(os.path.splitext(fileName)[0])
-            cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '.jpg'
-            cropImgPath = os.path.join(args.outputDir, 'cropped', cropImgName)
-            cropped_img = imgOrig.crop(newCoords)
-            cropped_img.save(cropImgPath, format='JPEG')
-            flipped_img = cropped_img.transpose(Image.FLIP_LEFT_RIGHT)
-            flipImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '_Flip.jpg'
-            flipImgPath = os.path.join(args.outputDir, 'cropped', flipImgName)
-            flipped_img.save(flipImgPath, format='JPEG')
+            cropCoords = getCropCoords((minX, minY, maxX, maxY), minDiffX, minDiffY, growRatio, (imgOrig.size[0], imgOrig.size[1]))
+            for newCoords in cropCoords:
+                # XXXX - save work if old=new?
+                print('coords old,new', oldCoords, newCoords)
+                imgNameNoExt = str(os.path.splitext(fileName)[0])
+                cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '.jpg'
+                cropImgPath = os.path.join(args.outputDir, 'cropped', cropImgName)
+                cropped_img = imgOrig.crop(newCoords)
+                cropped_img.save(cropImgPath, format='JPEG')
+                flipped_img = cropped_img.transpose(Image.FLIP_LEFT_RIGHT)
+                flipImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '_Flip.jpg'
+                flipImgPath = os.path.join(args.outputDir, 'cropped', flipImgName)
+                flipped_img.save(flipImgPath, format='JPEG')
             print('Processed row: %s, file: %s' % (rowIndex, fileName))
             if args.display:
-                displayCoords = [oldCoords, newCoords]
+                displayCoords = [oldCoords] + cropCoords
                 displayImageWithScores(imgOrig, displayCoords)
                 imageDisplay(imgOrig)
 
