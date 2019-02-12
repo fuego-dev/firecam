@@ -173,7 +173,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
     """
     assert split_name in ['train', 'validation']
 
-    numShards = int(math.ceil(len(filenames) / 4000)) # 4000 images results in ~40MB shards
+    numShards = int(math.ceil(len(filenames) / 9000)) # 9000 images results in ~90MB shards
     num_per_shard = int(math.ceil(len(filenames) / float(numShards)))
 
     with tf.Graph().as_default():
