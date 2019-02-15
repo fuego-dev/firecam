@@ -148,6 +148,20 @@ def expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     return (minVal, maxVal)
 
 
+def expandMax75(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+    val0 = max(val0, minLimit)
+    val1 = min(val1, maxLimit)
+    diff = val1 - val0
+    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    if (diff < minimumDiff/2):
+        center = val0 + int(diff/2)
+        minVal = max(center - int(minimumDiff/4), minLimit)
+        maxVal = min(center + int(minimumDiff/4), maxLimit)
+        return expandMax(minVal, maxVal, minimumDiff, growRatio, minLimit, maxLimit)
+    else:
+        return expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit)
+
+
 def expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
@@ -166,6 +180,20 @@ def expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     return (minVal, maxVal)
 
 
+def expandMin75(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
+    val0 = max(val0, minLimit)
+    val1 = min(val1, maxLimit)
+    diff = val1 - val0
+    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    if (diff < minimumDiff/2):
+        center = val0 + int(diff/2)
+        minVal = max(center - int(minimumDiff/4), minLimit)
+        maxVal = min(center + int(minimumDiff/4), maxLimit)
+        return expandMin(minVal, maxVal, minimumDiff, growRatio, minLimit, maxLimit)
+    else:
+        return expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit)
+
+
 def appendIfDifferent(array, newItem):
     hasAlready = list(filter(lambda x: x==newItem, array))
     if not hasAlready:
@@ -181,20 +209,20 @@ def getCropCoords(smokeCoords, minDiffX, minDiffY, growRatio, imgSize):
     (newMinY, newMaxY) = expandMinAndMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
     #top left box
-    (newMinX, newMaxX) = expandMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
-    (newMinY, newMaxY) = expandMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    (newMinX, newMaxX) = expandMax75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMax75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
     #top right box
-    (newMinX, newMaxX) = expandMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
-    (newMinY, newMaxY) = expandMin(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    (newMinX, newMaxX) = expandMax75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMin75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
     #bottom left box
-    (newMinX, newMaxX) = expandMin(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
-    (newMinY, newMaxY) = expandMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    (newMinX, newMaxX) = expandMin75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMax75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
     #bottom right box
-    (newMinX, newMaxX) = expandMin(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
-    (newMinY, newMaxY) = expandMin(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
+    (newMinX, newMaxX) = expandMin75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
+    (newMinY, newMaxY) = expandMin75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
     return cropCoords
 
@@ -208,21 +236,25 @@ def main():
         ["s", "startRow", "starting row"],
         ["e", "endRow", "ending row"],
         ["d", "display", "(optional) specify any value to display image and boxes"],
-        ["x", "minDiffX", "(optional) override default minDiffX of 100"],
-        ["y", "minDiffY", "(optional) override default minDiffY of 100"],
-        ["t", "throwSize", "(optional) override default throw away size of 500x500"],
+        ["x", "minDiffX", "(optional) override default minDiffX of 299"],
+        ["y", "minDiffY", "(optional) override default minDiffY of 299"],
+        ["a", "minArea", "(optional) override default throw away areas < 1% of 299x299"],
+        ["t", "throwSize", "(optional) override default throw away size of 1000x1000"],
         ["g", "growRatio", "(optional) override default grow ratio of 1.2"],
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     startRow = int(args.startRow) if args.startRow else 0
     endRow = int(args.endRow) if args.endRow else 1e9
-    minDiffX = int(args.minDiffX) if args.minDiffX else 100
-    minDiffY = int(args.minDiffY) if args.minDiffY else 100
-    throwSize = int(args.throwSize) if args.throwSize else 500
+    minDiffX = int(args.minDiffX) if args.minDiffX else 299
+    minDiffY = int(args.minDiffY) if args.minDiffY else 299
+    throwSize = int(args.throwSize) if args.throwSize else 1000
     growRatio = float(args.growRatio) if args.growRatio else 1.2
+    minArea = int(args.minArea) if args.minArea else int(299*2.99)
 
     googleServices = goog_helper.getGoogleServices(settings, args)
     cameraCache = {}
+    skippedTiny = []
+    skippedHuge = []
     with open(args.inputCsv) as csvFile:
         csvreader = csv.reader(csvFile)
         for (rowIndex, csvRow) in enumerate(csvreader):
@@ -230,7 +262,7 @@ def main():
                 continue
             if rowIndex > endRow:
                 print('Reached end row', rowIndex, endRow)
-                exit(0)
+                break
             [cropName, minX, minY, maxX, maxY, fileName] = csvRow[:6]
             minX = int(minX)
             minY = int(minY)
@@ -238,7 +270,12 @@ def main():
             maxY = int(maxY)
             oldCoords = (minX, minY, maxX, maxY)
             if ((maxX - minX) > throwSize) and ((maxY - minY) > throwSize):
-                print('Skip large image', fileName)
+                print('Skip large image', maxX - minX, maxY - minY, fileName)
+                skippedHuge.append((rowIndex, fileName, maxX - minX, maxY - minY))
+                continue
+            if ((maxX - minX) * (maxY - minY)) < minArea:
+                print('Skipping tiny image with area', (maxX - minX) * (maxY - minY), fileName)
+                skippedTiny.append((rowIndex, fileName, (maxX - minX) * (maxY - minY)))
                 continue
             dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)
             localFilePath = os.path.join(args.outputDir, fileName)
@@ -265,6 +302,8 @@ def main():
                 displayCoords = [oldCoords] + cropCoords
                 displayImageWithScores(imgOrig, displayCoords)
                 imageDisplay(imgOrig)
+    print('Skipped tiny images', skippedTiny)
+    print('Skipped huge images', skippedHuge)
 
 if __name__=="__main__":
     main()
