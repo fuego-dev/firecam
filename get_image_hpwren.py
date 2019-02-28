@@ -49,70 +49,101 @@ class MyHTMLParser(HTMLParser):
         return self.table
 
 
-def findClosestTime(dirHtml, desiredTime):
+def parseDirHtml(dirHtml):
     parser = MyHTMLParser()
     parser.feed(dirHtml)
     files = parser.getTable()
-
     times = list(map(lambda x: int(x[:-4]), files))
-    return min(times, key=lambda x: abs(x-desiredTime))
+    return times
 
 
 def fetchImgOrDir(url):
-    resp = urllib.request.urlopen(url)
+    try:
+        resp = urllib.request.urlopen(url)
+    except Exception as e:
+        logging.error('Error fetching image from %s %s', url, str(e))
+        return (None, None)
     if resp.getheader('content-type') == 'image/jpeg':
         return ('img', resp)
     else:
         return ('dir', resp)
 
 
+def listTimesinQ(UrlPartsQ, qNum):
+    logging.warn('Dir URLparts %s', UrlPartsQ)
+    url = '/'.join(UrlPartsQ)
+    logging.warn('Dir URL %s', url)
+    (imgOrDir, resp) = fetchImgOrDir(url)
+    if not imgOrDir:
+        return None
+    assert imgOrDir == 'dir'
+    dirHtml = resp.read().decode('utf-8')
+    times = parseDirHtml(dirHtml)
+    return times
+
+
 def main():
     reqArgs = [
         ["c", "cameraID", "ID of camera"],
-        ["t", "time", "date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
+        ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
         ["o", "outputDir", "directory to save the output image"],
     ]
     optArgs = [
+        ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
         ["d", "dirData", "(for testing) use this filename as directory data"],
     ]
 
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     hpwrenBase = 'http://c1.hpwren.ucsd.edu/archive'
-    urlParts = [hpwrenBase, args.cameraID, 'large']
-    ptime = dateutil.parser.parse(args.time)
-    if ptime.year != 2019:
-        urlParts.append(str(ptime.year))
-    dateDirName = '{year}{month:02d}{date:02d}'.format(year=ptime.year, month=ptime.month, date=ptime.day)
-    urlParts.append(dateDirName)
-    qNum = 1 + int(ptime.hour/3)
-    urlParts.append('Q' + str(qNum))
-    logging.warn('Dir URLparts %s', urlParts)
-    url = '/'.join(urlParts)
-    logging.warn('Dir URL %s', url)
-    if args.dirData:
-        dirHtml = open(args.dirData, 'r').read()
-        imgOrDir = 'dir'
+    dateUrlParts = [hpwrenBase, args.cameraID, 'large']
+    startTimeDT = dateutil.parser.parse(args.startTime)
+    if args.endTime:
+        endTimeDT = dateutil.parser.parse(args.endTime)
     else:
-        (imgOrDir, resp) = fetchImgOrDir(url)
-        assert imgOrDir == 'dir'
-        dirHtml = resp.read().decode('utf-8')
-    # logging.warn('IOD: %s, %s', imgOrDir, dirHtml[:12])
+        endTimeDT = startTimeDT
+    assert startTimeDT.year == endTimeDT.year
+    assert startTimeDT.month == endTimeDT.month
+    assert startTimeDT.day == endTimeDT.day
+    assert endTimeDT >= startTimeDT
 
-    desiredTime = time.mktime(ptime.timetuple())
-    closestTime = findClosestTime(dirHtml, desiredTime)
-    closestFile = str(closestTime) + '.jpg'
-    urlParts.append(closestFile)
-    logging.warn('File URLparts %s', urlParts)
-    url = '/'.join(urlParts)
-    logging.warn('File URL %s', url)
+    if startTimeDT.year != 2019:
+        dateUrlParts.append(str(startTimeDT.year))
+    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
+    dateUrlParts.append(dateDirName)
 
-    timeStr = datetime.datetime.fromtimestamp(closestTime).isoformat()
-    timeStr = timeStr.replace(':', ';') # make windows happy
-    imgName = '_'.join([args.cameraID, timeStr])
-    imgPath = os.path.join(args.outputDir, imgName + '.jpg')
-    logging.warn('Local file %s', imgPath)
+    oneMinute = datetime.timedelta(seconds=60)
+    dirTimes = None
+    lastQNum = 0
+    curTimeDT = startTimeDT
+    while curTimeDT <= endTimeDT:
+        qNum = 1 + int(curTimeDT.hour/3)
+        urlParts = dateUrlParts[:] # copy URL up to date
+        urlParts.append('Q' + str(qNum))
+        if qNum != lastQNum:
+            # List times of files in Q dir and cache
+            dirTimes = listTimesinQ(urlParts, qNum)
+            if not dirTimes:
+                logging.error('Bad URL %s', urlParts)
+                exit(1)
+            lastQNum = qNum
 
-    urllib.request.urlretrieve(url, imgPath)
+        desiredTime = time.mktime(curTimeDT.timetuple())
+        closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
+        closestFile = str(closestTime) + '.jpg'
+        urlParts.append(closestFile)
+        logging.warn('File URLparts %s', urlParts)
+        url = '/'.join(urlParts)
+        logging.warn('File URL %s', url)
+
+        timeStr = datetime.datetime.fromtimestamp(closestTime).isoformat()
+        timeStr = timeStr.replace(':', ';') # make windows happy
+        imgName = '_'.join([args.cameraID, timeStr])
+        imgPath = os.path.join(args.outputDir, imgName + '.jpg')
+        logging.warn('Local file %s', imgPath)
+        urllib.request.urlretrieve(url, imgPath)
+
+        curTimeDT += oneMinute
+
 
 
 if __name__=="__main__":
