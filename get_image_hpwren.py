@@ -69,8 +69,8 @@ def fetchImgOrDir(url):
         return ('dir', resp)
 
 
-def listTimesinQ(UrlPartsQ, qNum):
-    logging.warn('Dir URLparts %s', UrlPartsQ)
+def listTimesinQ(UrlPartsQ):
+    # logging.warn('Dir URLparts %s', UrlPartsQ)
     url = '/'.join(UrlPartsQ)
     logging.warn('Dir URL %s', url)
     (imgOrDir, resp) = fetchImgOrDir(url)
@@ -82,6 +82,26 @@ def listTimesinQ(UrlPartsQ, qNum):
     return times
 
 
+def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
+    timeStr = datetime.datetime.fromtimestamp(closestTime).isoformat()
+    timeStr = timeStr.replace(':', ';') # make windows happy
+    imgName = '_'.join([cameraID, timeStr])
+    imgPath = os.path.join(outputDir, imgName + '.jpg')
+    logging.warn('Local file %s', imgPath)
+    if os.path.isfile(imgPath):
+        logging.warn('File %s already downloaded', imgPath)
+        return # file already downloaded
+
+    closestFile = str(closestTime) + '.jpg'
+    urlParts = urlPartsQ[:] # copy URL parts array
+    urlParts.append(closestFile)
+    # logging.warn('File URLparts %s', urlParts)
+    url = '/'.join(urlParts)
+    logging.warn('File URL %s', url)
+
+    urllib.request.urlretrieve(url, imgPath)
+
+
 def main():
     reqArgs = [
         ["c", "cameraID", "ID of camera"],
@@ -90,10 +110,12 @@ def main():
     ]
     optArgs = [
         ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
-        ["d", "dirData", "(for testing) use this filename as directory data"],
+        ["g", "gapMinutes", "override default of 1 minute gap between images to download"],
     ]
 
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    gapMinutes = int(args.gapMinutes) if args.gapMinutes else 1
+
     hpwrenBase = 'http://c1.hpwren.ucsd.edu/archive'
     dateUrlParts = [hpwrenBase, args.cameraID, 'large']
     startTimeDT = dateutil.parser.parse(args.startTime)
@@ -111,38 +133,27 @@ def main():
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
     dateUrlParts.append(dateDirName)
 
-    oneMinute = datetime.timedelta(seconds=60)
+    timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
     dirTimes = None
     lastQNum = 0
     curTimeDT = startTimeDT
     while curTimeDT <= endTimeDT:
         qNum = 1 + int(curTimeDT.hour/3)
-        urlParts = dateUrlParts[:] # copy URL up to date
-        urlParts.append('Q' + str(qNum))
+        urlPartsQ = dateUrlParts[:] # copy URL
+        urlPartsQ.append('Q' + str(qNum))
         if qNum != lastQNum:
             # List times of files in Q dir and cache
-            dirTimes = listTimesinQ(urlParts, qNum)
+            dirTimes = listTimesinQ(urlPartsQ)
             if not dirTimes:
-                logging.error('Bad URL %s', urlParts)
+                logging.error('Bad URL %s', urlPartsQ)
                 exit(1)
             lastQNum = qNum
 
         desiredTime = time.mktime(curTimeDT.timetuple())
         closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-        closestFile = str(closestTime) + '.jpg'
-        urlParts.append(closestFile)
-        logging.warn('File URLparts %s', urlParts)
-        url = '/'.join(urlParts)
-        logging.warn('File URL %s', url)
+        downloadFileAtTime(args.outputDir, urlPartsQ, args.cameraID, closestTime)
 
-        timeStr = datetime.datetime.fromtimestamp(closestTime).isoformat()
-        timeStr = timeStr.replace(':', ';') # make windows happy
-        imgName = '_'.join([args.cameraID, timeStr])
-        imgPath = os.path.join(args.outputDir, imgName + '.jpg')
-        logging.warn('Local file %s', imgPath)
-        urllib.request.urlretrieve(url, imgPath)
-
-        curTimeDT += oneMinute
+        curTimeDT += timeGapDelta
 
 
 
