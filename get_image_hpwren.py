@@ -149,8 +149,10 @@ def listAjax(cookieJar, dirsOrFiles, subPath):
         logging.error('Invalid list type: %s', dirsOrFiles)
         return None
     fullPath = '/ROOT/HOME/' + subPath
-    with requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath}) as resp:
-        return resp.json()
+    resp = requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath})
+    respJson = resp.json()
+    resp.close()
+    return respJson
 
 
 def downloadFileAjax(cookieJar, subPath, outputFile):
@@ -161,17 +163,20 @@ def downloadFileAjax(cookieJar, subPath, outputFile):
         'p': fullPath,
     }
     baseUrl += urllib.parse.urlencode(queryParams)
-    with requests.get(baseUrl, cookies=cookieJar, stream=True) as resp:
-        with open(outputFile, 'wb') as f:
-            for chunk in resp.iter_content(chunk_size=8192):
-                if chunk: # filter out keep-alive new chunks
-                    f.write(chunk)
+    resp = requests.get(baseUrl, cookies=cookieJar, stream=True)
+    with open(outputFile, 'wb') as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+    resp.close()
 
 
 def loginAjax():
     loginUrl = 'http://dl-hpwren.ucsd.edu/filerun/?page=login&action=login&nonajax=1&username=publicuser&password=publicuser1'
-    with requests.get(loginUrl) as resp:
-        return resp.cookies
+    resp = requests.get(loginUrl, allow_redirects=False) # some machines go into infinite redirect loop without the flag
+    cookies = resp.cookies
+    resp.close()
+    return cookies
 
 
 def chooseCamera(cookieJar, cameraInput):
