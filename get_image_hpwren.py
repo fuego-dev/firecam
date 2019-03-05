@@ -102,32 +102,9 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     urllib.request.urlretrieve(url, imgPath)
 
 
-def main():
-    reqArgs = [
-        ["c", "cameraID", "ID of camera"],
-        ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
-        ["o", "outputDir", "directory to save the output image"],
-    ]
-    optArgs = [
-        ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
-        ["g", "gapMinutes", "override default of 1 minute gap between images to download"],
-    ]
-
-    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
-    gapMinutes = int(args.gapMinutes) if args.gapMinutes else 1
-
+def downloadFilesHttp(outputDir, cameraID, startTimeDT, endTimeDT, gapMinutes):
     hpwrenBase = 'http://c1.hpwren.ucsd.edu/archive'
-    dateUrlParts = [hpwrenBase, args.cameraID, 'large']
-    startTimeDT = dateutil.parser.parse(args.startTime)
-    if args.endTime:
-        endTimeDT = dateutil.parser.parse(args.endTime)
-    else:
-        endTimeDT = startTimeDT
-    assert startTimeDT.year == endTimeDT.year
-    assert startTimeDT.month == endTimeDT.month
-    assert startTimeDT.day == endTimeDT.day
-    assert endTimeDT >= startTimeDT
-
+    dateUrlParts = [hpwrenBase, cameraID, 'large']
     if startTimeDT.year != 2019:
         dateUrlParts.append(str(startTimeDT.year))
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
@@ -151,10 +128,36 @@ def main():
 
         desiredTime = time.mktime(curTimeDT.timetuple())
         closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-        downloadFileAtTime(args.outputDir, urlPartsQ, args.cameraID, closestTime)
+        downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
 
         curTimeDT += timeGapDelta
 
+
+def main():
+    reqArgs = [
+        ["c", "cameraID", "ID of camera"],
+        ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
+    ]
+    optArgs = [
+        ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
+        ["g", "gapMinutes", "override default of 1 minute gap between images to download"],
+        ["o", "outputDir", "directory to save the output image"],
+    ]
+
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    gapMinutes = int(args.gapMinutes) if args.gapMinutes else 1
+    outputDir = int(args.outputDir) if args.outputDir else settings.downloadDir
+    startTimeDT = dateutil.parser.parse(args.startTime)
+    if args.endTime:
+        endTimeDT = dateutil.parser.parse(args.endTime)
+    else:
+        endTimeDT = startTimeDT
+    assert startTimeDT.year == endTimeDT.year
+    assert startTimeDT.month == endTimeDT.month
+    assert startTimeDT.day == endTimeDT.day
+    assert endTimeDT >= startTimeDT
+
+    downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
 
 
 if __name__=="__main__":
