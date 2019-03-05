@@ -30,6 +30,7 @@ import logging
 import urllib.request
 import time, datetime, dateutil.parser
 from html.parser import HTMLParser
+import requests
 
 class MyHTMLParser(HTMLParser):
     def __init__(self):
@@ -82,12 +83,17 @@ def listTimesinQ(UrlPartsQ):
     return times
 
 
-def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
-    timeStr = datetime.datetime.fromtimestamp(closestTime).isoformat()
+def getImgPath(outputDir, cameraID, timestamp):
+    timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
     timeStr = timeStr.replace(':', ';') # make windows happy
     imgName = '_'.join([cameraID, timeStr])
     imgPath = os.path.join(outputDir, imgName + '.jpg')
     logging.warn('Local file %s', imgPath)
+    return imgPath
+
+
+def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
+    imgPath = getImgPath(outputDir, cameraID, closestTime)
     if os.path.isfile(imgPath):
         logging.warn('File %s already downloaded', imgPath)
         return # file already downloaded
@@ -133,9 +139,114 @@ def downloadFilesHttp(outputDir, cameraID, startTimeDT, endTimeDT, gapMinutes):
         curTimeDT += timeGapDelta
 
 
+def listAjax(cookieJar, dirsOrFiles, subPath):
+    baseUrl = 'http://dl-hpwren.ucsd.edu/filerun/?module=fileman_myfiles&section=ajax&page='
+    if dirsOrFiles == 'dirs':
+        baseUrl += 'tree'
+    elif dirsOrFiles == 'files':
+        baseUrl += 'grid'
+    else:
+        logging.error('Invalid list type: %s', dirsOrFiles)
+        return None
+    fullPath = '/ROOT/HOME/' + subPath
+    with requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath}) as resp:
+        return resp.json()
+
+
+def downloadFileAjax(cookieJar, subPath, outputFile):
+    baseUrl = 'http://dl-hpwren.ucsd.edu/filerun/t.php?'
+    fullPath = '/ROOT/HOME/' + subPath
+    queryParams = {
+        'sn': 1,
+        'p': fullPath,
+    }
+    baseUrl += urllib.parse.urlencode(queryParams)
+    with requests.get(baseUrl, cookies=cookieJar, stream=True) as resp:
+        with open(outputFile, 'wb') as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                if chunk: # filter out keep-alive new chunks
+                    f.write(chunk)
+
+
+def loginAjax():
+    loginUrl = 'http://dl-hpwren.ucsd.edu/filerun/?page=login&action=login&nonajax=1&username=publicuser&password=publicuser1'
+    with requests.get(loginUrl) as resp:
+        return resp.cookies
+
+
+def chooseCamera(cookieJar, cameraInput):
+    cameraDirs = listAjax(cookieJar, 'dirs', '')
+    print('Num cameras:', len(cameraDirs))
+    matchingCams = list(filter(lambda x: cameraInput in x['text'], cameraDirs))
+    if len(matchingCams) == 0:
+        logging.error('Camera %s not found', cameraInput)
+        return None
+    elif len(matchingCams) == 1:
+        return matchingCams[0]['text']
+    else:
+        print('Multiple matching cameras')
+        for (index, cam) in enumerate(matchingCams):
+            print('%d: %s' % (index + 1, cam['text']))
+        choice = int(input('Enter number for desired camera: '))
+        assert choice <= len(matchingCams)
+        cameraDir = matchingCams[choice-1]['text']
+        print('Selected camera is', cameraDir)
+        return cameraDir
+
+
+def getFilesAjax(outputDir, cameraID, cameraInput, startTimeDT, endTimeDT, gapMinutes):
+    cookieJar = loginAjax()
+    cameraDir = chooseCamera(cookieJar, cameraInput)
+    if not cameraDir:
+        return
+    pathToDate = cameraDir
+    dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
+    # print('Dates1', len(dateDirs), dateDirs)
+    matchingYear = list(filter(lambda x: str(startTimeDT.year) == x['text'], dateDirs))
+    if len(matchingYear) == 1:
+        pathToDate += '/' + str(startTimeDT.year)
+        dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
+        # print('Dates2', len(dateDirs), dateDirs)
+    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
+    matchingDate = list(filter(lambda x: dateDirName == x['text'], dateDirs))
+    if len(matchingDate) == 1:
+        pathToDate += '/' + dateDirName
+    else:
+        logging.error('Could not find matching date in list %d:%s', len(dateDirs), dateDirs)
+        return
+
+    timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
+    dirTimes = None
+    lastQNum = 0
+    curTimeDT = startTimeDT
+    while curTimeDT <= endTimeDT:
+        qNum = 1 + int(curTimeDT.hour/3)
+        pathToQ = pathToDate + '/Q' + str(qNum)
+        if qNum != lastQNum:
+            # List times of files in Q dir and cache
+            listOfFiles = listAjax(cookieJar, 'files', pathToQ)
+            if not listOfFiles:
+                logging.error('Unable to find files in path %s', pathToQ)
+                exit(1)
+            lastQNum = qNum
+            logging.warn('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
+            dirTimes = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
+
+        desiredTime = time.mktime(curTimeDT.timetuple())
+        closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
+        imgPath = getImgPath(outputDir, cameraID, closestTime)
+        if os.path.isfile(imgPath):
+            logging.warn('File %s already downloaded', imgPath)
+        else:
+            downloadFileAjax(cookieJar, pathToQ + '/' + str(closestTime) + '.jpg', imgPath)
+
+        curTimeDT += timeGapDelta
+
+
 def main():
     reqArgs = [
-        ["c", "cameraID", "ID of camera"],
+        ["c", "cameraID", "ID (code name) of camera"],
+        ["d", "cameraDirInput", "Human readable name of camera to use in seraching directories"],
         ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
     ]
     optArgs = [
@@ -157,7 +268,8 @@ def main():
     assert startTimeDT.day == endTimeDT.day
     assert endTimeDT >= startTimeDT
 
-    downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+    # downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+    getFilesAjax(outputDir, args.cameraID, args.cameraDirInput, startTimeDT, endTimeDT, gapMinutes)
 
 
 if __name__=="__main__":
