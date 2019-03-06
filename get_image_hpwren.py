@@ -152,6 +152,10 @@ def listAjax(cookieJar, dirsOrFiles, subPath):
     resp = requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath})
     respJson = resp.json()
     resp.close()
+    if isinstance(respJson, dict) and ('msg' in respJson):
+        logging.error('Got error %s when searching %s in %s', respJson, dirsOrFiles, subPath)
+        return None
+
     return respJson
 
 
@@ -179,12 +183,14 @@ def loginAjax():
     return cookies
 
 
-def chooseCamera(cookieJar, cameraInput):
+def chooseCamera(cookieJar, cameraDirInput):
     cameraDirs = listAjax(cookieJar, 'dirs', '')
+    if not cameraDirs:
+        return None
     print('Num cameras:', len(cameraDirs))
-    matchingCams = list(filter(lambda x: cameraInput in x['text'], cameraDirs))
+    matchingCams = list(filter(lambda x: cameraDirInput in x['text'], cameraDirs))
     if len(matchingCams) == 0:
-        logging.error('Camera %s not found', cameraInput)
+        logging.error('Camera %s not found', cameraDirInput)
         return None
     elif len(matchingCams) == 1:
         return matchingCams[0]['text']
@@ -199,18 +205,18 @@ def chooseCamera(cookieJar, cameraInput):
         return cameraDir
 
 
-def getFilesAjax(outputDir, cameraID, cameraInput, startTimeDT, endTimeDT, gapMinutes):
-    cookieJar = loginAjax()
-    cameraDir = chooseCamera(cookieJar, cameraInput)
-    if not cameraDir:
-        return
+def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTimeDT, gapMinutes):
     pathToDate = cameraDir
     dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
+    if not dateDirs:
+        return False
     # print('Dates1', len(dateDirs), dateDirs)
     matchingYear = list(filter(lambda x: str(startTimeDT.year) == x['text'], dateDirs))
     if len(matchingYear) == 1:
         pathToDate += '/' + str(startTimeDT.year)
         dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
+        if not dateDirs:
+            return False
         # print('Dates2', len(dateDirs), dateDirs)
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
     matchingDate = list(filter(lambda x: dateDirName == x['text'], dateDirs))
@@ -218,7 +224,7 @@ def getFilesAjax(outputDir, cameraID, cameraInput, startTimeDT, endTimeDT, gapMi
         pathToDate += '/' + dateDirName
     else:
         logging.error('Could not find matching date in list %d:%s', len(dateDirs), dateDirs)
-        return
+        return False
 
     timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
     dirTimes = None
@@ -232,7 +238,7 @@ def getFilesAjax(outputDir, cameraID, cameraInput, startTimeDT, endTimeDT, gapMi
             listOfFiles = listAjax(cookieJar, 'files', pathToQ)
             if not listOfFiles:
                 logging.error('Unable to find files in path %s', pathToQ)
-                exit(1)
+                return False
             lastQNum = qNum
             logging.warn('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
             dirTimes = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
@@ -246,21 +252,41 @@ def getFilesAjax(outputDir, cameraID, cameraInput, startTimeDT, endTimeDT, gapMi
             downloadFileAjax(cookieJar, pathToQ + '/' + str(closestTime) + '.jpg', imgPath)
 
         curTimeDT += timeGapDelta
+    return True
+
+
+def getHpwrenCameraArchives(service):
+    data = goog_helper.readFromSheet(service, settings.camerasSheet, settings.camerasSheetRange)
+    camArchives = []
+    for camInfo in data:
+        if (len(camInfo) < 4) or (camInfo[2] != 'HPWREN'):
+            continue
+        camData = {'id': camInfo[1], 'dirs': []}
+        for dirData in camInfo[3:]:
+            dirArray = list(map(lambda x: x.strip(), dirData.split('+')))
+            for dir in dirArray:
+                if dir not in camData['dirs']:
+                    camData['dirs'].append(dir)
+        # print('Cam', camData)
+        camArchives.append(camData)
+    logging.warn('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
+    return camArchives
 
 
 def main():
     reqArgs = [
         ["c", "cameraID", "ID (code name) of camera"],
-        ["d", "cameraDirInput", "Human readable name of camera to use in seraching directories"],
         ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
     ]
     optArgs = [
+        ["d", "cameraDirInput", "Human readable name of camera to use in seraching directories"],
         ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
         ["g", "gapMinutes", "override default of 1 minute gap between images to download"],
         ["o", "outputDir", "directory to save the output image"],
     ]
 
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    googleServices = goog_helper.getGoogleServices(settings, args)
     gapMinutes = int(args.gapMinutes) if args.gapMinutes else 1
     outputDir = int(args.outputDir) if args.outputDir else settings.downloadDir
     startTimeDT = dateutil.parser.parse(args.startTime)
@@ -273,8 +299,26 @@ def main():
     assert startTimeDT.day == endTimeDT.day
     assert endTimeDT >= startTimeDT
 
+    cookieJar = loginAjax()
+    if args.cameraDirInput:
+        cameraDir = chooseCamera(cookieJar, args.cameraDirInput)
+        if not cameraDir:
+            exit(1)
+        archiveDirs = [cameraDir]
+    else:
+        camArchives = getHpwrenCameraArchives(googleServices['sheet'])
+        matchingCams = list(filter(lambda x: args.cameraID == x['id'], camArchives))
+        if len(matchingCams) != 1:
+            logging.error('Expected 1, but found %d matching cameras.', len(matchingCams))
+            exit(1)
+        archiveDirs = matchingCams[0]['dirs']
+        logging.warn('Found %s directories', archiveDirs)
     # downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
-    getFilesAjax(outputDir, args.cameraID, args.cameraDirInput, startTimeDT, endTimeDT, gapMinutes)
+    for dir in archiveDirs:
+        logging.warn('Searching for files in dir %s', dir)
+        found = getFilesAjax(cookieJar, outputDir, args.cameraID, dir, startTimeDT, endTimeDT, gapMinutes)
+        if found:
+            return # done
 
 
 if __name__=="__main__":
