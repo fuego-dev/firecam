@@ -83,17 +83,9 @@ def listTimesinQ(UrlPartsQ):
     return times
 
 
-def getImgPath(outputDir, cameraID, timestamp):
-    timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
-    timeStr = timeStr.replace(':', ';') # make windows happy
-    imgName = '_'.join([cameraID, timeStr])
-    imgPath = os.path.join(outputDir, imgName + '.jpg')
-    logging.warn('Local file %s', imgPath)
-    return imgPath
-
-
 def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
-    imgPath = getImgPath(outputDir, cameraID, closestTime)
+    imgPath = goog_helper.getImgPath(outputDir, cameraID, closestTime)
+    logging.warn('Local file %s', imgPath)
     if os.path.isfile(imgPath):
         logging.warn('File %s already downloaded', imgPath)
         return # file already downloaded
@@ -245,7 +237,8 @@ def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTime
 
         desiredTime = time.mktime(curTimeDT.timetuple())
         closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-        imgPath = getImgPath(outputDir, cameraID, closestTime)
+        imgPath = goog_helper.getImgPath(outputDir, cameraID, closestTime)
+        logging.warn('Local file %s', imgPath)
         if os.path.isfile(imgPath):
             logging.warn('File %s already downloaded', imgPath)
         else:

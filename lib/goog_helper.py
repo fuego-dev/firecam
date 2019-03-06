@@ -148,6 +148,14 @@ def uploadFile(service, dirID, localFilePath):
     return None
 
 
+def getImgPath(outputDir, cameraID, timestamp):
+    timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
+    timeStr = timeStr.replace(':', ';') # make windows happy
+    imgName = '_'.join([cameraID, timeStr])
+    imgPath = os.path.join(outputDir, imgName + '.jpg')
+    return imgPath
+
+
 def parseFilename(fileName):
     # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
     # and bm-n-mobo-c__2017-06-25z11;53;33.jpg

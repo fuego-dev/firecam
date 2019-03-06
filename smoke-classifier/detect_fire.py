@@ -68,10 +68,7 @@ def getNextImage(dbManager, cameras):
     index = dbManager.getNextSourcesCounter() % len(cameras)
     camera = cameras[index]
     timestamp = int(time.time())
-    timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
-    timeStr = timeStr.replace(':', ';') # make windows happy
-    imgName = '_'.join([camera['name'], timeStr])
-    imgPath = os.path.join(getNextImage.tmpDir.name, imgName + '.jpg')
+    imgPath = goog_helper.getImgPath(getNextImage.tmpDir.name, camera['name'], timestamp)
     # logging.warning('urlr %s %s', camera['url'], imgPath)
     try:
         urlretrieve(camera['url'], imgPath)
