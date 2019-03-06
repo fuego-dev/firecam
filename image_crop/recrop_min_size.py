@@ -229,7 +229,7 @@ def getCropCoords(smokeCoords, minDiffX, minDiffY, growRatio, imgSize):
 
 def main():
     reqArgs = [
-        ["o", "outputDir", "local directory to save images and segments"],
+        ["o", "outputDir", "local directory to save images segments"],
         ["i", "inputCsv", "csvfile with contents of Fuego Cropped Images"],
     ]
     optArgs = [
@@ -278,7 +278,7 @@ def main():
                 skippedTiny.append((rowIndex, fileName, (maxX - minX) * (maxY - minY)))
                 continue
             dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)
-            localFilePath = os.path.join(args.outputDir, fileName)
+            localFilePath = os.path.join(settings.downloadDir, fileName)
             print('local', localFilePath)
             if not os.path.isfile(localFilePath):
                 print('download', fileName)
@@ -290,12 +290,12 @@ def main():
                 print('coords old,new', oldCoords, newCoords)
                 imgNameNoExt = str(os.path.splitext(fileName)[0])
                 cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '.jpg'
-                cropImgPath = os.path.join(args.outputDir, 'cropped', cropImgName)
+                cropImgPath = os.path.join(args.outputDir, cropImgName)
                 cropped_img = imgOrig.crop(newCoords)
                 cropped_img.save(cropImgPath, format='JPEG')
                 flipped_img = cropped_img.transpose(Image.FLIP_LEFT_RIGHT)
                 flipImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), newCoords))) + '_Flip.jpg'
-                flipImgPath = os.path.join(args.outputDir, 'cropped', flipImgName)
+                flipImgPath = os.path.join(args.outputDir, flipImgName)
                 flipped_img.save(flipImgPath, format='JPEG')
             print('Processed row: %s, file: %s' % (rowIndex, fileName))
             if args.display:
