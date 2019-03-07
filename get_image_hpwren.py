@@ -72,9 +72,9 @@ def main():
         archiveDirs = matchingCams[0]['dirs']
         logging.warn('Found %s directories', archiveDirs)
     # downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
-    for dir in archiveDirs:
-        logging.warn('Searching for files in dir %s', dir)
-        found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dir, startTimeDT, endTimeDT, gapMinutes)
+    for dirName in archiveDirs:
+        logging.warn('Searching for files in dir %s', dirName)
+        found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dirName, startTimeDT, endTimeDT, gapMinutes)
         if found:
             return # done
 
