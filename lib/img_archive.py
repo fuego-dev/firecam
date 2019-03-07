@@ -313,9 +313,9 @@ def getHpwrenCameraArchives(service, settings):
         camData = {'id': camInfo[1], 'dirs': []}
         for dirData in camInfo[3:]:
             dirArray = list(map(lambda x: x.strip(), dirData.split('+')))
-            for dir in dirArray:
-                if dir and (dir not in camData['dirs']):
-                    camData['dirs'].append(dir)
+            for dirName in dirArray:
+                if dirName and (dirName not in camData['dirs']):
+                    camData['dirs'].append(dirName)
         # print('Cam', camData)
         camArchives.append(camData)
     logging.warn('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
