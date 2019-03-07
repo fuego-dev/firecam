@@ -34,6 +34,7 @@ from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaFileUpload
 
 import collect_args
+import img_archive
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
@@ -154,7 +155,7 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
         return localFilePath # already downloaded, nothing to do
 
     # parse cameraID from fileName
-    parsed = parseFilename(fileName)
+    parsed = img_archive.parseFilename(fileName)
     cameraID = parsed['cameraID']
 
     # find subdir for camera
