@@ -32,6 +32,7 @@ import goog_helper
 import tf_helper
 import db_manager
 import email_helper
+import img_archive
 
 import logging
 import os
@@ -110,7 +111,7 @@ def getNextImageFromDir(imgDirectory):
         origPath = os.path.join(imgDirectory, fileName)
         destPath = os.path.join(getNextImageFromDir.tmpDir.name, fileName)
         shutil.copyfile(origPath, destPath)
-        parsed = goog_helper.parseFilename(fileName)
+        parsed = img_archive.parseFilename(fileName)
         if not parsed:
             # failed to parse, so skip to next image
             return getNextImageFromDir(imgDirectory)

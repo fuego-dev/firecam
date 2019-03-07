@@ -32,6 +32,7 @@ sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
 import goog_helper
 import rect_to_squares
+import img_archive
 
 # minimum size for squares shown inside bounding box
 MIN_SIZE = 150
@@ -85,7 +86,7 @@ def displayImageWithScores(imgOrig, segments):
 
 
 def getCameraDir(service, cameraCache, fileName):
-    parsed = goog_helper.parseFilename(fileName)
+    parsed = img_archive.parseFilename(fileName)
     cameraID = parsed['cameraID']
     dirID = cameraCache.get(cameraID)
     if not dirID:
