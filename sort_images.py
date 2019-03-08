@@ -34,13 +34,12 @@ import logging
 
 from googleapiclient.discovery import build
 from httplib2 import Http
-from oauth2client import file, client, tools
-from apiclient.http import MediaFileUpload
 
 import settings
 sys.path.insert(0, settings.fuegoRoot + '/lib')
 import collect_args
 import goog_helper
+import img_archive
 
 sys.path.insert(0, settings.fuegoRoot + '/image_crop')
 import crop_single
@@ -58,35 +57,12 @@ def uploadToDrive(service, imgPath, cameraID, imgClass):
 
 
 def getTimeFromName(imgName):
-    # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
-    # and bm-n-mobo-c__2017-06-25z11;53;33.jpg
-    regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
-    # regex to match names like 1499546263.jpg
-    regexUnixTime = '1\d{9}'
-    matchesExp = re.findall(regexExpanded, imgName)
-    matchesUnix = re.findall(regexUnixTime, imgName)
-    if len(matchesExp) == 1:
-        isoStr = '{date}T{hour}:{min}:{sec}'.format(date=matchesExp[0][1],hour=matchesExp[0][2],min=matchesExp[0][3],sec=matchesExp[0][4])
-        dt = dateutil.parser.parse(isoStr)
-        unixTime = time.mktime(dt.timetuple())
-    elif len(matchesUnix) == 1:
-        unixTime = int(matchesUnix[0])
-        isoStr = datetime.datetime.fromtimestamp(unixTime).isoformat()
-    else:
-        print('Failed to parse image name', imgName)
-        exit(1)
-    return {
-        'unixTime': unixTime,
-        'isoStr': isoStr
-    }
+    return img_archive.parseFilename(imgName)
 
 
 def renameToIso(dirName, imgName, times, cameraId):
-    isoTime = times['isoStr'].replace(':', ';') # make windows happy
     oldFullPath = os.path.join(dirName, imgName)
-    imgExtension = os.path.splitext(imgName)[1]
-    newName = cameraId + '__' + isoTime + imgExtension
-    newFullPath = os.path.join(dirName, newName)
+    newFullPath = img_archive.getImgPath(dirName, cameraId, times['unixTime'])
     print(oldFullPath, newFullPath)
     os.rename(oldFullPath, newFullPath)
     return newFullPath
@@ -189,7 +165,7 @@ def main():
         ["z", "zipFile", "Name of the zip file containing the images"],
         ["d", "imgDirectory", "Name of the directory containing the images"],
     ]
-    args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[tools.argparser])
+    args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     imgDirectory = None
     if args.imgDirectory:
         imgDirectory = args.imgDirectory

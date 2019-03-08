@@ -46,7 +46,7 @@ def main():
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
     gapMinutes = int(args.gapMinutes) if args.gapMinutes else 1
-    outputDir = int(args.outputDir) if args.outputDir else settings.downloadDir
+    outputDir = args.outputDir if args.outputDir else settings.downloadDir
     startTimeDT = dateutil.parser.parse(args.startTime)
     if args.endTime:
         endTimeDT = dateutil.parser.parse(args.endTime)
