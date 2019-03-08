@@ -32,7 +32,7 @@ import re
 def getImgPath(outputDir, cameraID, timestamp):
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
     timeStr = timeStr.replace(':', ';') # make windows happy
-    imgName = '_'.join([cameraID, timeStr])
+    imgName = '__'.join([cameraID, timeStr])
     imgPath = os.path.join(outputDir, imgName + '.jpg')
     return imgPath
 
