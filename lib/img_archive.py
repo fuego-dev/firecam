@@ -27,6 +27,7 @@ import time, datetime, dateutil.parser
 from html.parser import HTMLParser
 import requests
 import re
+from PIL import Image, ImageMath
 
 
 def getImgPath(outputDir, cameraID, timestamp):
@@ -254,55 +255,68 @@ def chooseCamera(cookieJar, cameraDirInput):
 
 
 def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTimeDT, gapMinutes):
-    pathToDate = cameraDir
-    dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
-    if not dateDirs:
-        return False
-    # print('Dates1', len(dateDirs), dateDirs)
-    matchingYear = list(filter(lambda x: str(startTimeDT.year) == x['text'], dateDirs))
-    if len(matchingYear) == 1:
-        pathToDate += '/' + str(startTimeDT.year)
+    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
+    camInfo = None
+    camInfoList = list(filter(lambda x: (x['cameraID'] == cameraID) and (x['dateDirName'] == dateDirName), getFilesAjax.cachedMap))
+    if camInfoList:
+        camInfo = camInfoList[0]
+        pathToDate = camInfo['pathToDate']
+    else:
+        camInfo = {
+            'cameraID': cameraID,
+            'dateDirName': dateDirName,
+            'lastQNum': 0,
+            'dirTimes': None
+        }
+        pathToDate = cameraDir
         dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
         if not dateDirs:
-            return False
-        # print('Dates2', len(dateDirs), dateDirs)
-    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
-    matchingDate = list(filter(lambda x: dateDirName == x['text'], dateDirs))
-    if len(matchingDate) == 1:
-        pathToDate += '/' + dateDirName
-    else:
-        logging.error('Could not find matching date in list %d:%s', len(dateDirs), dateDirs)
-        return False
+            return None
+        # print('Dates1', len(dateDirs), dateDirs)
+        matchingYear = list(filter(lambda x: str(startTimeDT.year) == x['text'], dateDirs))
+        if len(matchingYear) == 1:
+            pathToDate += '/' + str(startTimeDT.year)
+            dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
+            if not dateDirs:
+                return None
+            # print('Dates2', len(dateDirs), dateDirs)
+        matchingDate = list(filter(lambda x: dateDirName == x['text'], dateDirs))
+        if len(matchingDate) == 1:
+            pathToDate += '/' + dateDirName
+            camInfo['pathToDate'] = pathToDate
+            getFilesAjax.cachedMap.append(camInfo)
+        else:
+            logging.error('Could not find matching date in list %d:%s', len(dateDirs), dateDirs)
+            return None
 
     timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
-    dirTimes = None
-    lastQNum = 0
     curTimeDT = startTimeDT
+    imgPaths = []
     while curTimeDT <= endTimeDT:
         qNum = 1 + int(curTimeDT.hour/3)
         pathToQ = pathToDate + '/Q' + str(qNum)
-        if qNum != lastQNum:
+        if qNum != camInfo['lastQNum']:
             # List times of files in Q dir and cache
             listOfFiles = listAjax(cookieJar, 'files', pathToQ)
             if not listOfFiles:
                 logging.error('Unable to find files in path %s', pathToQ)
-                return False
-            lastQNum = qNum
+                return imgPaths
+            camInfo['lastQNum'] = qNum
             logging.warn('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
-            dirTimes = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
+            camInfo['dirTimes'] = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
 
         desiredTime = time.mktime(curTimeDT.timetuple())
-        closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
+        closestTime = min(camInfo['dirTimes'], key=lambda x: abs(x-desiredTime))
         imgPath = getImgPath(outputDir, cameraID, closestTime)
         logging.warn('Local file %s', imgPath)
         if os.path.isfile(imgPath):
             logging.warn('File %s already downloaded', imgPath)
         else:
             downloadFileAjax(cookieJar, pathToQ + '/' + str(closestTime) + '.jpg', imgPath)
-
+        imgPaths.append(imgPath)
         curTimeDT += timeGapDelta
-    return True
-
+    return imgPaths
+getFilesAjax.cachedMap=[]
 
 def getHpwrenCameraArchives(service, settings):
     data = goog_helper.readFromSheet(service, settings.camerasSheet, settings.camerasSheetRange)
@@ -320,3 +334,17 @@ def getHpwrenCameraArchives(service, settings):
         camArchives.append(camData)
     logging.warn('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
     return camArchives
+
+
+def diffImages(imgA, imgB):
+    bandsImgA = imgA.split()
+    bandsImgB = imgB.split()
+    bandsImgOut = []
+
+    for bandNum in range(len(bandsImgA)):
+        # out = ImageMath.eval("convert((128+a/2)-b/2,'L')", a=bandsImgA[bandNum], b=bandsImgB[bandNum])
+        out = ImageMath.eval("convert(128+a-b,'L')", a=bandsImgA[bandNum], b=bandsImgB[bandNum])
+        bandsImgOut.append(out)
+
+    return Image.merge('RGB', bandsImgOut)
+

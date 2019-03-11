@@ -93,7 +93,7 @@ def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     dirs = driveListFilesByName(service, parent, cameraID)
     if len(dirs) != 1:
         print('Expected 1 directory with name', cameraID, 'but found', len(dirs), dirs)
-        exit(1)
+        raise Exception('getDirForClassCam: Directory not found')
     dirID = dirs[0]['id']
     dirName = dirs[0]['name']
     return (dirID, dirName)
