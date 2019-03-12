@@ -30,22 +30,37 @@ import re
 from PIL import Image, ImageMath
 
 
-def getImgPath(outputDir, cameraID, timestamp):
+def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
     timeStr = timeStr.replace(':', ';') # make windows happy
     imgName = '__'.join([cameraID, timeStr])
+    if diffMinutes:
+        imgName += ('_Diff%d' % diffMinutes)
+    if cropCoords:
+        imgName += '_Crop_' + 'x'.join(list(map(lambda x: str(x), cropCoords)))
     imgPath = os.path.join(outputDir, imgName + '.jpg')
     return imgPath
+
+
+def repackFileName(parsedName):
+    return getImgPath('', parsedName['cameraID'], parsedName['unixTime'],
+                      cropCoords=(parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']),
+                      diffMinutes=parsedName['diffMinutes'])
 
 
 def parseFilename(fileName):
     # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
     # and bm-n-mobo-c__2017-06-25z11;53;33.jpg
-    regexExpanded = '([A-Za-z0-9-_]+[^_])_*(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
-    matchesExp = re.findall(regexExpanded, fileName)
+    regexExpanded = '([A-Za-z0-9-_]+[^_])_+(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
+    # regex to match diff minutes spec for subtracted images
+    regexDiff = '(_Diff(\d+))?'
+    # regex to match optional crop information e.g., Axis-Cowles_2019-02-19T16;23;49_Crop_270x521x569x820.jpg
+    regexOptionalCrop = '(_Crop_(\d+)x(\d+)x(\d+)x(\d+))?'
+    matchesExp = re.findall(regexExpanded + regexDiff + regexOptionalCrop, fileName)
     # regex to match names like 1499546263.jpg
-    regexUnixTime = '1\d{9}'
-    matchesUnix = re.findall(regexUnixTime, fileName)
+    regexUnixTime = '(1\d{9})'
+    matchesUnix = re.findall(regexUnixTime + regexDiff + regexOptionalCrop, fileName)
+    cropInfo = None
     if len(matchesExp) == 1:
         match = matchesExp[0]
         parsed = {
@@ -58,8 +73,11 @@ def parseFilename(fileName):
         isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'],hour=parsed['hours'],min=parsed['minutes'],sec=parsed['seconds'])
         dt = dateutil.parser.parse(isoStr)
         unixTime = time.mktime(dt.timetuple())
+        parsed['diffMinutes'] = int(match[6] or 0)
+        cropInfo = match[-4:]
     elif len(matchesUnix) == 1:
-        unixTime = int(matchesUnix[0])
+        match = matchesUnix[0]
+        unixTime = int(match[0])
         dt = datetime.datetime.fromtimestamp(unixTime)
         isoStr = datetime.datetime.fromtimestamp(unixTime).isoformat()
         parsed = {
@@ -69,9 +87,16 @@ def parseFilename(fileName):
             'minutes': str(dt.minute),
             'seconds': str(dt.second)
         }
+        parsed['diffMinutes'] = int(match[2] or 0)
+        cropInfo = match[-4:]
     else:
         logging.error('Failed to parse name %s', fileName)
         return None
+    if cropInfo[0]:
+        parsed['minX'] = int(cropInfo[0])
+        parsed['minY'] = int(cropInfo[1])
+        parsed['maxX'] = int(cropInfo[2])
+        parsed['maxY'] = int(cropInfo[3])
     parsed['isoStr'] = isoStr
     parsed['unixTime'] = unixTime
     return parsed
