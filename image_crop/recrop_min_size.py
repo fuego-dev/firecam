@@ -23,10 +23,6 @@ images are discarded (controlled by throwSize)
 Optionally, for debuggins shows the boxes on screen (TODO: refactor display code)
 
 """
-import os
-import csv
-import tkinter as tk
-from PIL import Image, ImageTk
 
 import sys
 import settings
@@ -36,6 +32,12 @@ import goog_helper
 import rect_to_squares
 import img_archive
 
+import datetime
+import logging
+import os
+import csv
+import tkinter as tk
+from PIL import Image, ImageTk
 
 def imageDisplay(imgOrig, title=''):
     rootTk = tk.Tk()
@@ -243,6 +245,7 @@ def main():
         ["a", "minArea", "(optional) override default throw away areas < 1% of 299x299"],
         ["t", "throwSize", "(optional) override default throw away size of 1000x1000"],
         ["g", "growRatio", "(optional) override default grow ratio of 1.2"],
+        ["m", "minusMinutes", "(optional) subtract images from given number of minutes ago"],
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     startRow = int(args.startRow) if args.startRow else 0
@@ -252,11 +255,19 @@ def main():
     throwSize = int(args.throwSize) if args.throwSize else 1000
     growRatio = float(args.growRatio) if args.growRatio else 1.2
     minArea = int(args.minArea) if args.minArea else int(299*2.99)
+    minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
+    cookieJar = None
+    camArchives = None
+    if minusMinutes:
+        cookieJar = img_archive.loginAjax()
+        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+        timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
     skippedTiny = []
     skippedHuge = []
+    skippedArchive = []
     with open(args.inputCsv) as csvFile:
         csvreader = csv.reader(csvFile)
         for (rowIndex, csvRow) in enumerate(csvreader):
@@ -272,11 +283,11 @@ def main():
             maxY = int(maxY)
             oldCoords = (minX, minY, maxX, maxY)
             if ((maxX - minX) > throwSize) and ((maxY - minY) > throwSize):
-                print('Skip large image', maxX - minX, maxY - minY, fileName)
+                logging.warn('Skip large image: dx=%d, dy=%d, name=%s', maxX - minX, maxY - minY, fileName)
                 skippedHuge.append((rowIndex, fileName, maxX - minX, maxY - minY))
                 continue
             if ((maxX - minX) * (maxY - minY)) < minArea:
-                print('Skipping tiny image with area', (maxX - minX) * (maxY - minY), fileName)
+                logging.warn('Skipping tiny image with area: %d, name=%s', (maxX - minX) * (maxY - minY), fileName)
                 skippedTiny.append((rowIndex, fileName, (maxX - minX) * (maxY - minY)))
                 continue
             dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)
@@ -286,6 +297,36 @@ def main():
                 print('download', fileName)
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
             imgOrig = Image.open(localFilePath)
+            if minusMinutes:
+                nameParsed = img_archive.parseFilename(fileName)
+                matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))
+                if len(matchingCams) != 1:
+                    logging.warn('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
+                    skippedArchive.append((rowIndex, fileName, matchingCams))
+                    continue
+                archiveDirs = matchingCams[0]['dirs']
+                logging.warn('Found %s directories', archiveDirs)
+                earlierImgPath = None
+                dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
+                dt -= timeGapDelta
+                for dirName in archiveDirs:
+                    logging.warn('Searching for files in dir %s', dirName)
+                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)
+                    if imgPaths:
+                        earlierImgPath = imgPaths[0]
+                        break # done
+                if not earlierImgPath:
+                    logging.warn('Skipping image without prior image: %s, %s', str(dt), fileName)
+                    skippedArchive.append((rowIndex, fileName, dt))
+                    continue
+                logging.warn('Subtracting old image %s', earlierImgPath)
+                earlierImg = Image.open(earlierImgPath)
+                diffImg = img_archive.diffImages(imgOrig, earlierImg)
+                # realImgOrig = imgOrig # is this useful?
+                imgOrig = diffImg
+                fileNameParts = os.path.splitext(fileName)
+                fileName = str(fileNameParts[0]) + ('_Diff%d' % minusMinutes) + fileNameParts[1]
+
             cropCoords = getCropCoords((minX, minY, maxX, maxY), minDiffX, minDiffY, growRatio, (imgOrig.size[0], imgOrig.size[1]))
             for newCoords in cropCoords:
                 # XXXX - save work if old=new?
@@ -304,8 +345,9 @@ def main():
                 displayCoords = [oldCoords] + cropCoords
                 displayImageWithScores(imgOrig, displayCoords)
                 imageDisplay(imgOrig)
-    print('Skipped tiny images', skippedTiny)
-    print('Skipped huge images', skippedHuge)
+    logging.warn('Skipped tiny images %d, %s', len(skippedTiny), str(skippedTiny))
+    logging.warn('Skipped huge images %d, %s', len(skippedHuge), str(skippedHuge))
+    logging.warn('Skipped images without archives %d, %s', len(skippedArchive), str(skippedArchive))
 
 if __name__=="__main__":
     main()
