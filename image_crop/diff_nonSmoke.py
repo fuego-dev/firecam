@@ -72,9 +72,10 @@ def main():
 
         if (fileName[:3] == 'v2_') or (fileName[:3] == 'v3_'):
             continue # skip replicated files
+        logging.warn('Processing row %d, file: %s', rowIndex, fileName)
         parsedName = img_archive.parseFilename(fileName)
 
-        if parsedName['diffMinutes'] or ('minX' not in parsedName):
+        if (not parsedName) or parsedName['diffMinutes'] or ('minX' not in parsedName):
             logging.warn('Skipping file with unexpected parsed data: %s, %s', fileName, str(parsedName))
             skippedBadParse.append((rowIndex, fileName, parsedName))
             continue # skip files without crop info or with diff

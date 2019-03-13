@@ -328,6 +328,9 @@ def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTime
                 return imgPaths
             camInfo['lastQNum'] = qNum
             logging.warn('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
+            if len(listOfFiles['files']) == 0:
+                logging.error('Zero files in path %s', pathToQ)
+                return imgPaths
             camInfo['dirTimes'] = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
 
         desiredTime = time.mktime(curTimeDT.timetuple())
