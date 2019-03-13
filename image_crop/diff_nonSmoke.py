@@ -59,7 +59,7 @@ def main():
     timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     skippedBadParse = []
     skippedArchive = []
-    imageFileNames = os.listdir(args.inputDir)
+    imageFileNames = sorted(os.listdir(args.inputDir))
     rowIndex = -1
     for fileName in imageFileNames:
         rowIndex += 1
