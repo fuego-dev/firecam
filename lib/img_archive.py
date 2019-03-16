@@ -43,8 +43,11 @@ def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
 
 
 def repackFileName(parsedName):
+    cropCoords = None
+    if 'minX' in parsedName:
+        cropCoords=(parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY'])
     return getImgPath('', parsedName['cameraID'], parsedName['unixTime'],
-                      cropCoords=(parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']),
+                      cropCoords=cropCoords,
                       diffMinutes=parsedName['diffMinutes'])
 
 

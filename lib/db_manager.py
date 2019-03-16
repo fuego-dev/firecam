@@ -133,6 +133,7 @@ class DbManager(object):
             ('MaxY', 'INT'),
             ('Score', 'REAL'),
             ('SecondsInDay', 'INT'),
+            ('MinusMinutes', 'INT'),
         ]
 
         detections_schema = [

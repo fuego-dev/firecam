@@ -48,7 +48,7 @@ from PIL import Image, ImageFile, ImageDraw, ImageFont
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
-def getNextImage(dbManager, cameras):
+def getNextImage(dbManager, cameras, cameraID=None):
     """Gets the next image to check for smoke
 
     Uses a shared counter being updated by all cooperating detection processes
@@ -66,10 +66,13 @@ def getNextImage(dbManager, cameras):
         getNextImage.tmpDir = tempfile.TemporaryDirectory()
         logging.warning('TempDir %s', getNextImage.tmpDir.name)
 
-    index = dbManager.getNextSourcesCounter() % len(cameras)
-    camera = cameras[index]
+    if cameraID:
+        camera = list(filter(lambda x: x['name'] == cameraID, cameras))[0]
+    else:
+        index = dbManager.getNextSourcesCounter() % len(cameras)
+        camera = cameras[index]
     timestamp = int(time.time())
-    imgPath = goog_helper.getImgPath(getNextImage.tmpDir.name, camera['name'], timestamp)
+    imgPath = img_archive.getImgPath(getNextImage.tmpDir.name, camera['name'], timestamp)
     # logging.warning('urlr %s %s', camera['url'], imgPath)
     try:
         urlretrieve(camera['url'], imgPath)
@@ -139,7 +142,7 @@ def segmentImage(imgPath):
     return segments
 
 
-def recordScores(dbManager, camera, timestamp, segments):
+def recordScores(dbManager, camera, timestamp, segments, minusMinutes):
     """Record the smoke scores for each segment into SQL DB
 
     Args:
@@ -148,25 +151,22 @@ def recordScores(dbManager, camera, timestamp, segments):
         timestamp (int):
         segments (list): List of dictionary containing information on each segment
     """
-    # regexSize = '.+_Crop_(\d+)x(\d+)x(\d+)x(\d+)'
     dt = datetime.datetime.fromtimestamp(timestamp)
     secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
 
     for segmentInfo in segments:
-        # matches = re.findall(regexSize, imgScore['imgPath'])
-        # if len(matches) == 1:
-        if True:
-            dbRow = {
-                'CameraName': camera,
-                'Timestamp': timestamp,
-                'MinX': segmentInfo['MinX'],
-                'MinY': segmentInfo['MinY'],
-                'MaxX': segmentInfo['MaxX'],
-                'MaxY': segmentInfo['MaxY'],
-                'Score': segmentInfo['score'],
-                'SecondsInDay': secondsInDay
-            }
-            dbManager.add_data('scores', dbRow, commit=False)
+        dbRow = {
+            'CameraName': camera,
+            'Timestamp': timestamp,
+            'MinX': segmentInfo['MinX'],
+            'MinY': segmentInfo['MinY'],
+            'MaxX': segmentInfo['MaxX'],
+            'MaxY': segmentInfo['MaxY'],
+            'Score': segmentInfo['score'],
+            'MinusMinutes': minusMinutes,
+            'SecondsInDay': secondsInDay
+        }
+        dbManager.add_data('scores', dbRow, commit=False)
     dbManager.commit()
 
 
@@ -413,9 +413,9 @@ def deleteImageFiles(imgPath, annotatedFile, segments):
     if annotatedFile:
         os.remove(annotatedFile)
     ppath = pathlib.PurePath(imgPath)
-    leftoverFiles = os.listdir(str(ppath.parent))
-    if len(leftoverFiles) > 0:
-        logging.warning('leftover files %s', str(leftoverFiles))
+    # leftoverFiles = os.listdir(str(ppath.parent))
+    # if len(leftoverFiles) > 0:
+    #     logging.warning('leftover files %s', str(leftoverFiles))
 
 
 def getLastScoreCamera(dbManager):
@@ -437,14 +437,76 @@ def heartBeat(filename):
     pathlib.Path(filename).touch()
 
 
+def segmentAndClassify(imgPath, tfSession, graph, labels):
+    segments = segmentImage(imgPath)
+    # print('si', segments)
+    tf_helper.classifySegments(tfSession, graph, labels, segments)
+    segments.sort(key=lambda x: -x['score'])
+    return segments
+
+
+def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, segments, minusMinutes, googleDrive):
+    recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
+    if args.collectPositves:
+        collectPositves(googleDrive, imgPath, segments)
+    fireSegment = postFilter(dbManager, cameraID, timestamp, segments)
+    annotatedFile = None
+    if fireSegment:
+        annotatedFile = drawFireBox(imgPath, fireSegment)
+        driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, imgPath, annotatedFile, fireSegment)
+        if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
+            alertFire(cameraID, imgPath, annotatedFile, driveFileIDs, fireSegment)
+    deleteImageFiles(imgPath, annotatedFile, segments)
+    if (args.heartbeat):
+        heartBeat(args.heartbeat)
+    logging.warning('Highest score for camera %s: %f' % (cameraID, segments[0]['score']))
+
+
+def genDiffImage(imgPath, earlierImgPath, minusMinutes):
+    imgA = Image.open(imgPath)
+    imgB = Image.open(earlierImgPath)
+    imgDiff = img_archive.diffImages(imgA, imgB)
+    parsedName = img_archive.parseFilename(imgPath)
+    parsedName['diffMinutes'] = minusMinutes
+    imgDiffName = img_archive.repackFileName(parsedName)
+    ppath = pathlib.PurePath(imgPath)
+    imgDiffPath = os.path.join(str(ppath.parent), imgDiffName)
+    imgDiff.save(imgDiffPath, format='JPEG')
+    return imgDiffPath
+
+
+def expectedDrainSeconds(deferredImages):
+    # XXXX should be based on actual estimed rate
+    # XXXX but for now, just using 3 seconds per image rate
+    # return len(deferredImages)*3
+
+
+
+    return len(deferredImages)*14
+
+
+def getDeferrredImgToProcess(deferredImages, minusMinutes, currentTime):
+    if minusMinutes == 0:
+        return None
+    if len(deferredImages) == 0:
+        return None
+    if (expectedDrainSeconds(deferredImages) >= 60*minusMinutes) or (deferredImages[0]['runTime'] < currentTime):
+        img = deferredImages[0]
+        del deferredImages[0]
+        return img
+    return None
+
+
 def main():
     optArgs = [
         ["b", "heartbeat", "filename used for heartbeating check"],
         ["c", "collectPositves", "collect positive segments for training data"],
         ["d", "imgDirectory", "Name of the directory containing the images"],
         ["t", "time", "Time breakdown for processing images"],
+        ["m", "minusMinutes", "(optional) subtract images from given number of minutes ago"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
     # commenting out the print below to reduce showing secrets in settings
     # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
@@ -457,6 +519,7 @@ def main():
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources()
 
+    deferredImages = []
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
     graph = tf_helper.load_graph(settings.model_file)
     labels = tf_helper.load_labels(settings.labels_file)
@@ -465,35 +528,43 @@ def main():
     with tf.Session(graph=graph, config=config) as tfSession:
         while True:
             timeStart = time.time()
-            if args.imgDirectory:
-                (camera, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
+            deferredImageInfo = getDeferrredImgToProcess(deferredImages, minusMinutes, timeStart)
+            logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
+            if deferredImageInfo:
+                (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
+            elif args.imgDirectory:
+                (cameraID, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
             else:
-                (camera, timestamp, imgPath) = getNextImage(dbManager, cameras)
+                (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras)
             timeFetch = time.time()
-            segments = segmentImage(imgPath)
-            # print('si', segments)
-            tf_helper.classifySegments(tfSession, graph, labels, segments)
-            segments.sort(key=lambda x: -x['score'])
+            if minusMinutes and not deferredImageInfo:
+                # add image to Q if not already another one from same camera
+                matches = list(filter(lambda x: x['cameraID'] == cameraID, deferredImages))
+                if len(matches) > 0:
+                    assert len(matches) == 1
+                    logging.warn('Camera already in list waiting processing %s, %s', timeStart, matches[0])
+                    time.sleep(2) # take a nap to let things catch up
+                    continue
+                deferredImages.append({
+                    'runTime': timeStart + 60*minusMinutes,
+                    'cameraID': cameraID,
+                    'imgPath': imgPath
+                })
+                logging.warn('Deferring for camera %s till time %s.  Len %d', cameraID, timeStart + 60*minusMinutes, len(deferredImages))
+                continue
+            if deferredImageInfo:
+                imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
+                imgPath = imgDiffPath
+                logging.warn('Diffed image %s', imgPath)
+
+            segments = segmentAndClassify(imgPath, tfSession, graph, labels)
             timeClassify = time.time()
-            # print('cs', segments)
-            recordScores(dbManager, camera, timestamp, segments)
-            if args.collectPositves:
-                collectPositves(googleServices['drive'], imgPath, segments)
-            fireSegment = postFilter(dbManager, camera, timestamp, segments)
-            annotatedFile = None
-            if fireSegment:
-                annotatedFile = drawFireBox(imgPath, fireSegment)
-                driveFileIDs = recordDetection(dbManager, googleServices['drive'], camera, timestamp, imgPath, annotatedFile, fireSegment)
-                if checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
-                    alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment)
-            deleteImageFiles(imgPath, annotatedFile, segments)
-            if (args.heartbeat):
-                heartBeat(args.heartbeat)
+            recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, segments, minusMinutes, googleServices['drive'])
             timePost = time.time()
-            logging.warning('Highest score for camera %s: %f' % (camera, segments[0]['score']))
             if args.time:
                 logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
                     timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
+
 
 if __name__=="__main__":
     main()
