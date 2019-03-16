@@ -529,8 +529,8 @@ def main():
         while True:
             timeStart = time.time()
             deferredImageInfo = getDeferrredImgToProcess(deferredImages, minusMinutes, timeStart)
-            logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
             if deferredImageInfo:
+                logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
                 (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
             elif args.imgDirectory:
                 (cameraID, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
