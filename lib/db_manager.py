@@ -75,6 +75,7 @@ class DbManager(object):
             ('url', 'TEXT'),
             ('last_date', 'TEXT'),
             ('randomID', 'REAL')
+            ('dormant', 'INT')
         ]
 
         counters_schema = [
@@ -261,7 +262,7 @@ class DbManager(object):
 
 
     def get_sources(self):
-        return self.query("SELECT * FROM %s order by randomID, name" % self.sources_table_name)
+        return self.query("SELECT * FROM %s where dormant != 1 order by randomID, name" % self.sources_table_name)
 
 
     def add_url(self, url, urlname):
