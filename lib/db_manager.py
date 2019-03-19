@@ -73,7 +73,8 @@ class DbManager(object):
         sources_schema = [
             ('name', 'TEXT'),
             ('url', 'TEXT'),
-            ('last_date', 'TEXT')
+            ('last_date', 'TEXT'),
+            ('randomID', 'REAL')
         ]
 
         counters_schema = [
@@ -260,7 +261,7 @@ class DbManager(object):
 
 
     def get_sources(self):
-        return self.query("SELECT * FROM %s order by name" % self.sources_table_name)
+        return self.query("SELECT * FROM %s order by randomID, name" % self.sources_table_name)
 
 
     def add_url(self, url, urlname):
