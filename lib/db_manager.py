@@ -74,7 +74,7 @@ class DbManager(object):
             ('name', 'TEXT'),
             ('url', 'TEXT'),
             ('last_date', 'TEXT'),
-            ('randomID', 'REAL')
+            ('randomID', 'REAL'),
             ('dormant', 'INT')
         ]
 
