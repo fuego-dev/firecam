@@ -225,7 +225,7 @@ def postFilter(dbManager, camera, timestamp, segments):
     return maxFireSegment
 
 
-def collectPositves(service, imgPath, segments):
+def collectPositves(service, imgPath, origImgPath, segments):
     """Collect all positive scoring segments
 
     Copy the images for all segments that score highter than > .5 to google drive folder
@@ -237,16 +237,38 @@ def collectPositves(service, imgPath, segments):
         segments (list): List of dictionary containing information on each segment
     """
     positiveSegments = 0
+    ppath = pathlib.PurePath(origImgPath)
+    imgNameNoExt = str(os.path.splitext(ppath.name)[0])
+    origImg = None
     for segmentInfo in segments:
         if segmentInfo['score'] > .5:
-            goog_helper.uploadFile(service, settings.positivePictures, segmentInfo['imgPath'])
+            if imgPath != origImgPath:
+                if not origImg:
+                    origImg = Image.open(origImgPath)
+                cropCoords = (segmentInfo['MinX'], segmentInfo['MinY'], segmentInfo['MaxX'], segmentInfo['MaxY'])
+                croppedOrigImg = origImg.crop(cropCoords)
+                cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), cropCoords))) + '.jpg'
+                cropImgPath = os.path.join(str(ppath.parent), cropImgName)
+                croppedOrigImg.save(cropImgPath, format='JPEG')
+                croppedOrigImg.close()
+                if hasattr(settings, 'positivePicturesDir'):
+                    destPath = os.path.join(settings.positivePicturesDir, cropImgName)
+                    shutil.copy(cropImgPath, destPath)
+                else:
+                    goog_helper.uploadFile(service, settings.positivePictures, cropImgPath)
+                os.remove(cropImgPath)
+            if hasattr(settings, 'positivePicturesDir'):
+                pp = pathlib.PurePath(segmentInfo['imgPath'])
+                destPath = os.path.join(settings.positivePicturesDir, pp.name)
+                shutil.copy(segmentInfo['imgPath'], destPath)
+            else:
+                goog_helper.uploadFile(service, settings.positivePictures, segmentInfo['imgPath'])
             positiveSegments += 1
 
     if positiveSegments > 0:
         # Commenting out saving full images for now to reduce data
         # goog_helper.uploadFile(service, settings.positivePictures, imgPath)
-        pp = pathlib.PurePath(imgPath)
-        logging.warning('Found %d positives in image %s', positiveSegments, pp.name)
+        logging.warning('Found %d positives in image %s', positiveSegments, ppath.name)
 
 
 def drawRect(imgDraw, x0, y0, x1, y1, width, color):
@@ -399,7 +421,7 @@ def alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
     email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath, annotatedFile])
 
 
-def deleteImageFiles(imgPath, annotatedFile, segments):
+def deleteImageFiles(imgPath, origImgPath, annotatedFile, segments):
     """Delete all image files given in segments
 
     Args:
@@ -410,6 +432,8 @@ def deleteImageFiles(imgPath, annotatedFile, segments):
     for segmentInfo in segments:
         os.remove(segmentInfo['imgPath'])
     os.remove(imgPath)
+    if imgPath != origImgPath:
+        os.remove(origImgPath)
     if annotatedFile:
         os.remove(annotatedFile)
     ppath = pathlib.PurePath(imgPath)
@@ -445,18 +469,18 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
     return segments
 
 
-def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, segments, minusMinutes, googleDrive):
+def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive):
     recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
     if args.collectPositves:
-        collectPositves(googleDrive, imgPath, segments)
+        collectPositves(googleDrive, imgPath, origImgPath, segments)
     fireSegment = postFilter(dbManager, cameraID, timestamp, segments)
     annotatedFile = None
     if fireSegment:
-        annotatedFile = drawFireBox(imgPath, fireSegment)
-        driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, imgPath, annotatedFile, fireSegment)
+        annotatedFile = drawFireBox(origImgPath, fireSegment)
+        driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
         if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
-            alertFire(cameraID, imgPath, annotatedFile, driveFileIDs, fireSegment)
-    deleteImageFiles(imgPath, annotatedFile, segments)
+            alertFire(cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
+    deleteImageFiles(imgPath, origImgPath, annotatedFile, segments)
     if (args.heartbeat):
         heartBeat(args.heartbeat)
     logging.warning('Highest score for camera %s: %f' % (cameraID, segments[0]['score']))
@@ -476,13 +500,9 @@ def genDiffImage(imgPath, earlierImgPath, minusMinutes):
 
 
 def expectedDrainSeconds(deferredImages):
-    # XXXX should be based on actual estimed rate
-    # XXXX but for now, just using 3 seconds per image rate
-    # return len(deferredImages)*3
-
-
-
-    return len(deferredImages)*14
+    # XXXX should be based on actual rate on randomized order of cameras
+    # XXXX but for now, just using 3 seconds as estimate
+    return len(deferredImages)*3
 
 
 def getDeferrredImgToProcess(deferredImages, minusMinutes, currentTime):
@@ -530,13 +550,14 @@ def main():
             timeStart = time.time()
             deferredImageInfo = getDeferrredImgToProcess(deferredImages, minusMinutes, timeStart)
             if deferredImageInfo:
-                logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
+                # logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
                 (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
             elif args.imgDirectory:
                 (cameraID, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
             else:
                 (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras)
             timeFetch = time.time()
+            classifyImgPath = imgPath
             if minusMinutes and not deferredImageInfo:
                 # add image to Q if not already another one from same camera
                 matches = list(filter(lambda x: x['cameraID'] == cameraID, deferredImages))
@@ -550,16 +571,18 @@ def main():
                     'cameraID': cameraID,
                     'imgPath': imgPath
                 })
-                logging.warn('Deferring for camera %s till time %s.  Len %d', cameraID, timeStart + 60*minusMinutes, len(deferredImages))
+                logging.warn('Defer camera %s.  Len %d', cameraID, len(deferredImages))
                 continue
             if deferredImageInfo:
                 imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
-                imgPath = imgDiffPath
-                logging.warn('Diffed image %s', imgPath)
+                classifyImgPath = imgDiffPath
+                # logging.warn('Diffed image %s', classifyImgPath)
 
-            segments = segmentAndClassify(imgPath, tfSession, graph, labels)
+            segments = segmentAndClassify(classifyImgPath, tfSession, graph, labels)
             timeClassify = time.time()
-            recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, segments, minusMinutes, googleServices['drive'])
+            recordFilterReport(args, dbManager, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'])
+            if deferredImageInfo:
+                os.remove(deferredImageInfo['imgPath'])
             timePost = time.time()
             if args.time:
                 logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
