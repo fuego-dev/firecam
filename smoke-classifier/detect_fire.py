@@ -42,6 +42,7 @@ import shutil
 import time, datetime
 import random
 import re
+import hashlib
 from urllib.request import urlretrieve
 import tensorflow as tf
 from PIL import Image, ImageFile, ImageDraw, ImageFont
@@ -79,7 +80,13 @@ def getNextImage(dbManager, cameras, cameraID=None):
     except Exception as e:
         logging.error('Error fetching image from %s %s', camera['name'], str(e))
         return getNextImage(dbManager, cameras)
-    return (camera['name'], timestamp, imgPath)
+    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
+    if ('md5' in camera) and (camera['md5'] == md5) and not cameraID:
+        logging.warn('Camera %s image unchanged', camera['name'])
+        # skip to next camera
+        return getNextImage(dbManager, cameras)
+    camera['md5'] = md5
+    return (camera['name'], timestamp, imgPath, md5)
 getNextImage.tmpDir = None
 
 # XXXXX Use a fixed stable directory for testing
@@ -118,7 +125,8 @@ def getNextImageFromDir(imgDirectory):
         if not parsed:
             # failed to parse, so skip to next image
             return getNextImageFromDir(imgDirectory)
-        return (parsed['cameraID'], parsed['unixTime'], destPath)
+        md5 = hashlib.md5(open(destPath, 'rb').read()).hexdigest()
+        return (parsed['cameraID'], parsed['unixTime'], destPath, md5)
     logging.warning('Finished processing all images in directory. Exiting')
     exit(0)
 getNextImageFromDir.files = None
@@ -551,11 +559,11 @@ def main():
             deferredImageInfo = getDeferrredImgToProcess(deferredImages, minusMinutes, timeStart)
             if deferredImageInfo:
                 # logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
-                (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
+                (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
             elif args.imgDirectory:
-                (cameraID, timestamp, imgPath) = getNextImageFromDir(args.imgDirectory)
+                (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
             else:
-                (cameraID, timestamp, imgPath) = getNextImage(dbManager, cameras)
+                (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
             timeFetch = time.time()
             classifyImgPath = imgPath
             if minusMinutes and not deferredImageInfo:
@@ -569,11 +577,15 @@ def main():
                 deferredImages.append({
                     'runTime': timeStart + 60*minusMinutes,
                     'cameraID': cameraID,
-                    'imgPath': imgPath
+                    'imgPath': imgPath,
+                    'md5': md5
                 })
                 logging.warn('Defer camera %s.  Len %d', cameraID, len(deferredImages))
                 continue
             if deferredImageInfo:
+                if md5 == deferredImageInfo['md5']:
+                    logging.warn('Camera %s image unchanged', cameraID)
+                    continue # skip to next camera
                 imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
                 classifyImgPath = imgDiffPath
                 # logging.warn('Diffed image %s', classifyImgPath)
