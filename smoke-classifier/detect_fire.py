@@ -507,18 +507,37 @@ def genDiffImage(imgPath, earlierImgPath, minusMinutes):
     return imgDiffPath
 
 
-def expectedDrainSeconds(deferredImages):
-    # XXXX should be based on actual rate on randomized order of cameras
-    # XXXX but for now, just using 3 seconds as estimate
-    return len(deferredImages)*3
+def expectedDrainSeconds(deferredImages, timeTracker):
+    return len(deferredImages)*timeTracker['timePerSample']
 
 
-def getDeferrredImgToProcess(deferredImages, minusMinutes, currentTime):
+def updateTimeTracker(timeTracker, processingTime):
+    timeTracker['totalTime'] += processingTime
+    timeTracker['numSamples'] += 1
+    # after N samples, update the rate to adapt to current conditions
+    # N = 50 should be big enough to be stable yet small enough to adapt
+    if timeTracker['numSamples'] > 50:
+        timeTracker['timePerSample'] = timeTracker['totalTime'] / timeTracker['numSamples']
+        timeTracker['totalTime'] = 0
+        timeTracker['numSamples'] = 0
+        logging.warn('New timePerSample %.2f', timeTracker['timePerSample'])
+
+
+def initializeTimeTracker():
+    return {
+        'totalTime': 0.0,
+        'numSamples': 0,
+        'timePerSample': 3 # start off with estimate of 3 seconds per camera
+    }
+
+
+def getDeferrredImgToProcess(deferredImages, timeTracker, minusMinutes, currentTime):
     if minusMinutes == 0:
         return None
     if len(deferredImages) == 0:
         return None
-    if (expectedDrainSeconds(deferredImages) >= 60*minusMinutes) or (deferredImages[0]['runTime'] < currentTime):
+    minusSeconds = 60*minusMinutes
+    if (expectedDrainSeconds(deferredImages, timeTracker) >= minusSeconds) or (deferredImages[0]['timestamp'] + minusSeconds < currentTime):
         img = deferredImages[0]
         del deferredImages[0]
         return img
@@ -535,6 +554,7 @@ def main():
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
+    minusSeconds = 60 * minusMinutes
     # commenting out the print below to reduce showing secrets in settings
     # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
@@ -548,6 +568,7 @@ def main():
     cameras = dbManager.get_sources()
 
     deferredImages = []
+    processingTimeTracker = initializeTimeTracker()
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
     graph = tf_helper.load_graph(settings.model_file)
     labels = tf_helper.load_labels(settings.labels_file)
@@ -556,7 +577,7 @@ def main():
     with tf.Session(graph=graph, config=config) as tfSession:
         while True:
             timeStart = time.time()
-            deferredImageInfo = getDeferrredImgToProcess(deferredImages, minusMinutes, timeStart)
+            deferredImageInfo = getDeferrredImgToProcess(deferredImages, processingTimeTracker, minusMinutes, timeStart)
             if deferredImageInfo:
                 # logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
                 (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
@@ -575,16 +596,29 @@ def main():
                     time.sleep(2) # take a nap to let things catch up
                     continue
                 deferredImages.append({
-                    'runTime': timeStart + 60*minusMinutes,
+                    'timestamp': timestamp,
                     'cameraID': cameraID,
                     'imgPath': imgPath,
-                    'md5': md5
+                    'md5': md5,
+                    'oldWait': 0
                 })
                 logging.warn('Defer camera %s.  Len %d', cameraID, len(deferredImages))
                 continue
             if deferredImageInfo:
                 if md5 == deferredImageInfo['md5']:
-                    logging.warn('Camera %s image unchanged', cameraID)
+                    timeDiff = timestamp - deferredImageInfo['timestamp']
+                    logging.warn('Camera %s unchanged (oldWait=%d, diff=%d)', cameraID, deferredImageInfo['oldWait'], timeDiff)
+                    if (timeDiff + deferredImageInfo['oldWait']) < min(2 * minusSeconds, 5 * 60):
+                        # some cameras may not referesh fast enough so give another chance up to 2x minusMinutes or 5 mins
+                        # Putting it back at the end of the queue with updated timestamp
+                        # Updating timestamp so this doesn't take priority in processing
+                        deferredImageInfo['timestamp'] = timestamp
+                        deferredImageInfo['oldWait'] += timeDiff
+                        deferredImages.append(deferredImageInfo)
+                    else:
+                        os.remove(deferredImageInfo['imgPath'])
+                    os.remove(imgPath)
+                    updateTimeTracker(processingTimeTracker, time.time() - timeStart)
                     continue # skip to next camera
                 imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
                 classifyImgPath = imgDiffPath
@@ -596,6 +630,7 @@ def main():
             if deferredImageInfo:
                 os.remove(deferredImageInfo['imgPath'])
             timePost = time.time()
+            updateTimeTracker(processingTimeTracker, timePost - timeStart)
             if args.time:
                 logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
                     timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
