@@ -30,23 +30,14 @@ import goog_helper
 
 import logging
 
-def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None):
-    constraints = []
-    if minTime:
-        constraints.append(" modifiedTime > '" + minTime + "' ")
-    if maxTime:
-        constraints.append(" modifiedTime < '" + maxTime + "' ")
-    if prefix:
-        constraints.append(" name contains '" + prefix + "' ")
-    customQuery = ' and '.join(constraints)
-    logging.warn('Query %s', customQuery)
-    items = goog_helper.driveListFilesQuery(service, parentID, customQuery)
-    logging.warn('Found %d files', len(items))
-    print('Files: ', items)
-
-    for item in items:
-        goog_helper.downloadFileByID(service, item['id'], item['name'])
-    return items
+# template function for batch deletion
+def delete_file(request_id, response, exception):
+    if exception is not None:
+        # Do something with the exception
+        pass
+    else:
+        # Do something with the response
+        pass
 
 
 def main():
@@ -58,16 +49,66 @@ def main():
         ["u", "upload", "(optional) performs upload vs. download"],
         ["s", "startTime", "(optional) performs search with modifiedTime > startTime"],
         ["e", "endTime", "(optional) performs search with modifiedTime < endTime"],
+        ["l", "listOnly", "(optional) list vs. download"],
+        ["r", "remove", "(optional) performs remove/delete vs. download (value must be 'delete')"],
+        ["m", "maxFiles", "override default of 100 for max number of files to operate on"],
     ]
     
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    maxFiles = int(args.maxFiles) if args.maxFiles else 100
     googleServices = goog_helper.getGoogleServices(settings, args)
+
+    # default mode is to download a single file
+    operation = 'download'
+    multipleFiles = False
+
     if args.upload:
-        goog_helper.uploadFile(googleServices['drive'], args.dirID, args.fileName)
-    elif args.startTime or args.endTime:
-        searchFiles(googleServices['drive'], args.dirID, args.startTime, args.endTime, args.fileName)
+        operation = 'upload'
+    elif args.remove:
+        if args.remove != 'delete':
+            logging.error("value for remove must be 'delete', but instead is %s", args.remove)
+            exit(1)
+        operation = 'delete'
+    elif args.listOnly:
+        operation = 'list'
+
+    if args.startTime or args.endTime:
+        multipleFiles = True
+
+    if not multipleFiles:
+        if operation == 'upload':
+            goog_helper.uploadFile(googleServices['drive'], args.dirID, args.fileName)
+        else:
+            assert operation == 'download'
+            goog_helper.downloadFile(googleServices['drive'], args.dirID, args.fileName, args.fileName)
     else:
-        goog_helper.downloadFile(googleServices['drive'], args.dirID, args.fileName, args.fileName)
+        nextPageToken = 'init'
+        processedFiles = 0
+        while True:
+            batch = None
+            if operation == 'delete':
+                batch = googleServices['drive'].new_batch_http_request(callback = delete_file)
+
+            (items, nextPageToken) = goog_helper.searchFiles(googleServices['drive'], args.dirID, args.startTime, args.endTime, args.fileName, npt=nextPageToken)
+            firstLast = ''
+            if len(items) > 0:
+                firstLast = str(items[0]) + ' to ' + str(items[-1])
+            logging.warn('Found %d files: %s', len(items), firstLast)
+
+            if operation == 'list':
+                logging.warn('All files: %s', items)
+            for item in items:
+                if operation == 'delete':
+                    batch.add(googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True))
+                elif operation == 'download':
+                    goog_helper.downloadFileByID(googleServices['drive'], item['id'], item['name'])
+            if batch:
+                batch.execute()
+            processedFiles += len(items)
+            logging.warn('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, nextPageToken)
+            if (processedFiles >= maxFiles) or not nextPageToken:
+                break # exit if we processed enough files or no files left
+        logging.warn('Done')
 
 if __name__=="__main__":
     main()

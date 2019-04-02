@@ -57,22 +57,27 @@ def getGoogleServices(settings, args):
     }
 
 
-def driveListFilesQuery(service, parentID, customQuery=None):
-    page_token = None
+def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageToken=None):
     param = {}
     param['q'] = "'" + parentID + "' in parents and trashed = False"
     if customQuery:
         param['q'] += " and " + customQuery
     param['fields'] = 'nextPageToken, files(id, name)'
-    param['pageToken'] = page_token
+    param['pageToken'] = pageToken
     param['supportsTeamDrives'] = True
     param['includeTeamDriveItems'] = True
     # print(param)
     results = service.files().list(**param).execute()
     items = results.get('files', [])
+    nextPageToken = results.get('nextPageToken')
     # print('Files: ', items)
-    return items
+    return (items, nextPageToken)
 
+
+def driveListFilesQuery(service, parentID, customQuery=None):
+    (items, nextPageToken) = driveListFilesQueryWithNextToken(service, parentID, customQuery)
+    return items
+    
 
 def driveListFilesByName(service, parentID, searchName=None):
     if searchName:
@@ -86,6 +91,24 @@ def readFromSheet(service, sheetID, cellRange):
     # print(result)
     values = result.get('values', [])
     return values
+
+
+def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None, npt=None):
+    constraints = []
+    if minTime:
+        constraints.append(" modifiedTime > '" + minTime + "' ")
+    if maxTime:
+        constraints.append(" modifiedTime < '" + maxTime + "' ")
+    if prefix:
+        constraints.append(" name contains '" + prefix + "' ")
+    customQuery = ' and '.join(constraints)
+    # logging.warn('Query %s', customQuery)
+    if npt:
+        if npt == 'init': # 'init' is special value to indicate desire to page but with exiting token
+            npt = None
+        return driveListFilesQueryWithNextToken(service, parentID, customQuery, npt)
+    else:
+        return driveListFilesQuery(service, parentID, customQuery)
 
 
 def getDirForClassCamera(service, classLocations, imgClass, cameraID):
