@@ -77,7 +77,7 @@ def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageTo
 def driveListFilesQuery(service, parentID, customQuery=None):
     (items, nextPageToken) = driveListFilesQueryWithNextToken(service, parentID, customQuery)
     return items
-    
+
 
 def driveListFilesByName(service, parentID, searchName=None):
     if searchName:
