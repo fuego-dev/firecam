@@ -217,7 +217,7 @@ def writeTFRecords(inputDir, outputDir, trainPercentage):
         trainPercentage (int): Percentage of data to use for training vs. validation
     """
     image_filenames, class_names = _get_filenames_and_classes(inputDir)
-    logging.warn('Processing %d files in %d classes', len(image_filenames), len(class_names))
+    logging.warning('Processing %d files in %d classes', len(image_filenames), len(class_names))
     class_names_to_ids = dict(zip(class_names, range(len(class_names))))
 
     # Divide into train and test:
@@ -227,7 +227,7 @@ def writeTFRecords(inputDir, outputDir, trainPercentage):
     numTrainingImages = int(trainPercentage * len(image_filenames) / 100)
     training_filenames = image_filenames[:numTrainingImages]
     validation_filenames = image_filenames[numTrainingImages:]
-    logging.warn('Splitting into %d for training and %d for validation', len(training_filenames), len(validation_filenames))
+    logging.warning('Splitting into %d for training and %d for validation', len(training_filenames), len(validation_filenames))
 
     # First, convert the training and validation sets.
     _convert_dataset('train', training_filenames, class_names_to_ids, outputDir)

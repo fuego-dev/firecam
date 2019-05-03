@@ -37,7 +37,7 @@ import img_archive
 
 def getCameraDir(service, cameraCache, fileName):
     parsed = img_archive.parseFilename(fileName)
-    # logging.warn('parsed: %s', parsed)
+    # logging.warning('parsed: %s', parsed)
     cameraID = parsed['cameraID']
     dirID = cameraCache.get(cameraID)
     if not dirID:
@@ -50,7 +50,7 @@ def checkCoords(coords, cropInfo):
     if (coords[0] > cropInfo[2]) or (coords[2] < cropInfo[0]) or (coords[1] > cropInfo[3]) or (coords[3] < cropInfo[1]):
         return False
     else:
-        logging.warn('Skipping intersection: %s, %s', coords, cropInfo)
+        logging.warning('Skipping intersection: %s, %s', coords, cropInfo)
         return True
 
 
@@ -77,9 +77,9 @@ def main():
             if rowIndex < startRow:
                 continue
             if rowIndex > endRow:
-                logging.warn('Reached end row: %d, %d', rowIndex, endRow)
+                logging.warning('Reached end row: %d, %d', rowIndex, endRow)
                 exit(0)
-            logging.warn('row %d: %s', rowIndex, csvRow[:2])
+            logging.warning('row %d: %s', rowIndex, csvRow[:2])
             [cameraName, cropName] = csvRow[:2]
             if not cameraName:
                 continue
@@ -88,13 +88,13 @@ def main():
             localFilePath = os.path.join(args.outputDir, fileName)
             if not os.path.isfile(localFilePath):
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
-            logging.warn('local %s', fileName)
+            logging.warning('local %s', fileName)
             cropInfo = re.findall('_Crop_(\d+)x(\d+)x(\d+)x(\d+)', cropName)
             if len(cropInfo) != 1:
                 logging.error('Failed to parse crop info %s, %s', cropName, cropInfo)
                 exit(1)
             cropInfo = list(map(lambda x: int(x), cropInfo[0]))
-            logging.warn('Dims: %s', cropInfo)
+            logging.warning('Dims: %s', cropInfo)
             imgOrig = Image.open(localFilePath)
             rect_to_squares.cutBoxesFixed(imgOrig, args.outputDir, fileName, lambda x: checkCoords(x, cropInfo))
 

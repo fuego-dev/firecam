@@ -82,7 +82,7 @@ def getNextImage(dbManager, cameras, cameraID=None):
         return getNextImage(dbManager, cameras)
     md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
     if ('md5' in camera) and (camera['md5'] == md5) and not cameraID:
-        logging.warn('Camera %s image unchanged', camera['name'])
+        logging.warning('Camera %s image unchanged', camera['name'])
         # skip to next camera
         return getNextImage(dbManager, cameras)
     camera['md5'] = md5
@@ -520,7 +520,7 @@ def updateTimeTracker(timeTracker, processingTime):
         timeTracker['timePerSample'] = timeTracker['totalTime'] / timeTracker['numSamples']
         timeTracker['totalTime'] = 0
         timeTracker['numSamples'] = 0
-        logging.warn('New timePerSample %.2f', timeTracker['timePerSample'])
+        logging.warning('New timePerSample %.2f', timeTracker['timePerSample'])
 
 
 def initializeTimeTracker():
@@ -579,7 +579,7 @@ def main():
             timeStart = time.time()
             deferredImageInfo = getDeferrredImgToProcess(deferredImages, processingTimeTracker, minusMinutes, timeStart)
             if deferredImageInfo:
-                # logging.warn('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
+                # logging.warning('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
                 (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
             elif args.imgDirectory:
                 (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
@@ -592,7 +592,7 @@ def main():
                 matches = list(filter(lambda x: x['cameraID'] == cameraID, deferredImages))
                 if len(matches) > 0:
                     assert len(matches) == 1
-                    logging.warn('Camera already in list waiting processing %s, %s', timeStart, matches[0])
+                    logging.warning('Camera already in list waiting processing %s, %s', timeStart, matches[0])
                     time.sleep(2) # take a nap to let things catch up
                     continue
                 deferredImages.append({
@@ -602,12 +602,12 @@ def main():
                     'md5': md5,
                     'oldWait': 0
                 })
-                logging.warn('Defer camera %s.  Len %d', cameraID, len(deferredImages))
+                logging.warning('Defer camera %s.  Len %d', cameraID, len(deferredImages))
                 continue
             if deferredImageInfo:
                 if md5 == deferredImageInfo['md5']:
                     timeDiff = timestamp - deferredImageInfo['timestamp']
-                    logging.warn('Camera %s unchanged (oldWait=%d, diff=%d)', cameraID, deferredImageInfo['oldWait'], timeDiff)
+                    logging.warning('Camera %s unchanged (oldWait=%d, diff=%d)', cameraID, deferredImageInfo['oldWait'], timeDiff)
                     if (timeDiff + deferredImageInfo['oldWait']) < min(2 * minusSeconds, 5 * 60):
                         # some cameras may not referesh fast enough so give another chance up to 2x minusMinutes or 5 mins
                         # Putting it back at the end of the queue with updated timestamp
@@ -622,7 +622,7 @@ def main():
                     continue # skip to next camera
                 imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
                 classifyImgPath = imgDiffPath
-                # logging.warn('Diffed image %s', classifyImgPath)
+                # logging.warning('Diffed image %s', classifyImgPath)
 
             segments = segmentAndClassify(classifyImgPath, tfSession, graph, labels)
             timeClassify = time.time()

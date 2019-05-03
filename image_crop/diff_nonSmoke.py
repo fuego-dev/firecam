@@ -72,34 +72,34 @@ def main():
 
         if (fileName[:3] == 'v2_') or (fileName[:3] == 'v3_'):
             continue # skip replicated files
-        logging.warn('Processing row %d, file: %s', rowIndex, fileName)
+        logging.warning('Processing row %d, file: %s', rowIndex, fileName)
         parsedName = img_archive.parseFilename(fileName)
 
         if (not parsedName) or parsedName['diffMinutes'] or ('minX' not in parsedName):
-            logging.warn('Skipping file with unexpected parsed data: %s, %s', fileName, str(parsedName))
+            logging.warning('Skipping file with unexpected parsed data: %s, %s', fileName, str(parsedName))
             skippedBadParse.append((rowIndex, fileName, parsedName))
             continue # skip files without crop info or with diff
         matchingCams = list(filter(lambda x: parsedName['cameraID'] == x['id'], camArchives))
         if len(matchingCams) != 1:
-            logging.warn('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
+            logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
             skippedArchive.append((rowIndex, fileName, matchingCams))
             continue
         archiveDirs = matchingCams[0]['dirs']
-        logging.warn('Found %s directories', archiveDirs)
+        logging.warning('Found %s directories', archiveDirs)
         earlierImgPath = None
         dt = datetime.datetime.fromtimestamp(parsedName['unixTime'])
         dt -= timeGapDelta
         for dirName in archiveDirs:
-            logging.warn('Searching for files in dir %s', dirName)
+            logging.warning('Searching for files in dir %s', dirName)
             imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, parsedName['cameraID'], dirName, dt, dt, 1)
             if imgPaths:
                 earlierImgPath = imgPaths[0]
                 break # done
         if not earlierImgPath:
-            logging.warn('Skipping image without prior image: %s, %s', str(dt), fileName)
+            logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
             skippedArchive.append((rowIndex, fileName, dt))
             continue
-        logging.warn('Subtracting old image %s', earlierImgPath)
+        logging.warning('Subtracting old image %s', earlierImgPath)
         earlierImg = Image.open(earlierImgPath)
         print('CR', (parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']))
         croppedEarlyImg = earlierImg.crop((parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']))
@@ -108,10 +108,10 @@ def main():
         diffImg = img_archive.diffImages(imgOrig, croppedEarlyImg)
         parsedName['diffMinutes'] = minusMinutes
         diffImgPath = os.path.join(args.outputDir, img_archive.repackFileName(parsedName))
-        logging.warn('Saving new image %s', diffImgPath)
+        logging.warning('Saving new image %s', diffImgPath)
         diffImg.save(diffImgPath, format='JPEG')
-    logging.warn('Skipped bad parse %d, %s', len(skippedBadParse), str(skippedBadParse))
-    logging.warn('Skipped images without archives %d, %s', len(skippedArchive), str(skippedArchive))
+    logging.warning('Skipped bad parse %d, %s', len(skippedBadParse), str(skippedBadParse))
+    logging.warning('Skipped images without archives %d, %s', len(skippedArchive), str(skippedArchive))
 
 if __name__=="__main__":
     main()

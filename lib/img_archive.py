@@ -369,7 +369,7 @@ def getHpwrenCameraArchives(service, settings):
                     camData['dirs'].append(dirName)
         # print('Cam', camData)
         camArchives.append(camData)
-    logging.warn('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
+    logging.warning('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
     return camArchives
 
 

@@ -93,10 +93,10 @@ def main():
             firstLast = ''
             if len(items) > 0:
                 firstLast = str(items[0]) + ' to ' + str(items[-1])
-            logging.warn('Found %d files: %s', len(items), firstLast)
+            logging.warning('Found %d files: %s', len(items), firstLast)
 
             if operation == 'list':
-                logging.warn('All files: %s', items)
+                logging.warning('All files: %s', items)
             for item in items:
                 if operation == 'delete':
                     batch.add(googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True))
@@ -105,10 +105,10 @@ def main():
             if batch:
                 batch.execute()
             processedFiles += len(items)
-            logging.warn('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, nextPageToken)
+            logging.warning('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, nextPageToken)
             if (processedFiles >= maxFiles) or not nextPageToken:
                 break # exit if we processed enough files or no files left
-        logging.warn('Done')
+        logging.warning('Done')
 
 if __name__=="__main__":
     main()

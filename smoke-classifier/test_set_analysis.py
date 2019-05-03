@@ -139,10 +139,10 @@ def main():
 
     smokeDir = os.path.join(args.directory, 'test_set_smoke')
     smoke_image_list = listJpegs(smokeDir)
-    logging.warn('Found %d images of smoke', len(smoke_image_list))
+    logging.warning('Found %d images of smoke', len(smoke_image_list))
     nonSmokeDir = os.path.join(args.directory, 'test_set_other')
     other_image_list = listJpegs(nonSmokeDir)
-    logging.warn('Found %d images of nonSmoke', len(other_image_list))
+    logging.warning('Found %d images of nonSmoke', len(other_image_list))
 
     smokeFile = os.path.join(args.directory, 'test_smoke.txt')
     np.savetxt(smokeFile, smoke_image_list, fmt = "%s")
@@ -154,31 +154,31 @@ def main():
     crop_name += cr
     score_name += s
     class_name += cl
-    logging.warn('Done with smoke images')
+    logging.warning('Done with smoke images')
     truePositive = numPositive
     falseNegative = len(smoke_image_list) - numPositive
-    logging.warn('True Positive: %d', truePositive)
-    logging.warn('False Negative: %d', falseNegative)
+    logging.warning('True Positive: %d', truePositive)
+    logging.warning('False Negative: %d', falseNegative)
 
     (i,cr,s,cl, numPositive) = classifyImages(graph, labels, other_image_list, 'other', args.outputFile)
     image_name += i
     crop_name += cr
     score_name += s
     class_name += cl
-    logging.warn('Done with nonSmoke images')
+    logging.warning('Done with nonSmoke images')
     falsePositive = numPositive
     trueNegative = len(other_image_list) - numPositive
-    logging.warn('False Positive: %d', falsePositive)
-    logging.warn('True Negative: %d', trueNegative)
+    logging.warning('False Positive: %d', falsePositive)
+    logging.warning('True Negative: %d', trueNegative)
 
     accuracy = (truePositive + trueNegative)/(truePositive + trueNegative + falsePositive + falseNegative)
-    logging.warn('Accuracy: %f', accuracy)
+    logging.warning('Accuracy: %f', accuracy)
     precision = truePositive/(truePositive + falsePositive)
-    logging.warn('Precision: %f', precision)
+    logging.warning('Precision: %f', precision)
     recall = truePositive/(truePositive + falseNegative)
-    logging.warn('Recall: %f', recall)
+    logging.warning('Recall: %f', recall)
     f1 = 2 * precision*recall/(precision + recall)
-    logging.warn('F1: %f', f1)
+    logging.warning('F1: %f', f1)
 
     test_data = [image_name, crop_name, score_name, class_name]
     np.savetxt(args.outputFile, np.transpose(test_data), fmt = "%s")

@@ -102,7 +102,7 @@ def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None, npt=
     if prefix:
         constraints.append(" name contains '" + prefix + "' ")
     customQuery = ' and '.join(constraints)
-    # logging.warn('Query %s', customQuery)
+    # logging.warning('Query %s', customQuery)
     if npt:
         if npt == 'init': # 'init' is special value to indicate desire to page but with exiting token
             npt = None
@@ -165,7 +165,7 @@ def uploadFile(service, dirID, localFilePath):
                                             fields='id').execute()
             return file
         except Exception as e:
-            logging.warn('Error uploading image %s. %d retries left. %s', localFilePath, retriesLeft, str(e))
+            logging.warning('Error uploading image %s. %d retries left. %s', localFilePath, retriesLeft, str(e))
             if retriesLeft > 0:
                 time.sleep(5) # wait 5 seconds before retrying
     logging.error('Too many upload failures')
