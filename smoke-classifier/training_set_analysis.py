@@ -29,9 +29,11 @@ This code scores the already cropped images in our data set and saves those scor
 
 import os
 import sys
+fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
 import settings
-settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+settings.fuegoRoot = fuegoRoot
 import collect_args
 import rect_to_squares
 import goog_helper

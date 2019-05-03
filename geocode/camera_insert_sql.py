@@ -20,9 +20,11 @@ Take the output of hpwren_kml_parse.py and write the data to 'cameras' table in 
 
 import os
 import sys
+fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
 import settings
-settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+settings.fuegoRoot = fuegoRoot
 import db_manager
 
 import datetime

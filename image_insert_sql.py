@@ -19,10 +19,12 @@ Takes csv export of Fuego images table and push it to sqlite DB
 """
 
 import sys
-import settings
 import os
-settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
+import settings
+settings.fuegoRoot = fuegoRoot
 import db_manager
 import collect_args
 

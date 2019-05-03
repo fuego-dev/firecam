@@ -22,9 +22,11 @@ the augmented data.
 
 import os
 import sys
+fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
 import settings
-settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+settings.fuegoRoot = fuegoRoot
 import collect_args
 import goog_helper
 

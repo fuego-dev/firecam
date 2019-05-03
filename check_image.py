@@ -23,10 +23,12 @@ from __future__ import division
 from __future__ import print_function
 
 import sys
-import settings
 import os
-settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
+import settings
+settings.fuegoRoot = fuegoRoot
 import collect_args
 import rect_to_squares
 import tf_helper
