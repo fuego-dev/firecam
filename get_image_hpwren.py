@@ -56,7 +56,8 @@ def main():
     assert startTimeDT.month == endTimeDT.month
     assert startTimeDT.day == endTimeDT.day
     assert endTimeDT >= startTimeDT
-
+    #if AJAX == True:
+    '''
     cookieJar = img_archive.loginAjax()
     if args.cameraDirInput:
         cameraDir = img_archive.chooseCamera(cookieJar, args.cameraDirInput)
@@ -71,13 +72,14 @@ def main():
             exit(1)
         archiveDirs = matchingCams[0]['dirs']
         logging.warn('Found %s directories', archiveDirs)
-    # downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+    
     for dirName in archiveDirs:
         logging.warn('Searching for files in dir %s', dirName)
         found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dirName, startTimeDT, endTimeDT, gapMinutes)
         if found:
             return # done
-
+    '''
+    img_archive.downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
 
 if __name__=="__main__":
     main()
