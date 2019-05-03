@@ -231,7 +231,7 @@ def listAjax(cookieJar, dirsOrFiles, subPath):
     try:
         respJson = resp.json()
     except Exception as e:
-        logging.error('Error listAjax %s', subPath)
+        logging.error('Error listAjax %s: %s', subPath, str(e))
         return None
 
     resp.close()
