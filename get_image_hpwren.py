@@ -71,10 +71,10 @@ def main():
             logging.error('Expected 1, but found %d matching cameras.', len(matchingCams))
             exit(1)
         archiveDirs = matchingCams[0]['dirs']
-        logging.warn('Found %s directories', archiveDirs)
+        logging.warning('Found %s directories', archiveDirs)
     
     for dirName in archiveDirs:
-        logging.warn('Searching for files in dir %s', dirName)
+        logging.warning('Searching for files in dir %s', dirName)
         found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dirName, startTimeDT, endTimeDT, gapMinutes)
         if found:
             return # done

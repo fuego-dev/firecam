@@ -152,9 +152,9 @@ def fetchImgOrDir(url):
 
 
 def listTimesinQ(UrlPartsQ):
-    # logging.warn('Dir URLparts %s', UrlPartsQ)
+    # logging.warning('Dir URLparts %s', UrlPartsQ)
     url = '/'.join(UrlPartsQ)
-    logging.warn('Dir URL %s', url)
+    logging.warning('Dir URL %s', url)
     (imgOrDir, resp) = fetchImgOrDir(url)
     if not imgOrDir:
         return None
@@ -166,17 +166,17 @@ def listTimesinQ(UrlPartsQ):
 
 def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     imgPath = getImgPath(outputDir, cameraID, closestTime)
-    logging.warn('Local file %s', imgPath)
+    logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
-        logging.warn('File %s already downloaded', imgPath)
+        logging.warning('File %s already downloaded', imgPath)
         return # file already downloaded
 
     closestFile = str(closestTime) + '.jpg'
     urlParts = urlPartsQ[:] # copy URL parts array
     urlParts.append(closestFile)
-    # logging.warn('File URLparts %s', urlParts)
+    # logging.warning('File URLparts %s', urlParts)
     url = '/'.join(urlParts)
-    logging.warn('File URL %s', url)
+    logging.warning('File URL %s', url)
 
     urllib.request.urlretrieve(url, imgPath)
 
@@ -336,7 +336,7 @@ def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTime
                 logging.error('Unable to find files in path %s', pathToQ)
                 return imgPaths
             camInfo['lastQNum'] = qNum
-            logging.warn('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
+            logging.warning('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
             if len(listOfFiles['files']) == 0:
                 logging.error('Zero files in path %s', pathToQ)
                 return imgPaths
@@ -345,9 +345,9 @@ def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTime
         desiredTime = time.mktime(curTimeDT.timetuple())
         closestTime = min(camInfo['dirTimes'], key=lambda x: abs(x-desiredTime))
         imgPath = getImgPath(outputDir, cameraID, closestTime)
-        logging.warn('Local file %s', imgPath)
+        logging.warning('Local file %s', imgPath)
         if os.path.isfile(imgPath):
-            logging.warn('File %s already downloaded', imgPath)
+            logging.warning('File %s already downloaded', imgPath)
         else:
             downloadFileAjax(cookieJar, pathToQ + '/' + str(closestTime) + '.jpg', imgPath)
         imgPaths.append(imgPath)
