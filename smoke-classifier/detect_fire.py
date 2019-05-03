@@ -23,9 +23,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import rect_to_squares
 import goog_helper
@@ -35,7 +37,6 @@ import email_helper
 import img_archive
 
 import logging
-import os
 import pathlib
 import tempfile
 import shutil
@@ -308,14 +309,14 @@ def drawFireBox(imgPath, fireSegment):
     drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
 
     fontSize=80
-    font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
+    font = ImageFont.truetype(os.path.join(settings.fuegoRoot, 'lib/Roboto-Regular.ttf'), size=fontSize)
     scoreStr = '%.2f' % fireSegment['score']
     textSize = imgDraw.textsize(scoreStr, font=font)
     imgDraw.text((centerX - textSize[0]/2, centerY - textSize[1]), scoreStr, font=font, fill=color)
 
     color = "blue"
     fontSize=70
-    font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
+    font = ImageFont.truetype(os.path.join(settings.fuegoRoot, 'lib/Roboto-Regular.ttf'), size=fontSize)
     scoreStr = '%.2f' % fireSegment['HistMax']
     textSize = imgDraw.textsize(scoreStr, font=font)
     imgDraw.text((centerX - textSize[0]/2, centerY), scoreStr, font=font, fill=color)

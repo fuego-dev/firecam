@@ -5,11 +5,14 @@ Created on Tue Mar 19 11:39:22 2019
 @author: fuego
 """
 
-import numpy as np
-import settings
 import sys
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+import settings
+import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 from img_archive import parseFilename
+
+import numpy as np
 
 #Reads the csv. Creates to lists, a list of rows in the csv and a list of dictionaries based on the camera name.
 def image_library(input_csv):

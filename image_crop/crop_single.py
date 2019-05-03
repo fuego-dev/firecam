@@ -19,9 +19,13 @@ Shrinks the displayed image to fit screen, but the cropped image are still at fu
 
 """
 
-#===============
-#Importing modules
-#===============
+import os
+import sys
+import settings
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+import rect_to_squares
 
 #modules for GUI
 #from tkinter import *
@@ -32,16 +36,9 @@ from tkinter.messagebox import showwarning
 from PIL import Image, ImageTk
 
 #module for Manage files and use system commands
-import os
 import pathlib
 
 import math
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
-import rect_to_squares
 
 #===============
 #variables declaration

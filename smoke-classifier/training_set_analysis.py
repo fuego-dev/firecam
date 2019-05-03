@@ -27,16 +27,18 @@ This code scores the already cropped images in our data set and saves those scor
 
 """
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import rect_to_squares
 import goog_helper
 import tf_helper
 import db_manager
+
 import numpy as np
-import os
 import pathlib
 import tempfile
 from shutil import copyfile

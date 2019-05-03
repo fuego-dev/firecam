@@ -20,7 +20,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+import settings
 import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import rect_to_squares
+import tf_helper
+
 import pathlib
 import subprocess
 import re
@@ -29,12 +36,6 @@ import tensorflow as tf
 import math
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import rect_to_squares
-import tf_helper
 
 
 # alternate version that uses in-memory image segments without persisting to disk

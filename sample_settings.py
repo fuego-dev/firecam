@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-fuegoRoot = 'XXX/fuego'
+fuegoRoot = 'XXX/firecam'
 googleTokenFile = 'XXX/token.json'
 googleCredsFile = 'XXX/credentials.json'
 localCropDir = 'XXX/cropped' #local system directory with cropped images

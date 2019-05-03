@@ -18,20 +18,22 @@ Monitor fire detection process and restart if it dies.
 Also restart if the detection process is not making progress.
 
 """
-import time, datetime
+
 import os
+import sys
+import settings
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+import goog_helper
+
+import time, datetime
 import psutil
 import subprocess
 import psutil
 import tempfile
 import logging
 import pathlib
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
-import goog_helper
 
 def findProcess(name):
     for proc in psutil.process_iter():

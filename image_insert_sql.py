@@ -18,17 +18,19 @@ Takes csv export of Fuego images table and push it to sqlite DB
 
 """
 
-import time
 import sys
-import csv
-import dateutil.parser
-
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import db_manager
 import collect_args
 
-manager = db_manager.DbManager(settings.fuegoRoot + '/resources/local.db')
+import time
+import csv
+import dateutil.parser
+
+manager = db_manager.DbManager(os.path.join(settings.fuegoRoot + 'resources/local.db'))
 
 def insert_entire_images(csvFile):
     csvreader = csv.reader(csvFile)

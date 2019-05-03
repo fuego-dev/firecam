@@ -20,19 +20,20 @@ used for non-smoke training set.
 
 """
 
-import re
-import logging
 import os
-import csv
-from PIL import Image
-
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 import rect_to_squares
 import img_archive
+
+import re
+import logging
+import csv
+from PIL import Image
 
 
 def getCameraDir(service, cameraCache, fileName):

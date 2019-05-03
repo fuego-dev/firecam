@@ -20,9 +20,11 @@ With the fire and camera data in the DB, matches can be found with following que
 select fires.name, (fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude) as distance, fires.Started, fires.Updated, fires.Url, fires.Location, fires.County, fires.Latitude, fires.Longitude, cameras.Name, cameras.Latitude, cameras.Longitude from fires cross join cameras where fires.started is not null and distance < 0.02 order by distance;
 """
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 import db_manager

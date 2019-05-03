@@ -21,18 +21,20 @@ downloads the entire image and recrops it by breaking that rectangle into square
 Optionally, for debuggins shows the boxes on screen (TODO: refactor display code)
 
 """
-import os
-import csv
-import tkinter as tk
-from PIL import Image, ImageTk
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 import rect_to_squares
 import img_archive
+
+import csv
+import tkinter as tk
+from PIL import Image, ImageTk
 
 # minimum size for squares shown inside bounding box
 MIN_SIZE = 150

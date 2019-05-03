@@ -24,9 +24,13 @@ The displayed image is shrunk to fit screen, but the cropped image are still at 
 
 """
 
-#===============
-#Importing modules
-#===============
+import os
+import sys
+import settings
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+import rect_to_squares
 
 #modules for GUI
 #from tkinter import *
@@ -34,12 +38,6 @@ import tkinter as tk
 
 #modules for image processing
 from PIL import Image, ImageTk
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
-import rect_to_squares
 
 
 def buttonClick(event):

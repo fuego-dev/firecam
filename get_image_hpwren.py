@@ -21,12 +21,13 @@ to the specified time
 
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 import img_archive
 
-import os
 import logging
 import time, datetime, dateutil.parser
 

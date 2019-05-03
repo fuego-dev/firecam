@@ -17,17 +17,19 @@ Fetch images from USGS archives
 
 @author: fuego
 """
+
+import sys
+import settings
 import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+
 import numpy as np
 import time
 from urllib.request import urlretrieve
 import logging
 from multiprocessing import Pool
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
 
 #from multiprocessing import Pool #The current code is kind of slow - perhaps parallelizing the process would help?
 

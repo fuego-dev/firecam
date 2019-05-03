@@ -18,18 +18,18 @@ Take the output of hpwren_kml_parse.py and write the data to 'cameras' table in 
 
 """
 
-import datetime
-import ast
+import os
 import sys
-
 import settings
-print(settings)
-print(settings.fuegoRoot)
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import db_manager
 
+import datetime
+import ast
+
 fileName = '../cameras-hpwren.txt'
-manager = db_manager.DbManager(settings.fuegoRoot + '/resources/local.db')
+manager = db_manager.DbManager(os.path.join(settings.fuegoRoot, 'resources/local.db'))
 
 lineNumber = 1
 skipped=[]

@@ -18,13 +18,14 @@ Moves duplicate files to given directory
 
 """
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 
-import os
 import re
 import shutil
 

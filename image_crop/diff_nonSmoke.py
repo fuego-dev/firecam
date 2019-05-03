@@ -19,9 +19,11 @@ diff images for training diff model
 
 """
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import goog_helper
 import rect_to_squares
@@ -29,7 +31,6 @@ import img_archive
 
 import datetime
 import logging
-import os
 import csv
 import tkinter as tk
 from PIL import Image, ImageTk

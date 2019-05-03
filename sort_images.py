@@ -21,10 +21,20 @@ This script will unzip the images, update the image metadata sheet, and upload t
 
 """
 
+import sys
+import settings
+import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+import goog_helper
+import img_archive
+
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'image_crop'))
+import crop_single
+
 import zipfile
 import tempfile
-import os
-import sys
 import pathlib
 import datetime
 import dateutil.parser
@@ -34,15 +44,6 @@ import logging
 
 from googleapiclient.discovery import build
 from httplib2 import Http
-
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
-import goog_helper
-import img_archive
-
-sys.path.insert(0, settings.fuegoRoot + '/image_crop')
-import crop_single
 
 
 def uploadToDrive(service, imgPath, cameraID, imgClass):

@@ -21,15 +21,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import sys
 import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
+settings.fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
 import collect_args
 import rect_to_squares
 import tf_helper
+
 import numpy as np
 import logging
-import os
 import pathlib
 import tensorflow as tf
 from PIL import Image, ImageFile

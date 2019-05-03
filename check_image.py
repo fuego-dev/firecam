@@ -22,7 +22,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import sys
+import settings
 import os
+settings.fuegoRoot = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(settings.fuegoRoot, 'lib'))
+import collect_args
+import rect_to_squares
+import tf_helper
+
 import pathlib
 import subprocess
 import re
@@ -31,13 +39,6 @@ import tensorflow as tf
 import math
 import tkinter as tk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-
-import sys
-import settings
-sys.path.insert(0, settings.fuegoRoot + '/lib')
-import collect_args
-import rect_to_squares
-import tf_helper
 
 
 # alternate version that uses in-memory image segments without persisting to disk
@@ -175,7 +176,7 @@ def drawBoxesAndScores(imgOrig, segments):
         centerX = (x0 + x1)/2
         centerY = (y0 + y1)/2
         fontSize=60
-        font = ImageFont.truetype(settings.fuegoRoot + '/lib/Roboto-Regular.ttf', size=fontSize)
+        font = ImageFont.truetype(os.path.join(settings.fuegoRoot, 'lib/Roboto-Regular.ttf'), size=fontSize)
         scoreStr = '%.2f' % segmentInfo['score']
         textSize = imgDraw.textsize(scoreStr, font=font)
         centerX -= textSize[0]/2
