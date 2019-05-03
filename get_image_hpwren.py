@@ -56,8 +56,8 @@ def main():
     assert startTimeDT.month == endTimeDT.month
     assert startTimeDT.day == endTimeDT.day
     assert endTimeDT >= startTimeDT
-    #if AJAX == True:
-    '''
+
+    # First try AJAX way
     cookieJar = img_archive.loginAjax()
     if args.cameraDirInput:
         cameraDir = img_archive.chooseCamera(cookieJar, args.cameraDirInput)
@@ -78,8 +78,10 @@ def main():
         found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dirName, startTimeDT, endTimeDT, gapMinutes)
         if found:
             return # done
-    '''
+
+    # if AJAX path fails, try HTTP way
     img_archive.downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+
 
 if __name__=="__main__":
     main()

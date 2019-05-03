@@ -227,7 +227,13 @@ def listAjax(cookieJar, dirsOrFiles, subPath):
         return None
     fullPath = '/ROOT/HOME/' + subPath
     resp = requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath})
-    respJson = resp.json()
+    respJson = None
+    try:
+        respJson = resp.json()
+    except Exception as e:
+        logging.error('Error listAjax %s', subPath)
+        return None
+
     resp.close()
     if isinstance(respJson, dict) and ('msg' in respJson):
         logging.error('Got error %s when searching %s in %s', respJson, dirsOrFiles, subPath)
