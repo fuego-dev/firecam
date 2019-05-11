@@ -143,7 +143,7 @@ def fetchImgOrDir(url):
     try:
         resp = urllib.request.urlopen(url)
     except Exception as e:
-        logging.error('Error fetching image from %s %s', url, str(e))
+        logging.error('Result of fetch from %s: %s', url, str(e))
         return (None, None)
     if resp.getheader('content-type') == 'image/jpeg':
         return ('img', resp)
@@ -169,7 +169,7 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
-        return # file already downloaded
+        return True
 
     closestFile = str(closestTime) + '.jpg'
     urlParts = urlPartsQ[:] # copy URL parts array
@@ -178,39 +178,66 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     url = '/'.join(urlParts)
     logging.warning('File URL %s', url)
 
-    urllib.request.urlretrieve(url, imgPath)
+    # urllib.request.urlretrieve(url, imgPath)
+    resp = requests.get(url, stream=True)
+    with open(imgPath, 'wb') as f:
+        for chunk in resp.iter_content(chunk_size=8192):
+            if chunk: # filter out keep-alive new chunks
+                f.write(chunk)
+    resp.close()
+    return True
 
 
-def downloadFilesHttp(outputDir, cameraID, startTimeDT, endTimeDT, gapMinutes):
-    hpwrenBase = 'http://c1.hpwren.ucsd.edu/archive'
-    dateUrlParts = [hpwrenBase, cameraID, 'large']
-    if startTimeDT.year != 2019:
-        dateUrlParts.append(str(startTimeDT.year))
+def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, gapMinutes):
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
-    dateUrlParts.append(dateDirName)
+    urlParts = urlParts[:] # copy URL
+    urlParts.append(dateDirName)
 
     timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
     dirTimes = None
     lastQNum = 0
     curTimeDT = startTimeDT
+    success = False
     while curTimeDT <= endTimeDT:
         qNum = 1 + int(curTimeDT.hour/3)
-        urlPartsQ = dateUrlParts[:] # copy URL
+        urlPartsQ = urlParts[:] # copy URL
         urlPartsQ.append('Q' + str(qNum))
         if qNum != lastQNum:
             # List times of files in Q dir and cache
             dirTimes = listTimesinQ(urlPartsQ)
             if not dirTimes:
-                logging.error('Bad URL %s', urlPartsQ)
-                exit(1)
+                # logging.error('Bad URL %s', urlPartsQ)
+                return False
             lastQNum = qNum
 
         desiredTime = time.mktime(curTimeDT.timetuple())
         closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-        downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
+        downloaded = downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
+        if downloaded:
+            logging.warning('Successful download for time %s', str(datetime.datetime.fromtimestamp(closestTime)))
+        success = success or downloaded
 
         curTimeDT += timeGapDelta
+    return success
 
+
+def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapMinutes):
+    regexDir = '(c[12])/([^/]+)/large/?'
+    matches = re.findall(regexDir, dirName)
+    if len(matches) != 1:
+        logging.error('Could not parse dir: %s', dirName)
+        return None
+    match = matches[0]
+    (server, subdir) = match
+    hpwrenBase = 'http://{server}.hpwren.ucsd.edu/archive'.format(server=server)
+    dateUrlParts = [hpwrenBase, subdir, 'large']
+    # first try without year directory
+    success = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes)
+    if success:
+        return True
+    # retry with year directory
+    dateUrlParts.append(str(startTimeDT.year))
+    return downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes)
 
 """
 The following is the code for AJAX FileRun server for HPWREN
@@ -359,17 +386,13 @@ def getHpwrenCameraArchives(service, settings):
     data = goog_helper.readFromSheet(service, settings.camerasSheet, settings.camerasSheetRange)
     camArchives = []
     for camInfo in data:
-        if (len(camInfo) < 4) or (camInfo[2] != 'HPWREN'):
+        # logging.warning('info %d, %s', len(camInfo), camInfo)
+        if len(camInfo) != 3:
             continue
-        camData = {'id': camInfo[1], 'dirs': []}
-        for dirData in camInfo[3:]:
-            dirArray = list(map(lambda x: x.strip(), dirData.split('+')))
-            for dirName in dirArray:
-                if dirName and (dirName not in camData['dirs']):
-                    camData['dirs'].append(dirName)
-        # print('Cam', camData)
+        camData = {'id': camInfo[1], 'dir': camInfo[2], 'name': camInfo[0]}
+        # logging.warning('data %s', camData)
         camArchives.append(camData)
-    logging.warning('Found total %d cams.  %d with usable archives', len(data), len(camArchives))
+    logging.warning('Discovered total %d camera archive dirs', len(camArchives))
     return camArchives
 
 
