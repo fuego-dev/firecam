@@ -42,7 +42,7 @@ cropImagesSheet = '1oI2a7n0uY7iMK2YB8aLKiDDjSCRj-s2lpxUnbkevYZY' # Cropped Image
 cropImagesSheetAppendRange = 'A1' # append below this cell
 cropEveryNMinutes = 1 # crop smoke images that are at least 1 minutes apart
 camerasSheet = '1wG5j2p5LfgZc7dluKC6g8eGSg_B1KLZ9K147X5WYYhQ' # Camera Names and Codenames
-camerasSheetRange = 'HPWREN Camera Dirs!A1:C1000'
+camerasSheetRange = 'Code Name Archive Mapping!A1:G1000''
 
 fuegoEmail = 'fuego.response@gmail.com'
 fuegoPasswd = 'do not put real password in files in open source git repo'
