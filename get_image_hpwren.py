@@ -40,7 +40,6 @@ def main():
         ["s", "startTime", "starting date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
     ]
     optArgs = [
-        ["d", "cameraDirInput", "Human readable name of camera to use in seraching directories"],
         ["e", "endTime", "ending date and time in ISO format (e.g., 2019-02-22T14:34:56 in Pacific time zone)"],
         ["g", "gapMinutes", "override default of 1 minute gap between images to download"],
         ["o", "outputDir", "directory to save the output image"],
@@ -60,30 +59,19 @@ def main():
     assert startTimeDT.day == endTimeDT.day
     assert endTimeDT >= startTimeDT
 
-    # First try AJAX way
-    cookieJar = img_archive.loginAjax()
-    if args.cameraDirInput:
-        cameraDir = img_archive.chooseCamera(cookieJar, args.cameraDirInput)
-        if not cameraDir:
-            exit(1)
-        archiveDirs = [cameraDir]
-    else:
-        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
-        matchingCams = list(filter(lambda x: args.cameraID == x['id'], camArchives))
-        if len(matchingCams) != 1:
-            logging.error('Expected 1, but found %d matching cameras.', len(matchingCams))
-            exit(1)
-        archiveDirs = matchingCams[0]['dirs']
-        logging.warning('Found %s directories', archiveDirs)
+    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+    matchingCams = list(filter(lambda x: args.cameraID == x['id'], camArchives))
+    logging.warning('Found %d match(es): %s', len(matchingCams), matchingCams)
+    if len(matchingCams) == 0:
+        logging.error('No matches for camera ID %s', args.cameraID)
+        exit(1)
     
-    for dirName in archiveDirs:
-        logging.warning('Searching for files in dir %s', dirName)
-        found = img_archive.getFilesAjax(cookieJar, outputDir, args.cameraID, dirName, startTimeDT, endTimeDT, gapMinutes)
+    for matchingCam in matchingCams:
+        logging.warning('Searching for files in dir %s', matchingCam['dir'])
+        found = img_archive.downloadFilesHttp(outputDir, args.cameraID, matchingCam['dir'], startTimeDT, endTimeDT, gapMinutes)
         if found:
             return # done
 
-    # if AJAX path fails, try HTTP way
-    img_archive.downloadFilesHttp(outputDir, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
 
 
 if __name__=="__main__":
