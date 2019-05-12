@@ -568,7 +568,7 @@ def main():
         logging.warning('using postgres %s', settings.psqlHost)
         dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-    cameras = dbManager.get_sources()
+    cameras = dbManager.get_sources(activeOnly=True)
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()

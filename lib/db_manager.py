@@ -261,8 +261,12 @@ class DbManager(object):
         cursor.close()
 
 
-    def get_sources(self):
-        return self.query("SELECT * FROM %s where dormant != 1 order by randomID, name" % self.sources_table_name)
+    def get_sources(self, activeOnly=True):
+        if activeOnly:
+            sqlStr = "SELECT * FROM %s where dormant != 1 order by randomID, name" % self.sources_table_name
+        else:
+            sqlStr = "SELECT * FROM %s order by randomID, name" % self.sources_table_name
+        return self.query(sqlStr)
 
 
     def add_url(self, url, urlname):
