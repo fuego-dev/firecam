@@ -194,6 +194,21 @@ class DbManager(object):
         pass
 
 
+    def execute(self, sqlCmd, commit=True):
+        """Execute given SQL command on DB
+
+        Args:
+            sqlCmd (str): SQL update/insert/delete statement
+            commit (bool): [default true] - If true, transaction is committed
+
+        """
+        cursor = self._getCursor()
+        cursor.execute(sqlCmd)
+        if commit:
+            self.conn.commit()
+        cursor.close()
+
+
     def add_data(self, tableName, keyValues, commit=True):
         """Insert given data into given table
 
@@ -208,11 +223,7 @@ class DbManager(object):
             fields = ", ".join(key for (key, _) in keyValues.items()),
             values = ", ".join(repr(val) for (_, val) in keyValues.items())
         )
-        cursor = self._getCursor()
-        cursor.execute(db_command)
-        if commit:
-            self.conn.commit()
-        cursor.close()
+        self.execute(db_command, commit=commit)
 
 
     def commit(self):

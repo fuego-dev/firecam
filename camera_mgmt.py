@@ -33,11 +33,15 @@ import logging
 import random
 import datetime
 
-def execCameraSql(dbManager, sqlTemplate, cameraID):
+def execCameraSql(dbManager, sqlTemplate, cameraID, isQuery):
     sqlStr = sqlTemplate % cameraID
     logging.warning('SQL str: %s', sqlStr)
-    dbResult = dbManager.query(sqlStr)
-    logging.warning('dbr %d: %s', len(dbResult), dbResult)
+    if isQuery:
+        dbResult = dbManager.query(sqlStr)
+        logging.warning('dbr %d: %s', len(dbResult), dbResult)
+    else:
+        dbManager.execute(sqlStr)
+        dbResult = None
     return dbResult
 
 
@@ -85,7 +89,7 @@ def main():
             'url': args.url,
             'dormant': 0,
             'randomID': random.random(),
-            'last_date': datetime.datetime.utcnow().isoformat()
+            'last_date': datetime.datetime.now().isoformat()
         }
         dbManager.add_data('sources', dbRow)
         logging.warning('Successfully added camera %s', args.cameraID)
@@ -99,7 +103,7 @@ def main():
 
     if args.mode == 'del':
         sqlTemplate = """DELETE FROM sources WHERE name = '%s' """
-        execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=False)
         return
 
     if args.mode == 'enable':
@@ -107,7 +111,7 @@ def main():
             logging.error('Camera already enabled: dormant=%d', camInfo['dormant'])
             exit(1)
         sqlTemplate = """UPDATE sources SET dormant=0 WHERE name = '%s' """
-        execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=False)
         return
 
     if args.mode == 'disable':
@@ -115,18 +119,18 @@ def main():
             logging.error('Camera already disabled: dormant=%d', camInfo['dormant'])
             exit(1)
         sqlTemplate = """UPDATE sources SET dormant=1 WHERE name = '%s' """
-        execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=False)
         return
 
     if args.mode == 'stats':
         sqlTemplate = """SELECT max(timestamp) as maxtime FROM scores WHERE CameraName = '%s' """
-        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=True)
         logging.warning('Most recent image scanned: %s', getTime(dbResult))
         sqlTemplate = """SELECT max(timestamp) as maxtime FROM detections WHERE CameraName = '%s' """
-        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=True)
         logging.warning('Most recent smoke detection: %s', getTime(dbResult))
         sqlTemplate = """SELECT max(timestamp) as maxtime FROM alerts WHERE CameraName = '%s' """
-        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID)
+        dbResult = execCameraSql(dbManager, sqlTemplate, args.cameraID, isQuery=True)
         logging.warning('Most recent smoke alert: %s', getTime(dbResult))
         return
 
