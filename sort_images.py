@@ -134,7 +134,10 @@ def unzipFile(zipFile):
 
 def processFolder(imgDirectory, camera, fire, googleServices):
     imageFileNames = os.listdir(imgDirectory)
-    # print('images', imageFileNames)
+    # print('images', len(imageFileNames), imageFileNames)
+    # discard files that don't match the expected file name pattern (e.g. .DS_Store)
+    imageFileNames = list(filter(getTimeFromName, imageFileNames))
+    # print('images2', len(imageFileNames), imageFileNames)
     # we want to process in time order, so first create tuples with associated time
     tuples=list(map(lambda x: (x,getTimeFromName(x)['unixTime']), imageFileNames))
     lastSmokeTimestamp=None
