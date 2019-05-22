@@ -115,7 +115,9 @@ def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     parent = classLocations[imgClass]
     dirs = driveListFilesByName(service, parent, cameraID)
     if len(dirs) != 1:
-        print('Expected 1 directory with name', cameraID, 'but found', len(dirs), dirs)
+        logging.error('Expected 1 directory with name %s, but found %d: %s', cameraID, len(dirs), dirs)
+        logging.error('Searching in dir: %s', parent)
+        logging.error('ImgClass %s, locations: %s', imgClass, classLocations)
         raise Exception('getDirForClassCam: Directory not found')
     dirID = dirs[0]['id']
     dirName = dirs[0]['name']
