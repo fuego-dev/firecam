@@ -51,7 +51,7 @@ def findProcess(name):
     return None
 
 
-def startProcess(detectFire, heartbeatFileName, collectPositves):
+def startProcess(detectFire, heartbeatFileName, collectPositves, restrictType):
     pArgs = [
         sys.executable,
         os.path.join(settings.fuegoRoot, "smoke-classifier", detectFire),
@@ -60,6 +60,8 @@ def startProcess(detectFire, heartbeatFileName, collectPositves):
     ]
     if collectPositves:
         pArgs += ['--collectPositves', '1']
+    if restrictType:
+        pArgs += ['--restrictType', restrictType]
     proc = subprocess.Popen(pArgs)
     logging.warning('Started PID %d %s', proc.pid, pArgs)
     heartBeat(heartbeatFileName) # reset heartbeat
@@ -86,6 +88,7 @@ def main():
         ["n", "numProcesses", "number of child prcesses to start (default 1)"],
         ["g", "useGpu", "(optional) specify any value to use gpu (default off)"],
         ["c", "collectPositves", "collect positive segments for training data"],
+        ["r", "restrictType", "Only process images from cameras of given type"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     numProcesses = int(args.numProcesses) if args.numProcesses else 1
@@ -98,7 +101,7 @@ def main():
     for i in range(numProcesses):
         heartbeatFile = tempfile.NamedTemporaryFile()
         heartbeatFileName = heartbeatFile.name
-        proc = startProcess(scriptName, heartbeatFileName, args.collectPositves)
+        proc = startProcess(scriptName, heartbeatFileName, args.collectPositves, args.restrictType)
         procInfos.append({
             'proc': proc,
             'heartbeatFile': heartbeatFile,
