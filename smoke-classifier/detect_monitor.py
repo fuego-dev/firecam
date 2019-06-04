@@ -121,7 +121,7 @@ def main():
             if (timestamp - lastTS) > 4*60: # kill if stuck more than 4 minutes
                 logging.warning('Killing %d', proc.pid)
                 proc.kill()
-                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves)
+                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves, args.restrictType)
         time.sleep(30)
 
 
