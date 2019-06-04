@@ -75,7 +75,8 @@ class DbManager(object):
             ('url', 'TEXT'),
             ('last_date', 'TEXT'),
             ('randomID', 'REAL'),
-            ('dormant', 'INT')
+            ('dormant', 'INT'),
+            ('type', 'TEXT')
         ]
 
         counters_schema = [
@@ -272,11 +273,16 @@ class DbManager(object):
         cursor.close()
 
 
-    def get_sources(self, activeOnly=True):
+    def get_sources(self, activeOnly=True, restrictType=None):
+        constraints = []
         if activeOnly:
-            sqlStr = "SELECT * FROM %s where dormant != 1 order by randomID, name" % self.sources_table_name
-        else:
-            sqlStr = "SELECT * FROM %s order by randomID, name" % self.sources_table_name
+            constraints.append('dormant != 1')
+        if restrictType:
+            constraints.append('type = "%s"' % restrictType)
+        sqlStr = "SELECT * FROM %s" % self.sources_table_name
+        if constraints:
+            sqlStr += ' where ' + ' and '.join(constraints)
+        sqlStr += ' order by randomID, name'
         return self.query(sqlStr)
 
 

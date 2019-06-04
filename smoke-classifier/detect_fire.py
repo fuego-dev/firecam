@@ -554,6 +554,7 @@ def main():
         ["d", "imgDirectory", "Name of the directory containing the images"],
         ["t", "time", "Time breakdown for processing images"],
         ["m", "minusMinutes", "(optional) subtract images from given number of minutes ago"],
+        ["r", "restrictType", "Only process images from cameras of given type"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
@@ -568,7 +569,7 @@ def main():
         logging.warning('using postgres %s', settings.psqlHost)
         dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-    cameras = dbManager.get_sources(activeOnly=True)
+    cameras = dbManager.get_sources(activeOnly=True, restrictType=args.restrictType)
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()
