@@ -199,6 +199,7 @@ def imageDisplay(name, outputDir, showSquaresArg=True):
     cadre.bind("<B1-Motion>", holdLeftClick)
     cadre.bind("<ButtonRelease-1>", releaseLeftClick)
     cadre.bind("<Button-2>", middleClick)
+    cadre.bind("<space>", middleClick)
     cadre.bind("<ButtonRelease-3> ", rightClick)
     cadre.focus_set()
     
