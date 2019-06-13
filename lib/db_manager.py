@@ -96,13 +96,19 @@ class DbManager(object):
             ('Started', 'TEXT'),
             ('Updated', 'TEXT'),
             ('Latitude', 'REAL'),
-            ('Longitude', 'REAL')
+            ('Longitude', 'REAL'),
+            ('Month', 'INT'),
+            ('Day', 'INT'),
+            ('Hour', 'INT'),
+            ('Minute', 'INT'),
+            ('Timestamp', 'INT')
         ]
 
         cameras_schema = [
             ('Name', 'TEXT'),
             ('Latitude', 'REAL'),
-            ('Longitude', 'REAL')
+            ('Longitude', 'REAL'),
+            ('cameraIDs', 'TEXT')
         ]
         
         images_schema = [
