@@ -18,6 +18,10 @@ Take the output of fire_coords.py and write the data to 'fires' table in sqlite 
 With the fire and camera data in the DB, matches can be found with following query:
 
 select fires.name, (fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude) as distance, fires.Started, fires.Updated, fires.Url, fires.Location, fires.County, fires.Latitude, fires.Longitude, cameras.Name, cameras.Latitude, cameras.Longitude from fires cross join cameras where fires.started is not null and distance < 0.02 order by distance;
+
+version 2
+HPWREN with IDs:
+select fires.name, round((fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude),4) as distance, fires.Started, cameras.cameraIDs, case when fires.latitude > cameras.latitude then 'north' else 'south' end, round(fires.latitude - cameras.latitude,3), case when fires.longitude > cameras.longitude then 'east' else 'west' end, round(fires.longitude - cameras.longitude, 3) from fires cross join cameras where fires.started is not null and fires.adminunit is not 'MVU' and fires.adminunit is not 'NEU' and cameras.network='HPWREN' and distance < 0.08 order by distance;
 """
 
 import os
