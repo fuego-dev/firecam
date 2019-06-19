@@ -139,11 +139,12 @@ def parseDirHtml(dirHtml):
     return times
 
 
-def fetchImgOrDir(url):
+def fetchImgOrDir(url, verboseLogs):
     try:
         resp = urllib.request.urlopen(url)
     except Exception as e:
-        logging.error('Result of fetch from %s: %s', url, str(e))
+        if verboseLogs:
+            logging.error('Result of fetch from %s: %s', url, str(e))
         return (None, None)
     if resp.getheader('content-type') == 'image/jpeg':
         return ('img', resp)
@@ -151,11 +152,11 @@ def fetchImgOrDir(url):
         return ('dir', resp)
 
 
-def listTimesinQ(UrlPartsQ):
+def listTimesinQ(UrlPartsQ, verboseLogs):
     # logging.warning('Dir URLparts %s', UrlPartsQ)
     url = '/'.join(UrlPartsQ)
-    logging.warning('Dir URL %s', url)
-    (imgOrDir, resp) = fetchImgOrDir(url)
+    # logging.warning('Dir URL %s', url)
+    (imgOrDir, resp) = fetchImgOrDir(url, verboseLogs)
     if not imgOrDir:
         return None
     assert imgOrDir == 'dir'
@@ -188,7 +189,8 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     return True
 
 
-def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, gapMinutes):
+outputDirCheckOnly = '/CHECK:WITHOUT:DOWNLOAD'
+def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs):
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
     urlParts = urlParts[:] # copy URL
     urlParts.append(dateDirName)
@@ -204,24 +206,28 @@ def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, 
         urlPartsQ.append('Q' + str(qNum))
         if qNum != lastQNum:
             # List times of files in Q dir and cache
-            dirTimes = listTimesinQ(urlPartsQ)
+            dirTimes = listTimesinQ(urlPartsQ, verboseLogs)
             if not dirTimes:
-                # logging.error('Bad URL %s', urlPartsQ)
+                if verboseLogs:
+                    logging.error('No images in Q dir %s', '/'.join(urlPartsQ))
                 return False
             lastQNum = qNum
 
-        desiredTime = time.mktime(curTimeDT.timetuple())
-        closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-        downloaded = downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
-        if downloaded:
-            logging.warning('Successful download for time %s', str(datetime.datetime.fromtimestamp(closestTime)))
-        success = success or downloaded
+        if outputDir == outputDirCheckOnly:
+            success = True
+        else:
+            desiredTime = time.mktime(curTimeDT.timetuple())
+            closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
+            downloaded = downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
+            if downloaded and verboseLogs:
+                logging.warning('Successful download for time %s', str(datetime.datetime.fromtimestamp(closestTime)))
+            success = success or downloaded
 
         curTimeDT += timeGapDelta
     return success
 
 
-def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapMinutes):
+def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapMinutes, verboseLogs):
     regexDir = '(c[12])/([^/]+)/large/?'
     matches = re.findall(regexDir, dirName)
     if len(matches) != 1:
@@ -232,12 +238,12 @@ def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapM
     hpwrenBase = 'http://{server}.hpwren.ucsd.edu/archive'.format(server=server)
     dateUrlParts = [hpwrenBase, subdir, 'large']
     # first try without year directory
-    success = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes)
+    success = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
     if success:
         return True
     # retry with year directory
     dateUrlParts.append(str(startTimeDT.year))
-    return downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes)
+    return downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
 
 """
 The following is the code for AJAX FileRun server for HPWREN

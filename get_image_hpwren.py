@@ -68,7 +68,7 @@ def main():
     
     for matchingCam in matchingCams:
         logging.warning('Searching for files in dir %s', matchingCam['dir'])
-        found = img_archive.downloadFilesHttp(outputDir, args.cameraID, matchingCam['dir'], startTimeDT, endTimeDT, gapMinutes)
+        found = img_archive.downloadFilesHttp(outputDir, args.cameraID, matchingCam['dir'], startTimeDT, endTimeDT, gapMinutes, True)
         if found:
             return # done
 
