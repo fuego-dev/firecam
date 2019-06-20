@@ -75,7 +75,7 @@ def outputRow(outputCsv, locMatch, timeDT, availCams):
         direction = 'South'
     elif heading >= 225 and heading < 315:
         direction = 'West'
-    outputCsv.writerow([locMatch['name'], str(timeDT), ','.join(availCams), heading, direction])
+    outputCsv.writerow([locMatch['name'], str(timeDT), ','.join(availCams), heading, direction, locMatch['distance']])
 
 
 def main():
