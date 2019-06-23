@@ -20,12 +20,14 @@ Simple utility to get args from command line or input
 
 import argparse
 import logging
+import sys
 
-def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None, silence=False):
+# internal function for pytest that accepts cmdArgs parameter and no defaults
+def collectArgsInt(cmdArgs, requiredArgs, optionalArgs, parentParsers, silence):
     parser = argparse.ArgumentParser(parents=parentParsers if parentParsers != None else [])
     for arg in requiredArgs+optionalArgs:
         parser.add_argument('-'+arg[0], '--'+arg[1], help=arg[2], type=arg[3] if len(arg)>3 else None)
-    args = parser.parse_args()
+    args = parser.parse_args(cmdArgs)
 
     vargs = vars(args)
     for arg in requiredArgs:
@@ -36,20 +38,9 @@ def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None, silence=False
         logging.warning('Using these parameters')
         for arg in requiredArgs+optionalArgs:
             if vargs[arg[1]] != None:
-                logging.warning(arg[2]+ ': ' + vargs[arg[1]])
+                logging.warning(arg[2]+ ': ' + str(vargs[arg[1]]))
     return args
 
-def test():
-    requiredArgs = [
-        ["n", "name", "some string"],
-        ["v", "value", "some integer", int],
-    ]
-    optionalArgs = [
-        ["a", "alpha", "optional alpha"],
-        ["b", "beta", "optional beta"],
-    ]
-    args = collectArgs(requiredArgs, optionalArgs=optionalArgs)
-    print(args)
 
-if __name__=="__main__":
-    test()
+def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None, silence=False):
+    return collectArgsInt(sys.argv[1:], requiredArgs, optionalArgs, parentParsers, silence)
