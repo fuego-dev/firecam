@@ -36,16 +36,27 @@ import logging
 import csv
 import math
 
-def getLocationMatches(dbManager):
+def getLocationMatches(dbManager, longitude, latitude, startTime):
     sqlTemplate = """SELECT fires.name, fires.timestamp, cameras.cameraIDs,
     fires.latitude - cameras.latitude AS lat_diff, fires.longitude - cameras.longitude AS long_diff,
     round((fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude),4) AS distance
     FROM fires CROSS JOIN cameras
     WHERE fires.started IS NOT null
-    AND fires.adminunit='MVU' AND cameras.network='HPWREN'
+    AND fires.adminunit="MVU" AND cameras.network="HPWREN"
     AND distance < 0.08
     ORDER BY distance"""
     sqlStr = sqlTemplate
+    if longitude and latitude and startTime:
+        timeDT = dateutil.parser.parse(startTime)
+        tstamp = int(time.mktime(timeDT.timetuple()))
+        sqlTemplate = """SELECT "%s" as name, %d as timestamp, cameras.cameraIDs,
+        %f - cameras.latitude AS lat_diff, %f - cameras.longitude AS long_diff,
+        round((%f-cameras.Latitude)*(%f-cameras.Latitude)+(%f-cameras.Longitude)*(%f-cameras.Longitude),4) AS distance
+        FROM cameras
+        WHERE distance < 0.08
+        ORDER BY distance"""
+        sqlStr = sqlTemplate % ('fireName', tstamp, latitude, longitude, latitude, latitude, longitude, longitude)
+        logging.warning('SQL: %s', sqlStr)
 
     dbResult = dbManager.query(sqlStr)
     logging.warning('dbr %d: %s', len(dbResult), dbResult[:2])
@@ -82,7 +93,12 @@ def main():
     reqArgs = [
         ['o', 'outputFile', 'filename for output CSV of fire x camera matches with available archives'],
     ]
-    args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
+    optionalArgs = [
+        ['g', 'longitude', 'longitude of fire', float],
+        ['t', 'latitude', 'latitude of fire', float],
+        ['s', 'startTime', 'start time of fire'],
+    ]
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optionalArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
     outputFile = open(args.outputFile, 'w', newline='')
@@ -90,7 +106,7 @@ def main():
 
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
 
-    locMatches = getLocationMatches(dbManager)
+    locMatches = getLocationMatches(dbManager, args.longitude, args.latitude, args.startTime)
     totalMatches = len(locMatches)
     numOutput = 0
     for rowNum,locMatch in enumerate(locMatches):
@@ -107,6 +123,7 @@ def main():
         if (rowNum % 10) == 0:
             logging.warning('Processing %d of %d, output %d', rowNum, totalMatches, numOutput)
 
+    logging.warning('Processed %d, output %d', totalMatches, numOutput)
 
 if __name__=="__main__":
     main()
