@@ -46,7 +46,7 @@ import logging
 
 from googleapiclient.discovery import build
 from httplib2 import Http
-
+from tkinter.filedialog import askdirectory
 
 def uploadToDrive(service, imgPath, cameraID, imgClass):
     parent = settings.IMG_CLASSES[imgClass]
@@ -169,12 +169,14 @@ def main():
     ]
     optArgs = [
         ["z", "zipFile", "Name of the zip file containing the images"],
-        ["d", "imgDirectory", "Name of the directory containing the images"],
+        ["d", "imgDirectory", "Name of the directory containing the images or ask:dir"],
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     imgDirectory = None
     if args.imgDirectory:
         imgDirectory = args.imgDirectory
+        if imgDirectory == 'ask:dir':
+            imgDirectory = askdirectory()
     elif args.zipFile:
         tempDir = unzipFile(args.zipFile)
         imgDirectory = tempDir.name
