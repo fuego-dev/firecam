@@ -200,7 +200,10 @@ def imageDisplay(name, outputDir, showSquaresArg=True):
     cadre.bind("<ButtonRelease-1>", releaseLeftClick)
     cadre.bind("<Button-2>", middleClick)
     cadre.bind("<space>", middleClick)
-    cadre.bind("<ButtonRelease-3> ", rightClick)
+    cadre.bind("<Return>", middleClick)
+    cadre.bind("<ButtonRelease-3>", rightClick)
+    cadre.bind("u", rightClick) # undo
+    cadre.bind("U", rightClick) # Undo
     cadre.focus_set()
     
     chaineLabels = tk.Label(fen)
