@@ -6,4 +6,4 @@ settings.py
 credentials.json
 token.json
 local.db
-
+node_modules
