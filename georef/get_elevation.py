@@ -28,29 +28,25 @@ import goog_helper
 import logging
 import gdal
 
-def get_pix(metadata, latitude, longtitude):  
-    pixX = int((longtitude - metadata[0])*metadata[1])
-    pixY = int((latitude - metadata[3])*metadata[5])
-    logging.warning('pix: (%d, %d)', pixX, pixY)
-    return [pixX,pixY]
 
+def mapping_with_bounds(latLong, latLongBounds, diffLatLong, rasterSize):
+    logging.warning('coords: %f, %f, %f', latLong, latLongBounds, diffLatLong)
+    pix = int((latLong - latLongBounds) / diffLatLong)
+    logging.warning('pix: (%d)', pix)
+    if 0 <= pix <= rasterSize:
+        return pix
+    else:
+        logging.warning("sorry coordinate not in data (%d > %d) or (%d < %d)", latLong, diffLatLong*rasterSize, latLong, latLongBounds)
+        return None
 
-# def get_data():
-# if cord[0] < tiffData.RasterXSize and cord[1] < tiffData.RasterYSize:
-#         val = specs[cord[0], cord[1]]
-#         print(val)
-# else:
-#         logging.warning("sorry coordinate not in data (%d < %d) and (%d < %d)", cord[0], tiffData.RasterXSize, cord[1], tiffData.RasterYSize)
 
 def main():
     reqArgs = [
         ["g", "geoTiffName", "File name of geotiff"],
-        ["a", "lat", "latitude of desired point"],
-        ["o", "long", "longtitude of desired point"],
+        ["a", "lat", "latitude of desired point", float],
+        ["o", "long", "longtitude of desired point", float],
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
-    latitude = float(args.lat)
-    longtitude = float(args.long)
     tiffData = gdal.Open(args.geoTiffName)
     logging.warning('x: %d, y: %d', tiffData.RasterXSize, tiffData.RasterYSize)
     metadata = tiffData.GetGeoTransform()
@@ -58,13 +54,12 @@ def main():
     specs =  tiffData.ReadAsArray(xoff=0, yoff=0)
     logging.warning('specs: %s', specs)
 
-    cord = get_pix(metadata, latitude, longtitude)
-    if cord[0] < tiffData.RasterXSize and cord[1] < tiffData.RasterYSize:
-        val = specs[cord[0], cord[1]]
-        print(val)
-    else:
-        logging.warning("sorry coordinate not in data (%d < %d) and (%d < %d)", cord[0], tiffData.RasterXSize, cord[1], tiffData.RasterYSize)
-    
+    coordX = mapping_with_bounds(args.long, metadata[0], metadata[1], tiffData.RasterXSize)
+    coordY = mapping_with_bounds(args.lat, metadata[3], metadata[5], tiffData.RasterYSize)
+    if coordX != None and coordY != None:
+        val = specs[coordX,coordY]
+        logging.warning("The value is (%s)", val)
+
 
 if __name__=="__main__":
     main()
