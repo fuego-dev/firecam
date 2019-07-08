@@ -15,7 +15,7 @@
 fuegoRoot = 'XXX/firecam'
 googleTokenFile = 'XXX/token.json'
 googleCredsFile = 'XXX/credentials.json'
-localCropDir = 'XXX/cropped' #local system directory with cropped images
+#localCropDir = 'XXX/cropped' #local system directory with cropped images
 model_file = 'XXX/output_graph.pb'
 labels_file = 'XXX/output_labels.txt'
 db_file = 'XXX/local.db'

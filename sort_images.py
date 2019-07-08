@@ -40,7 +40,7 @@ import tempfile
 import pathlib
 import datetime
 import dateutil.parser
-import time
+import timehttps://github.com/fuego-dev/firecam.git
 import re
 import logging
 
@@ -151,7 +151,8 @@ def processFolder(imgDirectory, camera, fire, googleServices):
         appendToMainSheet(googleServices['sheet'], newPath, times, camera, imgClass, fire)
         if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
             lastSmokeTimestamp = times['unixTime']
-            result = crop_single.imageDisplay(newPath, settings.localCropDir, showSquaresArg=False)
+	    temporaryDir = tempfile.TemporaryDirectory()
+            result = crop_single.imageDisplay(newPath, temporaryDir.name, showSquaresArg=False)
             if len(result) > 0:
                 for entry in result:
                     print('crop data', entry['name'], entry['coords'])
