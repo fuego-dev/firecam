@@ -40,7 +40,7 @@ import tempfile
 import pathlib
 import datetime
 import dateutil.parser
-import timehttps://github.com/fuego-dev/firecam.git
+import time
 import re
 import logging
 
@@ -133,6 +133,7 @@ def unzipFile(zipFile):
 
 
 def processFolder(imgDirectory, camera, fire, googleServices):
+    temporaryDir = tempfile.TemporaryDirectory()
     imageFileNames = os.listdir(imgDirectory)
     # print('images', len(imageFileNames), imageFileNames)
     # discard files that don't match the expected file name pattern (e.g. .DS_Store)
@@ -151,7 +152,6 @@ def processFolder(imgDirectory, camera, fire, googleServices):
         appendToMainSheet(googleServices['sheet'], newPath, times, camera, imgClass, fire)
         if (lastSmokeTimestamp == None) or (times['unixTime'] - lastSmokeTimestamp >= settings.cropEveryNMinutes * 60):
             lastSmokeTimestamp = times['unixTime']
-	    temporaryDir = tempfile.TemporaryDirectory()
             result = crop_single.imageDisplay(newPath, temporaryDir.name, showSquaresArg=False)
             if len(result) > 0:
                 for entry in result:
@@ -161,6 +161,7 @@ def processFolder(imgDirectory, camera, fire, googleServices):
 
     imageFileNames = os.listdir(imgDirectory)
     print('images2', imageFileNames)
+    os.remove(temporaryDir.name)
 
 
 def main():
