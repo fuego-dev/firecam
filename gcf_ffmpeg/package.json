@@ -1,0 +1,18 @@
+{
+  "name": "fuego_ffmpeg",
+  "version": "0.1.0",
+  "description": "Decode mpegs into jpegs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "functions-framework --target=helloWorld"
+  },
+  "author": "Fuego",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.0.19",
+    "fluent-ffmpeg": "^2.1.2",
+    "request": "^2.88.0",
+    "rimraf": "^2.6.3"
+  }
+}
