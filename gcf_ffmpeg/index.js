@@ -111,16 +111,11 @@ exports.helloWorld = (req, res) => {
             listFiles(tmpDir);
         });
         // rimraf.sync(tmpDir);
+        // upload to google drive
+        console.log('done');
+        res.status(200).send('done');
     });
-    console.log('done');
-    let message = req.query.message || req.body.message || 'Hello dkgu World!';
-    res.status(200).send(message);
 };
-
-mp4Fname = 'c:/Users/kinshuk/code/fuego-images/tmp-in/q6.mp4';
-outFileSpec = 'c:/Users/kinshuk/code/fuego-images/tmp-out/Qffmp-%03d.jpg'
-// curl --header "Content-Type: application/json" --request POST --data '{"message":"yoyoyo"}' localhost:8080
-// curl localhost:8080?message=froyo
 
 console.log('argv: ', process.argv)
 if ((process.argv.length > 1) && !process.argv[1].includes('functions-framework')) {
