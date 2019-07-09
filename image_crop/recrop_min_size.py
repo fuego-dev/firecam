@@ -293,6 +293,7 @@ def main():
                 logging.warning('Skipping tiny image with area: %d, name=%s', (maxX - minX) * (maxY - minY), fileName)
                 skippedTiny.append((rowIndex, fileName, (maxX - minX) * (maxY - minY)))
                 continue
+            # get base image from google drive that was uploaded by sort_images.py
             dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)
             localFilePath = os.path.join(settings.downloadDir, fileName)
             print('local', localFilePath)
@@ -300,6 +301,8 @@ def main():
                 print('download', fileName)
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
             imgOrig = Image.open(localFilePath)
+
+            # if in subracted images mode, download an earlier image and subtract
             if minusMinutes:
                 nameParsed = img_archive.parseFilename(fileName)
                 matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))
@@ -330,6 +333,8 @@ def main():
                 fileNameParts = os.path.splitext(fileName)
                 fileName = str(fileNameParts[0]) + ('_Diff%d' % minusMinutes) + fileNameParts[1]
 
+            # crop the full sized image to show just the smoke, but shifted and flipped
+            # shifts and flips increase number of segments for training and also prevent overfitting by perturbing data
             cropCoords = getCropCoords((minX, minY, maxX, maxY), minDiffX, minDiffY, growRatio, (imgOrig.size[0], imgOrig.size[1]))
             for newCoords in cropCoords:
                 # XXXX - save work if old=new?
