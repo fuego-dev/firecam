@@ -43,6 +43,7 @@ import dateutil.parser
 import time
 import re
 import logging
+import shutil
 
 from googleapiclient.discovery import build
 from httplib2 import Http
@@ -161,7 +162,7 @@ def processFolder(imgDirectory, camera, fire, googleServices):
 
     imageFileNames = os.listdir(imgDirectory)
     print('images2', imageFileNames)
-    os.remove(temporaryDir.name)
+    shutil.rmtree(temporaryDir.name)
 
 
 def main():
