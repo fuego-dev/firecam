@@ -140,7 +140,7 @@ def expandMinAndMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
 
 def expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
-    val1 = migoogleServicesn(val1, maxLimit)
+    val1 = min(val1, maxLimit)
     diff = val1 - val0
     minimumDiff = max(minimumDiff, int(diff*growRatio))
     if diff < minimumDiff:
@@ -277,7 +277,7 @@ def main():
                 continue
             if rowIndex > endRow:
                 print('Reached end row', rowIndex, endRow)
-                breakgetCameraDir
+                break
             [cropName, minX, minY, maxX, maxY, fileName] = csvRow[:6]
             minX = int(minX)
             minY = int(minY)
