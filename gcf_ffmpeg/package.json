@@ -12,6 +12,7 @@
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.0.19",
     "fluent-ffmpeg": "^2.1.2",
+    "googleapis": "^40.0.1",
     "request": "^2.88.0",
     "rimraf": "^2.6.3"
   }
