@@ -262,8 +262,8 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    cookieJar = img_archive.loginAjax()
-    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+    cookieJar = img_archive.loginAjax()#########################################################
+    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)##############################
     if minusMinutes:
         timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
@@ -309,16 +309,17 @@ def main():
                 time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 for dirName in archiveDirs:#search directories of camera for a time near
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1)
-                    if imgPaths:#found a valid time near and downloaded to imgPaths
-                        tmpImgPath = imgPaths[0]
-                        break # done finding image
-	        if not tmpImgPath:
-                    logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
-                    skippedArchive.append((rowIndex, fileName, dt))#archive that images were skipped
-                    continue
-                localFilePath = tmpImgPath
-            imgOrig = Image.open(localFilePath)#opens image
+############################################################################################################
+
+######################################################################redo########################################3
+                successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+		   if successful_download:
+		       break
+	       if not successful_download:
+                    skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
+		    continue
+
+           imgOrig = Image.open(localFilePath)#opens image
 	    
             # if in subracted images mode, download an earlier image and subtract
             if minusMinutes:
