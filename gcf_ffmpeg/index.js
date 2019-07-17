@@ -88,7 +88,7 @@ function getJpegs(mp4File, outFileSpec, cb) {
 }
 
  
-function gdriveAuthSericeAccountt(keyFile, cb) {
+function gdriveAuthSericeAccount(keyFile, cb) {
     function authNow(authClient) {
         authClient.authorize(function (err, tokens) {
             if (err) {
@@ -223,20 +223,19 @@ async function gdriveUploadAsync(authClient, filePath, parentDir) {
 }
   
 
-async function uploadFiles(fromDir, uploadDir, cb) {
+async function uploadFiles(fromDir, authClient, uploadDir, cb) {
     fileNames = fs.readdirSync(fromDir);
     files = [];
     for (var i = 0; i < fileNames.length; i++) {
-        filePath = path.join(dir, fileNames[i]);
+        filePath = path.join(fromDir, fileNames[i]);
         try {
-            xxxAuthClient();
             var file = await gdriveUploadPromise(authClient, filePath, uploadDir);
-            console.log('await file', file.status, file.statusText, file.data);
+            console.log('await file', i, file.status, file.statusText, fileNames[i], file.data);
             files.push(file);
         } catch (err) {
             console.log('await err', err);
             cb(err);
-            break;
+            return;
         }
     }
     cb(null, files);
@@ -271,14 +270,20 @@ exports.helloWorld = (req, res) => {
             }
             console.log('Listing files after ffmpeg');
             listFiles(tmpDir);
-            uploadFiles(tmpDir, req.body.uploadDir, function(err, files) {
+            gdriveAuthSericeAccount(null, function(err, authClient) {
                 if (err) {
-                    res.status(400).send('Could not upload jpegs');
+                    res.status(400).send('Could not auth drive');
                     return;
                 }
-                rimraf.sync(tmpDir);
-                console.log('All done');
-                res.status(200).send('done');
+                uploadFiles(tmpDir, authClient, req.body.uploadDir, function(err, files) {
+                    if (err) {
+                        res.status(400).send('Could not upload jpegs');
+                        return;
+                    }
+                    rimraf.sync(tmpDir);
+                    console.log('All done');
+                    res.status(200).send('done');
+                });
             });
         });
     });
@@ -286,17 +291,19 @@ exports.helloWorld = (req, res) => {
 
 
 function testHandler() {
-    exports.helloWorld(
-        {query:{}, body:{
+    exports.helloWorld({
+        query: {},
+        body: {
             hostName: 'c1',
             cameraID: 'rm-w-mobo-c',
             yearDir: 2017,
             dateDir: 20170613,
             qName: 'Q3.mp4',
             uploadDir: '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2',
-        }},
-        {status: ()=>({send: (m)=>{console.log('msg', m)}})}
-    );
+        }
+    }, {
+        status: ()=>({send: (m)=>{console.log('msg', m)}})
+    });
 }
 
 
@@ -305,15 +312,16 @@ if ((process.argv.length > 1) && !process.argv[1].includes('functions-framework'
     const testDir = '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2';
     const TOKEN_PATH = '../../keys/token.json';
     const CREDS_PATH = '../../keys/credentials.json';
+    // export GOOGLE_APPLICATION_CREDENTIALS='..../service-account.json'
     const KEY_FILE = '../../keys/service-account.json';
-    // testHandler();
+    testHandler();
     // gdriveAuthToken(CREDS_PATH, TOKEN_PATH, function(err, authClient) {
-    gdriveAuthSericeAccountt(KEY_FILE, function(err, authClient) {
-    // gdriveAuthSericeAccountt(null, function(err, authClient) {
-        if (err) {
-            return;
-        }
-        gdriveList(authClient, testDir);
+    // gdriveAuthSericeAccount(KEY_FILE, function(err, authClient) {
+    // gdriveAuthSericeAccount(null, function(err, authClient) {
+        // if (err) {
+        //     return;
+        // }
+        // gdriveList(authClient, testDir);
         // gdriveUploadCB(authClient,
         //     'index.js',
         //     testDir
@@ -332,5 +340,5 @@ if ((process.argv.length > 1) && !process.argv[1].includes('functions-framework'
         //     'index.js',
         //     testDir
         // );
-    });
+    // });
 }
