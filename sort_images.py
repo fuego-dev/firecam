@@ -14,6 +14,8 @@
 # ==============================================================================
 """
 
+Displays all images in a folder or zip file for users to mark out smoke bounding box.  The images and coordinates are uploaded to google cloud.
+
 The inputs are zip file, fire ID, camera ID, timestamp of minimal smoke, timestamp of significant enough smoke for cropping.
 The zip file should include at least one picture from before minimal smoke and most pictures between minimal smoke and significant smoke, and some number of images after as well
 

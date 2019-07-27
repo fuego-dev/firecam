@@ -2,6 +2,8 @@
 """
 Created on Tue Mar 19 11:39:22 2019
 
+Selects images from training set for test set
+
 @author: fuego
 """
 
