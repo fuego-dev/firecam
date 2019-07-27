@@ -14,7 +14,7 @@
 # ==============================================================================
 """
 
-Check an image if it has smoke
+Show the ML scores for each square in an image
 
 """
 

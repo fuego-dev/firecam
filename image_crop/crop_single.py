@@ -14,7 +14,7 @@
 # ==============================================================================
 """
 
-Shows how the rectangle may potentially be split into squares
+Allow user to crop a bounding rectangle in an image
 Shrinks the displayed image to fit screen, but the cropped image are still at full resolution
 
 """

@@ -14,7 +14,7 @@
 # ==============================================================================
 """
 
-Simple wrapper to download or upload files from google drive using stored credentials
+Download, upload, list, or remove files from google drive
 
 """
 
