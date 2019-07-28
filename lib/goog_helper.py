@@ -39,16 +39,22 @@ import img_archive
 # If modifying these scopes, delete the file token.json.
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
-    'https://www.googleapis.com/auth/spreadsheets'
+    'https://www.googleapis.com/auth/spreadsheets',
+    'profile' # to get id_token for gcf_ffmpeg
 ]
 
 
-def getGoogleServices(settings, args):
+def getCreds(settings, args):
     store = file.Storage(settings.googleTokenFile)
     creds = store.get()
     if not creds or creds.invalid:
         flow = client.flow_from_clientsecrets(settings.googleCredsFile, ' '.join(SCOPES))
         creds = tools.run_flow(flow, store, args)
+    return creds
+
+
+def getGoogleServices(settings, args):
+    creds = getCreds(settings, args)
     driveService = build('drive', 'v3', http=creds.authorize(Http()))
     sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
     return {
