@@ -247,7 +247,7 @@ async function uploadFiles(fromDir, authClient, uploadDir, cb) {
  * @param {!express:Request} req HTTP request context.
  * @param {!express:Response} res HTTP response context.
  */
-exports.helloWorld = (req, res) => {
+exports.extract = (req, res) => {
     console.log('query', req.query);
     console.log('bodyM', req.body);
     var hpwrenUrl = getHpwrenUrl(req.body.hostName, req.body.cameraID, req.body.yearDir, req.body.dateDir, req.body.qName);
@@ -291,7 +291,7 @@ exports.helloWorld = (req, res) => {
 
 
 function testHandler() {
-    exports.helloWorld({
+    exports.extract({ // fake req
         query: {},
         body: {
             hostName: 'c1',
@@ -301,8 +301,8 @@ function testHandler() {
             qName: 'Q3.mp4',
             uploadDir: '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2',
         }
-    }, {
-        status: ()=>({send: (m)=>{console.log('msg', m)}})
+    }, { // fake res
+        status: () => ({send: (m)=>{console.log('msg', m)}})
     });
 }
 
