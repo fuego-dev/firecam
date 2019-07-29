@@ -332,9 +332,9 @@ def main():
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)
-                    if imgPaths:
-                        earlierImgPath = imgPaths[0]
+                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#######################################################################################
+                    if imgPaths:##########################################################################################
+                        earlierImgPath = imgPaths[0]################################change path
                         break # done
                 if not earlierImgPath:
                     logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
