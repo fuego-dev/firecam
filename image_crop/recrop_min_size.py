@@ -262,9 +262,9 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    cookieJar = img_archive.loginAjax()#########################################################
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)##############################
     if minusMinutes:
+        cookieJar = img_archive.loginAjax()#########################################################
         timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
     skippedTiny = []
@@ -298,28 +298,24 @@ def main():
             if not os.path.isfile(localFilePath):# if file has not been downloaded by a previous iteration
                 print('download', fileName)
                 nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
-		matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
+                matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
                 if len(matchingCams) != 1:#if we cannot determine where the image will come from we cannot use the image
                     logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
                     skippedArchive.append((rowIndex, fileName, matchingCams))
                     continue
-		archiveDirs = matchingCams[0]['dirs']
+                archiveDirs = matchingCams[0]['dirs']
                 logging.warning('Found %s directories', archiveDirs)
-                tmpImgPath = None
                 time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 for dirName in archiveDirs:#search directories of camera for a time near
                     logging.warning('Searching for files in dir %s', dirName)
-############################################################################################################
-
-######################################################################redo########################################3
-                successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
-		   if successful_download:
-		       break
-	       if not successful_download:
+                    successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                    if successful_download:
+                        break
+                if not successful_download:
                     skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
-		    continue
+                    continue
 
-           imgOrig = Image.open(localFilePath)#opens image
+            imgOrig = Image.open(localFilePath)#opens image
 	    
             # if in subracted images mode, download an earlier image and subtract
             if minusMinutes:
