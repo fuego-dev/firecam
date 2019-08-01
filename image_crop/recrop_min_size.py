@@ -312,6 +312,7 @@ def main():
                     if successful_download:
                         break
                 if not successful_download:
+                    logging.warning('Skipping image not found: %s', fileName)
                     skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
                     continue
 
@@ -327,19 +328,20 @@ def main():
                     continue
                 archiveDirs = matchingCams[0]['dirs']
                 logging.warning('Found %s directories', archiveDirs)
-                earlierImgPath = None
+                earlierImgPath = None############################################################change successful_download = None 
                 dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#######################################################################################
-                    if imgPaths:##########################################################################################
-                        earlierImgPath = imgPaths[0]################################change path
+                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#######################################################################################change to successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    if imgPaths:##########################################################################################successful_download
+                        earlierImgPath = imgPaths[0]################################generate path to downloaded image
                         break # done
-                if not earlierImgPath:
+                if not earlierImgPath:#######################################################################change not successful_download
                     logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
                     skippedArchive.append((rowIndex, fileName, dt))
                     continue
+                ###############################
                 logging.warning('Subtracting old image %s', earlierImgPath)
                 earlierImg = Image.open(earlierImgPath)
                 diffImg = img_archive.diffImages(imgOrig, earlierImg)
