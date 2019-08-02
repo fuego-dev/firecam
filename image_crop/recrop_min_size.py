@@ -334,14 +334,14 @@ def main():
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
                     imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#######################################################################################change to successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
-                    if imgPaths:##########################################################################################successful_download
-                        earlierImgPath = imgPaths[0]################################generate path to downloaded image
+                    if imgPaths:########################################################################################## if successful_download:
+                        earlierImgPath = imgPaths[0]################################generate path to downloaded image or import it through downloadFilesHttp
                         break # done
                 if not earlierImgPath:#######################################################################change not successful_download
                     logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
                     skippedArchive.append((rowIndex, fileName, dt))
                     continue
-                ###############################
+                ##############################################################need to make sure we have the imgpath by this point
                 logging.warning('Subtracting old image %s', earlierImgPath)
                 earlierImg = Image.open(earlierImgPath)
                 diffImg = img_archive.diffImages(imgOrig, earlierImg)
