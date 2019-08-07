@@ -170,7 +170,7 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
-        return True
+        return imgPath
 
     closestFile = str(closestTime) + '.jpg'
     urlParts = urlPartsQ[:] # copy URL parts array
@@ -186,7 +186,7 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
             if chunk: # filter out keep-alive new chunks
                 f.write(chunk)
     resp.close()
-    return True
+    return imgPath
 
 
 outputDirCheckOnly = '/CHECK:WITHOUT:DOWNLOAD'
@@ -199,7 +199,7 @@ def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, 
     dirTimes = None
     lastQNum = 0
     curTimeDT = startTimeDT
-    success = False
+    downloaded_files = []
     while curTimeDT <= endTimeDT:
         qNum = 1 + int(curTimeDT.hour/3)
         urlPartsQ = urlParts[:] # copy URL
@@ -210,21 +210,22 @@ def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, 
             if not dirTimes:
                 if verboseLogs:
                     logging.error('No images in Q dir %s', '/'.join(urlPartsQ))
-                return False
+                return downloaded_files
             lastQNum = qNum
 
         if outputDir == outputDirCheckOnly:
-            success = True
+            downloaded_files.append(outputDirCheckOnly)
         else:
             desiredTime = time.mktime(curTimeDT.timetuple())
             closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
             downloaded = downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
             if downloaded and verboseLogs:
                 logging.warning('Successful download for time %s', str(datetime.datetime.fromtimestamp(closestTime)))
-            success = success or downloaded
+            if downloaded:
+                downloaded_files.append(downloaded)
 
         curTimeDT += timeGapDelta
-    return success
+    return downloaded_files
 
 
 def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapMinutes, verboseLogs):
@@ -238,9 +239,9 @@ def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapM
     hpwrenBase = 'http://{server}.hpwren.ucsd.edu/archive'.format(server=server)
     dateUrlParts = [hpwrenBase, subdir, 'large']
     # first try without year directory
-    success = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
-    if success:
-        return True
+    downloaded_files = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
+    if downloaded_files:
+        return downloaded_files
     # retry with year directory
     dateUrlParts.append(str(startTimeDT.year))
     return downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)

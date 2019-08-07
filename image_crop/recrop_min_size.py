@@ -262,9 +262,8 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)##############################
+    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
     if minusMinutes:
-        cookieJar = img_archive.loginAjax()#########################################################
         timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
     skippedTiny = []
@@ -308,10 +307,11 @@ def main():
                 time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 for dirName in archiveDirs:#search directories of camera for a time near
                     logging.warning('Searching for files in dir %s', dirName)
-                    successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
-                    if successful_download:
+                    imgPaths = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                    if imgPaths:
+                        localFilePath = imgPaths[0]
                         break
-                if not successful_download:
+                if not imgPaths:
                     logging.warning('Skipping image not found: %s', fileName)
                     skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
                     continue
@@ -328,20 +328,19 @@ def main():
                     continue
                 archiveDirs = matchingCams[0]['dirs']
                 logging.warning('Found %s directories', archiveDirs)
-                earlierImgPath = None############################################################change successful_download = None 
+                earlierImgPath = None
                 dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#######################################################################################change to successful_download = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
-                    if imgPaths:########################################################################################## if successful_download:
-                        earlierImgPath = imgPaths[0]################################generate path to downloaded image or import it through downloadFilesHttp
+                    imgPaths = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    if imgPaths:
+                        earlierImgPath = imgPaths[0]
                         break # done
-                if not earlierImgPath:#######################################################################change not successful_download
+                if not earlierImgPath:
                     logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
                     skippedArchive.append((rowIndex, fileName, dt))
                     continue
-                ##############################################################need to make sure we have the imgpath by this point
                 logging.warning('Subtracting old image %s', earlierImgPath)
                 earlierImg = Image.open(earlierImgPath)
                 diffImg = img_archive.diffImages(imgOrig, earlierImg)
