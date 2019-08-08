@@ -307,7 +307,7 @@ def main():
                 time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 for dirName in archiveDirs:#search directories of camera for a time near
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
                     if imgPaths:
                         localFilePath = imgPaths[0]
                         break
@@ -333,7 +333,7 @@ def main():
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
                     if imgPaths:
                         earlierImgPath = imgPaths[0]
                         break # done
