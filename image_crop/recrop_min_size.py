@@ -24,6 +24,14 @@ Optionally, for debuggins shows the boxes on screen (TODO: refactor display code
 
 """
 
+"""
+#+##REPLACE DEP. GDRIVE W HPREWN#/#-##REPLACE DEP. GDRIVE W HPREWN# 
+TAGS TO MARK CHANGES WO BE IMPLEMENTED TO WEEN OFF THE DEPENDENCY OF sort_images.py to upload full photos to Gdrive.
+"""
+
+
+
+
 import os
 import sys
 fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -63,7 +71,6 @@ def imageDisplay(imgOrig, title=''):
     aff=canvasTk.create_image(0, 0, anchor='nw', image=imgPhoto)
     canvasTk.focus_set()
     canvasTk.pack(side='left', expand='yes', fill='both')
-
 
     return (rootTk, canvasTk, imgPhoto, scaleFactor)
 
@@ -262,8 +269,12 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+    cookieJar = None#-##REPLACE DEP. GDRIVE W HPREWN#
+    camArchives = None#-##REPLACE DEP. GDRIVE W HPREWN#
+    #+##REPLACE DEP. GDRIVE W HPREWN#camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
     if minusMinutes:
+        cookieJar = img_archive.loginAjax()#-##REPLACE DEP. GDRIVE W HPREWN#
+        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)#-##REPLACE DEP. GDRIVE W HPREWN#
         timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
     skippedTiny = []
@@ -292,32 +303,34 @@ def main():
                 skippedTiny.append((rowIndex, fileName, (maxX - minX) * (maxY - minY)))
                 continue
             # get base image from google drive that was uploaded by sort_images.py
+
+            dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)#-##REPLACE DEP. GDRIVE W HPREWN#
             localFilePath = os.path.join(settings.downloadDir, fileName)#sets a path for that image() not yet downloadedby this iteration
             print('local', localFilePath)
             if not os.path.isfile(localFilePath):# if file has not been downloaded by a previous iteration
                 print('download', fileName)
-                nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
-                matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
-                if len(matchingCams) != 1:#if we cannot determine where the image will come from we cannot use the image
-                    logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
-                    skippedArchive.append((rowIndex, fileName, matchingCams))
-                    continue
-                archiveDirs = matchingCams[0]['dirs']
-                logging.warning('Found %s directories', archiveDirs)
-                time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
-                for dirName in archiveDirs:#search directories of camera for a time near
-                    logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
-                    if imgPaths:
-                        localFilePath = imgPaths[0]
-                        break
-                if not imgPaths:
-                    logging.warning('Skipping image not found: %s', fileName)
-                    skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
-                    continue
-
+                #+##REPLACE DEP. GDRIVE W HPREWN#nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
+                #+##REPLACE DEP. GDRIVE W HPREWN#matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
+                #+##REPLACE DEP. GDRIVE W HPREWN#if len(matchingCams) != 1:#if we cannot determine where the image will come from we cannot use the image
+                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
+                #+##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, matchingCams))
+                #+##REPLACE DEP. GDRIVE W HPREWN#    continue
+                #+##REPLACE DEP. GDRIVE W HPREWN#archiveDirs = matchingCams[0]['dirs']
+                #+##REPLACE DEP. GDRIVE W HPREWN#logging.warning('Found %s directories', archiveDirs)
+                #+##REPLACE DEP. GDRIVE W HPREWN#time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
+                #+##REPLACE DEP. GDRIVE W HPREWN#for dirName in archiveDirs:#search directories of camera for a time near
+                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Searching for files in dir %s', dirName)
+                #+##REPLACE DEP. GDRIVE W HPREWN#    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                #+##REPLACE DEP. GDRIVE W HPREWN#    if imgPaths:
+                #+##REPLACE DEP. GDRIVE W HPREWN#        localFilePath = imgPaths[0]
+                #+##REPLACE DEP. GDRIVE W HPREWN#        break
+                #+##REPLACE DEP. GDRIVE W HPREWN#if not imgPaths:
+                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping image not found: %s', fileName)
+                #+##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
+                #+##REPLACE DEP. GDRIVE W HPREWN#    continue
+                goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)#-##REPLACE DEP. GDRIVE W HPREWN#
             imgOrig = Image.open(localFilePath)#opens image
-	    
+
             # if in subracted images mode, download an earlier image and subtract
             if minusMinutes:
                 nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
@@ -333,7 +346,8 @@ def main():
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    #+##REPLACE DEP. GDRIVE W HPREWN#imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#-##REPLACE DEP. GDRIVE W HPREWN#
                     if imgPaths:
                         earlierImgPath = imgPaths[0]
                         break # done
