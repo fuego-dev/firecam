@@ -253,7 +253,7 @@ def main():
         ["d", "display", "(optional) specify any value to display image and boxes"],
         ["x", "minDiffX", "(optional) override default minDiffX of 299"],
         ["y", "minDiffY", "(optional) override default minDiffY of 299"],
-        ["a", "minArea", "(optional) override default throw away areas < 1% of 299x299"],
+        ["a", "minArea", "(optional) override default throw away areas < 1/100 of 299x299"],
         ["t", "throwSize", "(optional) override default throw away size of 1000x1000"],
         ["g", "growRatio", "(optional) override default grow ratio of 1.2"],
         ["m", "minusMinutes", "(optional) subtract images from given number of minutes ago"],
