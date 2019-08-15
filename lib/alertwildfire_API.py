@@ -24,6 +24,9 @@ import requests
 import time
 import img_archive
 
+import urllib.parse as urlp
+U = urlp.urlparse('')
+U = U._replace(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')
 
 
 if settings.alertwildfirekey == 'do not put real key in files in open source git repo':
@@ -32,24 +35,29 @@ if settings.alertwildfirekey == 'do not put real key in files in open source git
 
 def get_all_camera_info():
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    response = requests.get('https://data.alertwildfire.org/api/firecams/v0/cameras', headers=headers)
+    Urlparts = U._replace(path = U.path+"/cameras")
+    url = urlp.urlunparse(Urlparts)
+    response = requests.get(url, headers=headers)
     if response.status_code == 404:
         return 
-    exec('listofcameras = '+response.text, locals(),globals())
+    listofcameras = response.json()
     return listofcameras
 
 def get_individual_camera_info(cameraID):
-
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    response = requests.get('https://data.alertwildfire.org/api/firecams/v0/cameras'+'?name='+cameraID, headers=headers)
+    Urlparts = U._replace(path = U.path+"/cameras",query="name="+cameraID)
+    url = urlp.urlunparse(Urlparts)
+    response = requests.get(url, headers=headers)
     if response.status_code == 404:
         return 
-    exec('listofcameras = '+response.text, locals(),globals())
+    listofcameras = response.json()
     return listofcameras[0]
 
-def request_current_image(outputDir,cameraID,closestTime = None,display=False):
+def request_current_image(outputDir,cameraID,closestTime = None):
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    response = requests.get('https://data.alertwildfire.org/api/firecams/v0/currentimage'+'?name='+cameraID, headers=headers,stream = True)
+    Urlparts = U._replace(path = U.path+"/currentimage",query="name="+cameraID)
+    url = urlp.urlunparse(Urlparts)
+    response = requests.get(url, headers=headers,stream = True)
     if not closestTime:
         closestTime = time.mktime(datetime.datetime.now().timetuple())
     imgPath = img_archive.getImgPath(outputDir, cameraID, closestTime)
@@ -62,12 +70,6 @@ def request_current_image(outputDir,cameraID,closestTime = None,display=False):
                 f.write(chunk)
             f.close()
         response.close()
-        if display:
-            import matplotlib.image as mpimg
-            import matplotlib.pyplot as plt
-            img = mpimg.imread(imgPath)
-            plt.imshow(img) 
-            plt.show()
         return imgPath
     response.close()
     return
@@ -86,7 +88,7 @@ def request_all_current_images(outputDir,delay_between_requests=None):
             closestTime = camera["image"]["time"]###need to convert their format
         else:
             closestTime = None
-        path = request_current_image(outputDir,cameraID,closestTime,display=False)
+        path = request_current_image(outputDir,cameraID,closestTime)
         if not path:# if failed request put it in a queue to try one more time
             if not (camera in list_of_failed):
                 list_of_failed.append(camera)

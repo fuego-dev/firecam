@@ -39,7 +39,7 @@ def test_get_individual_camera_info():
 def test_request_current_image():
 	#request_current_image(outputDir,cameraID,closestTime = None,display=False)
 	os.mkdir("tempdir")
-	imgPath = alertwildfire_API.request_current_image("./tempdir","Axis-UpperBellNorth",closestTime = None,display=False)
+	imgPath = alertwildfire_API.request_current_image("./tempdir","Axis-UpperBellNorth",closestTime = None)
 	assert os.path.isfile(imgPath)
 	os.remove(imgPath)
 	os.rmdir("tempdir")
