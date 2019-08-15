@@ -48,7 +48,6 @@ def get_individual_camera_info(cameraID):
     return listofcameras[0]
 
 def request_current_image(outputDir,cameraID,closestTime = None,display=False):
-    #curl --header "X-Api-Key: afb288c81f5f4830b586589995b4fd09" "https://data.alertwildfire.org/api/firecams/v0/currentimage?name=Axis-UpperBellNorth" -o ./imagetest.jpg
     headers = {'X-Api-Key': settings.alertwildfirekey}
     response = requests.get('https://data.alertwildfire.org/api/firecams/v0/currentimage'+'?name='+cameraID, headers=headers,stream = True)
     if not closestTime:
