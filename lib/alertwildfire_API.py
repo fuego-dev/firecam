@@ -81,9 +81,9 @@ def request_all_current_images(outputDir,delay_between_requests=None):
     for camera in listofcameras:
         cameraID = camera["name"]
         if camera["position"]["time"]:
-            closestTime = camera["position"]["time"]##########need to convert there format
+            closestTime = camera["position"]["time"]###need to convert their format
         elif camera["image"]["time"]:
-            closestTime = camera["image"]["time"]##########need to convert there format
+            closestTime = camera["image"]["time"]###need to convert their format
         else:
             closestTime = None
         path = request_current_image(outputDir,cameraID,closestTime,display=False)
@@ -93,7 +93,7 @@ def request_all_current_images(outputDir,delay_between_requests=None):
                 listofcameras.append(camera)
         list_of_downloaded_img_paths.append(path)
         
-        if delay_between_requests:###########################reminate code
+        if delay_between_requests:###delay to prevent api lockout
             time.sleep(delay_between_requests)
     return list_of_downloaded_img_paths
 
