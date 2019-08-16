@@ -50,6 +50,7 @@ def getCreds(settings, args):
     if not creds or creds.invalid:
         flow = client.flow_from_clientsecrets(settings.googleCredsFile, ' '.join(SCOPES))
         creds = tools.run_flow(flow, store, args)
+    creds.get_access_token() # refresh access token if expired
     return creds
 
 
