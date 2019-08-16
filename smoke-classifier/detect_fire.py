@@ -393,7 +393,7 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     """
     sqlTemplate = """SELECT * FROM alerts
     where CameraName='%s' and timestamp > %s"""
-    sqlStr = sqlTemplate % (camera, timestamp - 60*60*12) # suppress alerts for 12 hours
+    sqlStr = sqlTemplate % (camera, timestamp - 60*60*2) # suppress alerts for 2 hours
     dbResult = dbManager.query(sqlStr)
     if len(dbResult) > 0:
         logging.warning('Supressing new alert due to recent alert')
