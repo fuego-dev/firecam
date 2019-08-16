@@ -224,7 +224,9 @@ def postFilter(dbManager, camera, timestamp, segments):
             if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
                 row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
                 threshold = (row['maxs'] + 1)/2 # threshold is halfway between max and 1
-                threshold = max(threshold, row['maxs'] + 0.1) # threshold at least .1 above max
+                # Segments with historical value above 0.8 are too noisy, so discard them by setting
+                # threshold at least .2 above max.  Also requires .7 to reach .9 vs just .85
+                threshold = max(threshold, row['maxs'] + 0.2)
                 # print('thresh', row['minx'], row['miny'], row['maxx'], row['maxy'], row['maxs'], threshold)
                 if (segmentInfo['score'] > threshold) and (segmentInfo['score'] > maxFireScore):
                     maxFireScore = segmentInfo['score']
