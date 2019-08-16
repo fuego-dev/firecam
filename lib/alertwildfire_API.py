@@ -25,8 +25,8 @@ import time
 import img_archive
 
 import urllib.parse as urlp
-U = urlp.urlparse('')
-U = U._replace(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')
+baseApiUrl =urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')#initialize
+
 
 
 if settings.alertwildfirekey == 'do not put real key in files in open source git repo':
@@ -35,32 +35,32 @@ if settings.alertwildfirekey == 'do not put real key in files in open source git
 
 def get_all_camera_info():
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    Urlparts = U._replace(path = U.path+"/cameras")
-    url = urlp.urlunparse(Urlparts)
+    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/cameras")
+    url = urlp.urlunparse(urlParts)
     response = requests.get(url, headers=headers)
     if response.status_code == 404:
         return 
-    listofcameras = response.json()
-    return listofcameras
+    listofCameras = response.json()
+    return listofCameras
 
 def get_individual_camera_info(cameraID):
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    Urlparts = U._replace(path = U.path+"/cameras",query="name="+cameraID)
-    url = urlp.urlunparse(Urlparts)
+    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/cameras", query="name="+cameraID)
+    url = urlp.urlunparse(urlParts)
     response = requests.get(url, headers=headers)
     if response.status_code == 404:
         return 
-    listofcameras = response.json()
-    return listofcameras[0]
+    listofCameras = response.json()
+    return listofCameras[0]
 
-def request_current_image(outputDir,cameraID,closestTime = None):
+def request_current_image(outputDir, cameraID, timeStamp = None):
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    Urlparts = U._replace(path = U.path+"/currentimage",query="name="+cameraID)
-    url = urlp.urlunparse(Urlparts)
-    response = requests.get(url, headers=headers,stream = True)
-    if not closestTime:
-        closestTime = time.mktime(datetime.datetime.now().timetuple())
-    imgPath = img_archive.getImgPath(outputDir, cameraID, closestTime)
+    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/currentimage", query="name="+cameraID)
+    url = urlp.urlunparse(urlParts)
+    response = requests.get(url, headers=headers, stream = True)
+    if not timeStamp:
+        timeStamp = time.mktime(datetime.datetime.now().timetuple())
+    imgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
         return imgPath
@@ -75,29 +75,32 @@ def request_current_image(outputDir,cameraID,closestTime = None):
     return
 
 
-
-def request_all_current_images(outputDir,delay_between_requests=None):
-    listofcameras = get_all_camera_info()
+"""#time expensive POC
+def request_all_current_images(outputDir, delay_between_requests=None):
+    listofCameras = get_all_camera_info()
     list_of_failed = []
     list_of_downloaded_img_paths =[]
-    for camera in listofcameras:
+    for camera in listofCameras:
         cameraID = camera["name"]
         if camera["position"]["time"]:
-            closestTime = camera["position"]["time"]###need to convert their format
+            timeStamp = camera["position"]["time"]###need to convert their format
         elif camera["image"]["time"]:
-            closestTime = camera["image"]["time"]###need to convert their format
+            timeStamp = camera["image"]["time"]###need to convert their format
         else:
-            closestTime = None
-        path = request_current_image(outputDir,cameraID,closestTime)
+            timeStamp = None
+        path = request_current_image(outputDir, cameraID, timeStamp)
         if not path:# if failed request put it in a queue to try one more time
             if not (camera in list_of_failed):
                 list_of_failed.append(camera)
-                listofcameras.append(camera)
+                listofCameras.append(camera)
         list_of_downloaded_img_paths.append(path)
         
         if delay_between_requests:###delay to prevent api lockout
             time.sleep(delay_between_requests)
     return list_of_downloaded_img_paths
+"""
+
+
 
 def record_camera_info():
     #the future ability to correlate image, position and direction
