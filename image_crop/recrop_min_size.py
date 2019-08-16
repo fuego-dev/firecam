@@ -26,7 +26,7 @@ Optionally, for debuggins shows the boxes on screen (TODO: refactor display code
 
 """
 #+##REPLACE DEP. GDRIVE W HPREWN#/#-##REPLACE DEP. GDRIVE W HPREWN# 
-TAGS TO MARK CHANGES WO BE IMPLEMENTED TO WEEN OFF THE DEPENDENCY OF sort_images.py to upload full photos to Gdrive.
+tags to mark changes to be implemented to ween off the dependency of sort_images.py to upload full photos to Gdrive.
 """
 
 
