@@ -33,44 +33,50 @@ if settings.alertwildfirekey == 'do not put real key in files in open source git
     logging.warning('Please update settings.alertwildfirekey with the key provided to you')
 
 
-def get_all_camera_info():
-    headers = {'X-Api-Key': settings.alertwildfirekey}
-    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/cameras")
+def getApiUrl(endpoint, queryParams = None):
+    if queryParams:
+        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint, query = queryParams)
+    else:
+        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint)
     url = urlp.urlunparse(urlParts)
-    response = requests.get(url, headers=headers)
+    return url
+
+def invokeApi(endpoint, queryParams = None, stream = False):
+    headers = {'X-Api-Key': settings.alertwildfirekey}
+    url = getApiUrl(endpoint, queryParams )
+    response = requests.get(url, headers = headers, stream = stream)
+    return response
+
+
+def get_all_camera_info():
+    response = invokeApi("/cameras", queryParams = None, stream = False)
     if response.status_code == 404:
         return 
     listofCameras = response.json()
     return listofCameras
 
 def get_individual_camera_info(cameraID):
-    headers = {'X-Api-Key': settings.alertwildfirekey}
-    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/cameras", query="name="+cameraID)
-    url = urlp.urlunparse(urlParts)
-    response = requests.get(url, headers=headers)
+    response = invokeApi("/cameras", queryParams = "name="+cameraID, stream = False)
     if response.status_code == 404:
         return 
     listofCameras = response.json()
     return listofCameras[0]
 
 def request_current_image(outputDir, cameraID, timeStamp = None):
-    headers = {'X-Api-Key': settings.alertwildfirekey}
-    urlParts = baseApiUrl._replace(path = baseApiUrl.path+"/currentimage", query="name="+cameraID)
-    url = urlp.urlunparse(urlParts)
-    response = requests.get(url, headers=headers, stream = True)
     if not timeStamp:
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
     imgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
         return imgPath
+    response = invokeApi("/currentimage", queryParams = "name="+cameraID, stream = True)
     if response.status_code == 200:
         with open(imgPath, 'wb') as f:
             for chunk in response:
                 f.write(chunk)
             f.close()
         response.close()
-        return imgPath
+        return imgPath 
     response.close()
     return
 
