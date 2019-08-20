@@ -33,7 +33,15 @@ import logging
 
 def callGCF(url, creds):
     headers = {'Authorization': f'bearer {creds.id_token_jwt}'}
-    response = requests.get(url, headers=headers)
+    data = {
+        'hostName': 'c1',
+        'cameraID': 'rm-w-mobo-c',
+        'yearDir': 2017,
+        'dateDir': 20170613,
+        'qName': 'Q3.mp4',
+        'uploadDir': '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2',
+    }
+    response = requests.post(url, headers=headers, data=data)
     return response.content
 
 
@@ -41,12 +49,15 @@ def main():
     reqArgs = [
     ]
     optArgs = [
+        ["l", "localhost", "localhost for testing"],
     ]
     
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleCreds = goog_helper.getCreds(settings, args)
 
-    url = 'https://us-central1-dkgu-dev.cloudfunctions.net/fuego-test1'
+    url = 'https://us-central1-dkgu-dev.cloudfunctions.net/fuego-ffmpeg1'
+    if args.localhost:
+        url = 'http://localhost:8080'
     respData = callGCF(url, googleCreds)
     logging.warning('Result: %s', respData)
 
