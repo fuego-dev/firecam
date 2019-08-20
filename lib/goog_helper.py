@@ -74,11 +74,21 @@ def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageTo
     param['supportsTeamDrives'] = True
     param['includeTeamDriveItems'] = True
     # print(param)
-    results = service.files().list(**param).execute()
-    items = results.get('files', [])
-    nextPageToken = results.get('nextPageToken')
-    # print('Files: ', items)
-    return (items, nextPageToken)
+    retriesLeft = 5
+    while retriesLeft > 0:
+        retriesLeft -= 1
+        try:
+            results = service.files().list(**param).execute()
+            items = results.get('files', [])
+            nextPageToken = results.get('nextPageToken')
+            # print('Files: ', items)
+            return (items, nextPageToken)
+        except Exception as e:
+            logging.warning('Error listing drive. %d retries left. %s', retriesLeft, str(e))
+            if retriesLeft > 0:
+                time.sleep(5) # wait 5 seconds before retrying
+    logging.error('Too many list failures')
+    return None
 
 
 def driveListFilesQuery(service, parentID, customQuery=None):
