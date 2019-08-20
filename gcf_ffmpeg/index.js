@@ -15,6 +15,11 @@
 * limitations under the License.
 * ==============================================================================
 */
+
+
+// Deployment instructions
+// gcloud functions deploy fuego-ffmpeg1 --runtime nodejs10 --trigger-http --entry-point=extractMp4 --memory=2048MB --timeout=540s
+
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
@@ -44,10 +49,12 @@ function getTmpDir() {
 
 function listFiles(dir) {
     files = fs.readdirSync(dir);
+    sizes = [];
     files.forEach((file) => {
         ss = fs.statSync(path.join(dir, file));
-        console.log('LF: ', file, ss.size);
+        sizes.push(ss.size);
     });
+    console.log('ListFiles: ', sizes.length, sizes.join(', '));
 }
 
 function downloadMp4(mp4Url, mp4File, cb) {
@@ -55,7 +62,7 @@ function downloadMp4(mp4Url, mp4File, cb) {
         function(error, response, body) { // triggers after all the data is received (but before 'complete' event)
             console.log('cb error:', error); // Print the error if one occurred
             console.log('cb statusCode:', response && response.statusCode); // Print the response status code if a response was received
-            console.log('cb body', typeof(body), body.length); // this length doesn't match file size
+            console.log('cb body', typeof(body), body && body.length); // this length doesn't match file size
         })
         .on('response', function(response) { // triggers on initial response
             console.log('event response sc', response.statusCode) // 200
@@ -90,6 +97,13 @@ function getJpegs(mp4File, outFileSpec, cb) {
  
 function gdriveAuthSericeAccount(keyFile, cb) {
     function authNow(authClient) {
+        // When running in google cloud function environment, there is no authorize method
+        // and the authClient is ready to use, but when running in framework simulator on
+        // local host, authorize() is needed.
+        if (!authClient.authorize) {
+            cb(null, authClient);
+            return;
+        }
         authClient.authorize(function (err, tokens) {
             if (err) {
                 console.log(err);
@@ -111,13 +125,13 @@ function gdriveAuthSericeAccount(keyFile, cb) {
     } else {
         console.log('app default without key');
         gAuth = new gAuthLib.GoogleAuth({scopes: scopes});
-        gAuth.getApplicationDefault(function (err, jwtClient) {
+        gAuth.getApplicationDefault(function (err, jwtClient, projectId) {
             if (err) {
-                console.log(err);
+                console.log('gad error', err);
                 cb(err);
                 return;
             } else {
-                console.log("got ApplicationDefault", jwtClient.projectId);
+                console.log('get project', projectId);
                 authNow(jwtClient);
             }
         });
@@ -206,7 +220,7 @@ function gdriveUploadPromise(authClient, filePath, parentDir) {
                 console.error('Upload error', err);
                 reject(err);
             } else {
-                console.log('File: ', file.status, file.statusText, file.data);
+                // console.log('File: ', file.status, file.statusText, file.data);
                 resolve(file);
             }
         });
@@ -224,20 +238,34 @@ async function gdriveUploadAsync(authClient, filePath, parentDir) {
   
 
 async function uploadFiles(fromDir, authClient, uploadDir, cb) {
+    batchSize = 8; // up to 8 files in parallel gets nice speedup in google cloud environment
     fileNames = fs.readdirSync(fromDir);
+    fileNames = fileNames.filter(fn => fn.endsWith('.jpg')); // skip the mp4
     files = [];
+    batchProms = [];
     for (var i = 0; i < fileNames.length; i++) {
         filePath = path.join(fromDir, fileNames[i]);
         try {
-            var file = await gdriveUploadPromise(authClient, filePath, uploadDir);
-            console.log('await file', i, file.status, file.statusText, fileNames[i], file.data);
-            files.push(file);
+            batchProms.push(gdriveUploadPromise(authClient, filePath, uploadDir));
+            if ((batchProms.length >= batchSize) || (i == (fileNames.length - 1))) {
+                batchFiles = [];
+                for (var j = 0; j < batchProms.length; j++) {
+                    fileInfo = await batchProms[j].catch(function(err) {
+                        console.log('upload await err', err.message, err);
+                    });
+                    batchFiles.push(fileInfo);
+                }
+                batchProms = [];
+                files = files.concat(batchFiles);
+                console.log('await files', i, batchFiles.map(fi=>fi.status));
+            }
         } catch (err) {
             console.log('await err', err);
             cb(err);
             return;
         }
     }
+    console.log('finishing upload');
     cb(null, files);
 }
 
@@ -247,9 +275,14 @@ async function uploadFiles(fromDir, authClient, uploadDir, cb) {
  * @param {!express:Request} req HTTP request context.
  * @param {!express:Response} res HTTP response context.
  */
-exports.extract = (req, res) => {
+exports.extractMp4 = (req, res) => {
     console.log('query', req.query);
     console.log('bodyM', req.body);
+    if (!req.body || !req.body.hostName || !req.body.cameraID || !req.body.yearDir || !req.body.dateDir || !req.body.qName) {
+        console.log('Missing parameters');
+        res.status(400).send('Missing parameters');
+        return;
+    }
     var hpwrenUrl = getHpwrenUrl(req.body.hostName, req.body.cameraID, req.body.yearDir, req.body.dateDir, req.body.qName);
     console.log('URL: ', hpwrenUrl);
     const tmpDir = getTmpDir();
@@ -275,6 +308,7 @@ exports.extract = (req, res) => {
                     res.status(400).send('Could not auth drive');
                     return;
                 }
+                // console.log('auth done', authClient);
                 uploadFiles(tmpDir, authClient, req.body.uploadDir, function(err, files) {
                     if (err) {
                         res.status(400).send('Could not upload jpegs');
@@ -291,7 +325,7 @@ exports.extract = (req, res) => {
 
 
 function testHandler() {
-    exports.extract({ // fake req
+    exports.extractMp4({ // fake req
         query: {},
         body: {
             hostName: 'c1',
