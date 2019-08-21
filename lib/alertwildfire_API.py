@@ -62,8 +62,13 @@ def get_individual_camera_info(cameraID):
     listofCameras = response.json()
     return listofCameras[0]
 
-def request_current_image(outputDir, cameraID, timeStamp = None):
-    if not timeStamp:
+def request_current_image(outputDir, cameraID):
+    camera_info = get_individual_camera_info(cameraID)
+    if camera_info["image"]["time"]:
+        timeStamp = camera["image"]["time"]###need to convert their format
+    elif camera_info["position"]["time"]:
+        timeStamp = camera["position"]["time"]###need to convert their format
+    else:
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
     imgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
     if os.path.isfile(imgPath):

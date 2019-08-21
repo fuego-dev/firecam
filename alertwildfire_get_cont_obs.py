@@ -23,34 +23,33 @@ settings.fuegoRoot = fuegoRoot
 import alertwildfire_API
 import collect_args
 import time
+
 def main():
     reqArgs = [
-        ["c", "cameraID", "ID (code name) of camera"],
-        ["f", "frequency", "minutes between observations"],
-        ["d", "duration", "duration of observation (minutes)"]
+        ["c", "cameraID", "ID (code name) of camera"]
     ]
     optArgs = [
+        ["i", "interval", "minutes between observations"],
+        ["d", "duration", "duration of observation (minutes)"],
         ["o", "outputDir", "directory to save the output image"]
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs)
     if not args.outputDir:
         args.outputDir = settings.downloadDir
+    if not args.duration:
+        args.duration = 30
+    if not args.interval:
+        args.interval = 1
+
     list_of_downloaded_img_paths = []
-    current_durration = 0#mins
-    while True:
-        camera_info = alertwildfire_API.get_individual_camera_info(args.cameraID)
-        if camera_info["position"]["time"]:
-            timeStamp = camera["position"]["time"]###need to convert their format
-        elif camera_info["image"]["time"]:
-            timeStamp = camera["image"]["time"]###need to convert their format
-        else:
-            timeStamp = None
-        path = alertwildfire_API.request_current_image(args.outputDir, args.cameraID, timeStamp)
-        list_of_downloaded_img_paths.append(path)
-        current_durration += int(args.frequency)
-        time.sleep(int(args.frequency)*60)
-        if current_durration>int(args.duration):
-            break
+    start_time= time.time()
+    end_time = start_time+float(args.duration)*60
+    next_interval = start_time
+    while time.time()< end_time:
+        if time.time()>next_interval:
+            path = alertwildfire_API.request_current_image(args.outputDir, args.cameraID)
+            list_of_downloaded_img_paths.append(path)
+            next_interval +=float(args.interval)*60
     return list_of_downloaded_img_paths
 
 
