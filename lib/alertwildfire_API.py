@@ -23,7 +23,7 @@ import datetime
 import requests
 import time
 import img_archive
-
+import exifread
 import urllib.parse as urlp
 baseApiUrl =urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')#initialize
 
@@ -41,9 +41,12 @@ def getApiUrl(endpoint, queryParams = None):
     url = urlp.urlunparse(urlParts)
     return url
 
-def invokeApi(endpoint, queryParams = None, stream = False):
+def invokeApi(endpoint, queryParams = None, stream = False, url_override = False):
     headers = {'X-Api-Key': settings.alertwildfirekey}
-    url = getApiUrl(endpoint, queryParams )
+    if url_override:
+        url = url_override
+    else:
+        url = getApiUrl(endpoint, queryParams )
     response = requests.get(url, headers = headers, stream = stream)
     return response
 
@@ -65,22 +68,45 @@ def get_individual_camera_info(cameraID):
 def request_current_image(outputDir, cameraID):
     camera_info = get_individual_camera_info(cameraID)
     if camera_info["image"]["time"]:
-        timeStamp = camera["image"]["time"]###need to convert their format
+        timeStamp = camera_info["image"]["time"]###need to convert their format
+
+
+        logging.warning('not yet implemented camera_info/image/time')
+        timeStamp = time.mktime(datetime.datetime.now().timetuple())
+
+
     elif camera_info["position"]["time"]:
-        timeStamp = camera["position"]["time"]###need to convert their format
+        timeStamp = camera_info["position"]["time"]###need to convert their format
+
+
+        logging.warning('not yet implemented camera_info/image/time')
+        timeStamp = time.mktime(datetime.datetime.now().timetuple())
+
     else:
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
     imgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
         return imgPath
-    response = invokeApi("/currentimage", queryParams = "name="+cameraID, stream = True)
+    if camera_info["image"]["url"]:
+        url_override = camera_info["image"]["url"]
+    else:
+        url_override = False
+    response = invokeApi("/currentimage", queryParams = "name="+cameraID, stream = True, url_override = url_override)
     if response.status_code == 200:
         with open(imgPath, 'wb') as f:
             for chunk in response:
                 f.write(chunk)
             f.close()
         response.close()
+        f = open(imgPath, 'rb')
+        f_tags = exifread.process_file(f)
+        f.close()
+        if "Image DateTime" in f_tags.keys():
+            timeStamp = time.mktime(datetime.datetime.strptime(str(f_tags["Image DateTime"]), '%Y:%m:%d %H:%M:%S').timetuple())
+            newimgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
+            os.rename(imgPath, newimgPath)
+            imgPath=newimgPath
         return imgPath 
     response.close()
     return
