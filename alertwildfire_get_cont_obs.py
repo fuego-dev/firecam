@@ -45,12 +45,13 @@ def main():
     start_time= time.time()
     end_time = start_time+float(args.duration)*60
     next_interval = start_time
-    while time.time()< end_time:
-        if time.time()>next_interval:
-            path = alertwildfire_API.request_current_image(args.outputDir, args.cameraID)
-            list_of_downloaded_img_paths.append(path)
-            next_interval +=float(args.interval)*60
-    return list_of_downloaded_img_paths
+    while True:
+        path = alertwildfire_API.request_current_image(args.outputDir, args.cameraID)
+        list_of_downloaded_img_paths.append(path)
+        next_interval +=float(args.interval)*60
+        if next_interval> end_time:
+            return list_of_downloaded_img_paths
+        time.sleep(int(next_interval-time.time()))
 
 
 if __name__=="__main__":
