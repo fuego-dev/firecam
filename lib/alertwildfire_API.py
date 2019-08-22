@@ -70,18 +70,18 @@ def request_current_image(outputDir, cameraID):
     if camera_info["image"]["time"]:
         timeStamp = camera_info["image"]["time"]###need to convert their format
 
-
+        #### this code acts to tag if the camera_info["image"]["time"] has been implemented and allows the program to run until an update that can handle this change by using the else case
         logging.warning('not yet implemented camera_info/image/time')
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
-
+        ####
 
     elif camera_info["position"]["time"]:
         timeStamp = camera_info["position"]["time"]###need to convert their format
 
-
+        #### this code acts to tag if the camera_info["image"]["time"] has been implemented and allows the program to run until an update that can handle this change by using the else case
         logging.warning('not yet implemented camera_info/image/time')
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
-
+        ####
     else:
         timeStamp = time.mktime(datetime.datetime.now().timetuple())
     imgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
