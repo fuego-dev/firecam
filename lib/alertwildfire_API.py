@@ -50,6 +50,15 @@ def invokeApi(endpoint, queryParams = None, stream = False, url_override = False
     response = requests.get(url, headers = headers, stream = stream)
     return response
 
+def extractExifTime(imgPath):
+    f = open(imgPath, 'rb')
+    f_tags = exifread.process_file(f)
+    f.close()
+    if "Image DateTime" in f_tags.keys():
+        timeStamp = time.mktime(datetime.datetime.strptime(str(f_tags["Image DateTime"]), '%Y:%m:%d %H:%M:%S').timetuple())
+        return timeStamp
+    else:
+        return None
 
 def get_all_camera_info():
     response = invokeApi("/cameras", queryParams = None, stream = False)
@@ -99,17 +108,16 @@ def request_current_image(outputDir, cameraID):
                 f.write(chunk)
             f.close()
         response.close()
-        f = open(imgPath, 'rb')
-        f_tags = exifread.process_file(f)
-        f.close()
-        if "Image DateTime" in f_tags.keys():
-            timeStamp = time.mktime(datetime.datetime.strptime(str(f_tags["Image DateTime"]), '%Y:%m:%d %H:%M:%S').timetuple())
-            newimgPath = img_archive.getImgPath(outputDir, cameraID, timeStamp)
+        exif_timeStamp = extractExifTime(imgPath)
+        if exif_timeStamp:
+            newimgPath = img_archive.getImgPath(outputDir, cameraID, exif_timeStamp)
             os.rename(imgPath, newimgPath)
             imgPath=newimgPath
         return imgPath 
     response.close()
     return
+
+
 
 
 """#time expensive POC
