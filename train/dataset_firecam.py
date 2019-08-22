@@ -65,6 +65,7 @@ SPLITS_TO_SIZES = {'train': 114690, 'validation': 12744} # mar 25
 SPLITS_TO_SIZES = {'train': 114195, 'validation': 12689} # apr 16
 SPLITS_TO_SIZES = {'train': 114426, 'validation': 12714} # may 14
 SPLITS_TO_SIZES = {'train': 116639, 'validation': 12960} # aug 14
+SPLITS_TO_SIZES = {'train': 116904, 'validation': 12990} # aug 22
 
 _NUM_CLASSES = 2
 
