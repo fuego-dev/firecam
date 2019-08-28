@@ -64,6 +64,28 @@ def getGoogleServices(settings, args):
     }
 
 
+def createFolder(service, parentDirID, folderName):
+    file_metadata = {
+        'name': folderName,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [parentDirID]
+    }
+    retriesLeft = 5
+    while retriesLeft > 0:
+        retriesLeft -= 1
+        try:
+            folder = service.files().create(body=file_metadata,
+                                            supportsTeamDrives=True,
+                                            fields='id').execute()
+            return folder['id']
+        except Exception as e:
+            logging.warning('Error creating folder %s. %d retries left. %s', folderName, retriesLeft, str(e))
+            if retriesLeft > 0:
+                time.sleep(5) # wait 5 seconds before retrying
+    logging.error('Too many create folder failures')
+    return None
+
+
 def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageToken=None):
     param = {}
     param['q'] = "'" + parentID + "' in parents and trashed = False"
