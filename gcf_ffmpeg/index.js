@@ -32,13 +32,13 @@ const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const FfmpegCommand = require('fluent-ffmpeg');
 FfmpegCommand.setFfmpegPath(ffmpegPath);
 
-function getHpwrenUrl(hostName, cameraID, yearDir, dateDir, qName) {
+function getHpwrenUrl(hostName, cameraID, yearDir, dateDir, qNum) {
     var hpwrenUrl = 'http://' + encodeURIComponent(hostName) + '.hpwren.ucsd.edu/archive/';
     hpwrenUrl += encodeURIComponent(cameraID) + '/large/';
     if (yearDir) {
         hpwrenUrl += encodeURIComponent(yearDir) + '/';
     }
-    hpwrenUrl += encodeURIComponent(dateDir) + '/MP4/' + qName;
+    hpwrenUrl += encodeURIComponent(dateDir) + '/MP4/Q' + qNum + '.mp4';
     return hpwrenUrl;
 }
 
@@ -200,12 +200,12 @@ function resolveAfter2Seconds(x) {
     });
 }
 
-function gdriveUploadPromise(authClient, filePath, parentDir) {
+function gdriveUploadPromise(authClient, filePath, parentDir, newFileName) {
     return new Promise((resolve,reject) => {
         gDrive.files.create({
             auth: authClient,
             resource: {
-                'name': path.basename(filePath),
+                'name': newFileName,
                 'parents': [parentDir]
             },
             media: {
@@ -235,18 +235,29 @@ async function gdriveUploadAsync(authClient, filePath, parentDir) {
         console.log('await err', err);
     }
 }
-  
 
-async function uploadFiles(fromDir, authClient, uploadDir, cb) {
+function getPaddedMinute(minute) {
+    minuteStr = minute.toString()
+    if (minute < 10) {
+        minuteStr = '0' + minuteStr;
+    }
+    return minuteStr;
+}
+
+async function uploadFiles(fromDir, authClient, uploadDir, driveFilesPrefix, qNum, cb) {
     batchSize = 8; // up to 8 files in parallel gets nice speedup in google cloud environment
     fileNames = fs.readdirSync(fromDir);
     fileNames = fileNames.filter(fn => fn.endsWith('.jpg')); // skip the mp4
+    fileNames = fileNames.sort(); // sort by name to ensure correct time ordering
     files = [];
     batchProms = [];
     for (var i = 0; i < fileNames.length; i++) {
         filePath = path.join(fromDir, fileNames[i]);
+        hour = (qNum-1)*3 + Math.floor(i/60);
+        minute = getPaddedMinute(i % 60);
+        newFileName = driveFilesPrefix + hour + ';' + minute + ';00.jpg'
         try {
-            batchProms.push(gdriveUploadPromise(authClient, filePath, uploadDir));
+            batchProms.push(gdriveUploadPromise(authClient, filePath, uploadDir, newFileName));
             if ((batchProms.length >= batchSize) || (i == (fileNames.length - 1))) {
                 batchFiles = [];
                 for (var j = 0; j < batchProms.length; j++) {
@@ -278,16 +289,20 @@ async function uploadFiles(fromDir, authClient, uploadDir, cb) {
 exports.extractMp4 = (req, res) => {
     console.log('query', req.query);
     console.log('bodyM', req.body);
-    if (!req.body || !req.body.hostName || !req.body.cameraID || !req.body.yearDir || !req.body.dateDir || !req.body.qName) {
+    if (!req.body || !req.body.hostName || !req.body.cameraID || !req.body.yearDir || !req.body.dateDir || !req.body.qNum) {
         console.log('Missing parameters');
         res.status(400).send('Missing parameters');
         return;
     }
-    var hpwrenUrl = getHpwrenUrl(req.body.hostName, req.body.cameraID, req.body.yearDir, req.body.dateDir, req.body.qName);
+    var hpwrenUrl = getHpwrenUrl(req.body.hostName, req.body.cameraID, req.body.yearDir, req.body.dateDir, req.body.qNum);
     console.log('URL: ', hpwrenUrl);
     const tmpDir = getTmpDir();
     const mp4File = path.join(tmpDir, 'q.mp4');
     console.log('File: ', mp4File);
+    driveFilesPrefix = req.body.cameraID + '__' +
+                        req.body.dateDir.slice(0,4) + '-' +
+                        req.body.dateDir.slice(4,6) + '-' +
+                        req.body.dateDir.slice(6,8) + 'T';
     downloadMp4(hpwrenUrl, mp4File, function(err, resp, body) {
         if (err) {
             res.status(400).send('Could not download mp4');
@@ -309,7 +324,7 @@ exports.extractMp4 = (req, res) => {
                     return;
                 }
                 // console.log('auth done', authClient);
-                uploadFiles(tmpDir, authClient, req.body.uploadDir, function(err, files) {
+                uploadFiles(tmpDir, authClient, req.body.uploadDir, driveFilesPrefix, req.body.qNum, function(err, files) {
                     if (err) {
                         res.status(400).send('Could not upload jpegs');
                         return;
@@ -332,7 +347,7 @@ function testHandler() {
             cameraID: 'rm-w-mobo-c',
             yearDir: 2017,
             dateDir: 20170613,
-            qName: 'Q3.mp4',
+            qNum: 3, // 'Q3.mp4'
             uploadDir: '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2',
         }
     }, { // fake res
