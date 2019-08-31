@@ -60,7 +60,8 @@ def getGoogleServices(settings, args):
     sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
     return {
         'drive': driveService,
-        'sheet': sheetService
+        'sheet': sheetService,
+        'creds': creds
     }
 
 
