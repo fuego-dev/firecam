@@ -151,6 +151,15 @@ def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None, npt=
         return driveListFilesQuery(service, parentID, customQuery)
 
 
+def searchAllFiles(service, parentID, minTime=None, maxTime=None, prefix=None):
+    allItems = []
+    nextPageToken = 'init'
+    while nextPageToken:
+        (items, nextPageToken) = searchFiles(service, parentID, minTime, maxTime, prefix, nextPageToken)
+        allItems += items
+    return allItems
+
+
 def getDirForClassCamera(service, classLocations, imgClass, cameraID):
     parent = classLocations[imgClass]
     dirs = driveListFilesByName(service, parent, cameraID)
