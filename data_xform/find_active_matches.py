@@ -67,7 +67,13 @@ def isCamArchiveAvailable(camArchives, cameraID, timeDT):
     matchingCams = list(filter(lambda x: cameraID == x['id'], camArchives))
     for matchingCam in matchingCams:
         # logging.warning('Searching for files in dir %s', matchingCam['dir'])
-        found = img_archive.downloadFilesHttp(img_archive.outputDirCheckOnly, cameraID, matchingCam['dir'], timeDT, timeDT, 1, False)
+        hpwrenSource = {
+            'cameraID': cameraID,
+            'dirName': matchingCam['dir'],
+            'startTimeDT': timeDT,
+            'endTimeDT': timeDT
+        }
+        found = img_archive.downloadFilesHttp(None, None, img_archive.outputDirCheckOnly, hpwrenSource, 1, False)
         if found:
             return True
         

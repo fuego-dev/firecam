@@ -67,9 +67,16 @@ def main():
         exit(1)
     
     for matchingCam in matchingCams:
-        logging.warning('Searching for files in dir %s', matchingCam['dir'])
-        found = img_archive.downloadFilesHttp(outputDir, args.cameraID, matchingCam['dir'], startTimeDT, endTimeDT, gapMinutes, True)
+        hpwrenSource = {
+            'cameraID': args.cameraID,
+            'dirName': matchingCam['dir'],
+            'startTimeDT': startTimeDT,
+            'endTimeDT': endTimeDT
+        }
+        logging.warning('Searching for files in dir %s', hpwrenSource['dirName'])
+        found = img_archive.downloadFilesHttp(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
         if found:
+            logging.warning('Found files. Exiting')
             return # done
 
 
