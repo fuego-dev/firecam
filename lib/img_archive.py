@@ -105,17 +105,10 @@ def parseFilename(fileName):
     return parsed
 
 
-"""
-There are two ways to access hpwren archives:
-1) Directories accesssible via raw HTTP to c1.xxx endpoint
-2) AJAX based FileRun server on dl.xxx endpoint
-
-Code for both of them are here, but we only use the AJAX FileRun endpoint currently
-
-"""
 class HpwrenHTMLParser(HTMLParser):
-    def __init__(self):
+    def __init__(self, fileType):
         self.table = []
+        self.filetype = fileType
         super().__init__()
 
 
@@ -124,19 +117,17 @@ class HpwrenHTMLParser(HTMLParser):
             # print('Found <a> %s', len(attrs), attrs)
             for attr in attrs:
                 # print('Found attr %s', len(attr), attr)
-                if len(attr) == 2 and attr[0]=='href' and attr[1][-4:] == '.jpg':
+                if len(attr) == 2 and attr[0]=='href' and attr[1][-4:] == self.filetype:
                     self.table.append(attr[1])
 
     def getTable(self):
         return self.table
 
 
-def parseDirHtml(dirHtml):
-    parser = HpwrenHTMLParser()
+def parseDirHtml(dirHtml, fileType):
+    parser = HpwrenHTMLParser(fileType)
     parser.feed(dirHtml)
-    files = parser.getTable()
-    times = list(map(lambda x: int(x[:-4]), files))
-    return times
+    return parser.getTable()
 
 
 def fetchImgOrDir(url, verboseLogs):
@@ -152,20 +143,26 @@ def fetchImgOrDir(url, verboseLogs):
         return ('dir', resp)
 
 
-def listTimesinQ(UrlPartsQ, verboseLogs):
-    # logging.warning('Dir URLparts %s', UrlPartsQ)
-    url = '/'.join(UrlPartsQ)
+def readUrlDir(urlPartsQ, verboseLogs, fileType):
+    # logging.warning('Dir URLparts %s', urlPartsQ)
+    url = '/'.join(urlPartsQ)
     # logging.warning('Dir URL %s', url)
     (imgOrDir, resp) = fetchImgOrDir(url, verboseLogs)
     if not imgOrDir:
         return None
     assert imgOrDir == 'dir'
     dirHtml = resp.read().decode('utf-8')
-    times = parseDirHtml(dirHtml)
-    return times
+    return parseDirHtml(dirHtml, fileType)
 
 
-def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
+def listTimesinQ(urlPartsQ, verboseLogs):
+    files = readUrlDir(urlPartsQ, verboseLogs, '.jpg')
+    if files:
+        return list(map(lambda x: {'time': int(x[:-4])}, files))
+    return None
+
+
+def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     imgPath = getImgPath(outputDir, cameraID, closestTime)
     logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
@@ -189,36 +186,126 @@ def downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
     return imgPath
 
 
+def downloadDriveFileAtTime(driveSvc, outputDir, hpwrenSource, closestEntry):
+    imgPath = os.path.join(outputDir, closestEntry['name'])
+    logging.warning('Local file %s', imgPath)
+    if os.path.isfile(imgPath):
+        logging.warning('File %s already downloaded', imgPath)
+        return imgPath
+
+    goog_helper.downloadFileByID(driveSvc, closestEntry['id'], imgPath)
+    return imgPath
+
+
+def getMp4Url(urlPartsDate, qNum, verboseLogs):
+    urlPartsMp4 = urlPartsDate[:] # copy URL
+    urlPartsMp4.append('MP4')
+    files = readUrlDir(urlPartsMp4, verboseLogs, '.mp4')
+    logging.warning('MP4s %s', files)
+    qMp4Name = 'Q' + str(qNum) + '.mp4'
+    if files and (qMp4Name in files):
+        urlPartsMp4.append(qMp4Name)
+        return '/'.join(urlPartsMp4)
+    return None
+
+
+def callGCF(gcfUrl, creds, hpwrenSource, qNum, folderID):
+    headers = {'Authorization': f'bearer {creds.id_token_jwt}'}
+    gcfParams = {
+        'hostName': hpwrenSource['server'],
+        'cameraID': hpwrenSource['cameraID'],
+        'yearDir': hpwrenSource['year'],
+        'dateDir': hpwrenSource['dateDirName'],
+        'qNum': qNum,
+        'uploadDir': folderID
+    }
+    response = requests.post(gcfUrl, headers=headers, data=gcfParams)
+    return response.content
+
+
+def getDriveMp4(googleServices, settings, hpwrenSource, qNum):
+    folderName = hpwrenSource['cameraID'] + '__' + hpwrenSource['dateDirName'] + 'Q' + str(qNum)
+    dirs = goog_helper.searchFiles(googleServices['drive'], settings.ffmpegFolder, prefix=folderName)
+    logging.warning('Found drive dirs %s', dirs)
+    folderID = dirs[0]['id'] if dirs else None
+    if not folderID:
+        logging.warning('Creating drive folder %s', folderName)
+        folderID = goog_helper.createFolder(googleServices['drive'], settings.ffmpegFolder, folderName)
+        hpwrenSource['gDriveFolder'] = folderID
+        logging.warning('Calling Cloud Function for folder %s', folderID)
+        gcfRes = callGCF(settings.ffmpegUrl, googleServices['creds'], hpwrenSource, qNum, folderID)
+        logging.warning('Cloud function result %s', gcfRes)
+    files = goog_helper.searchAllFiles(googleServices['drive'], folderID)
+    # logging.warning('GDM4: files %d %s', len(files), files)
+    imgTimes = []
+    for fileInfo in files:
+        nameParsed = parseFilename(fileInfo['name'])
+        imgTimes.append({
+            'time': nameParsed['unixTime'],
+            'id': fileInfo['id'],
+            'name': fileInfo['name']
+        })
+    return {
+        'folderID': folderID,
+        'imgTimes': imgTimes
+    }
+
+
+def checkMp4(googleServices, settings, hpwrenSource, urlPartsDate, qNum, verboseLogs):
+    url = getMp4Url(urlPartsDate, qNum, verboseLogs)
+    if not url:
+        return None
+    return getDriveMp4(googleServices, settings, hpwrenSource, qNum)
+
+
 outputDirCheckOnly = '/CHECK:WITHOUT:DOWNLOAD'
-def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs):
+def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
+    startTimeDT = hpwrenSource['startTimeDT']
+    endTimeDT = hpwrenSource['endTimeDT']
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
-    urlParts = urlParts[:] # copy URL
-    urlParts.append(dateDirName)
+    hpwrenSource['dateDirName'] = dateDirName
+    urlPartsDate = hpwrenSource['urlParts'][:] # copy URL
+    urlPartsDate.append(dateDirName)
+    hpwrenSource['urlPartsDate'] = urlPartsDate
 
     timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
-    dirTimes = None
-    lastQNum = 0
+    imgTimes = None
+    lastQNum = 0 # 0 never matches because Q numbers start with 1
     curTimeDT = startTimeDT
     downloaded_files = []
     while curTimeDT <= endTimeDT:
         qNum = 1 + int(curTimeDT.hour/3)
-        urlPartsQ = urlParts[:] # copy URL
+        urlPartsQ = urlPartsDate[:] # copy URL
         urlPartsQ.append('Q' + str(qNum))
         if qNum != lastQNum:
             # List times of files in Q dir and cache
-            dirTimes = listTimesinQ(urlPartsQ, verboseLogs)
-            if not dirTimes:
+            useHttp = True
+            imgTimes = listTimesinQ(urlPartsQ, verboseLogs)
+            if not imgTimes:
                 if verboseLogs:
                     logging.error('No images in Q dir %s', '/'.join(urlPartsQ))
-                return downloaded_files
+                mp4Url = getMp4Url(urlPartsDate, qNum, verboseLogs)
+                if not mp4Url:
+                    return downloaded_files
+                if outputDir != outputDirCheckOnly:
+                    mp4Info = getDriveMp4(googleServices, settings, hpwrenSource, qNum)
+                    useHttp = False
+                    hpwrenSource['gDriveFolder'] = mp4Info['folderID']
+                    imgTimes = mp4Info['imgTimes']
+                    # logging.warning('imgTimes %d %s', len(imgTimes), imgTimes)
             lastQNum = qNum
 
         if outputDir == outputDirCheckOnly:
             downloaded_files.append(outputDirCheckOnly)
         else:
             desiredTime = time.mktime(curTimeDT.timetuple())
-            closestTime = min(dirTimes, key=lambda x: abs(x-desiredTime))
-            downloaded = downloadFileAtTime(outputDir, urlPartsQ, cameraID, closestTime)
+            closestEntry = min(imgTimes, key=lambda x: abs(x['time']-desiredTime))
+            closestTime = closestEntry['time']
+            downloaded = None
+            if useHttp:
+                downloaded = downloadHttpFileAtTime(outputDir, urlPartsQ, hpwrenSource['cameraID'], closestTime)
+            else:
+                downloaded = downloadDriveFileAtTime(googleServices['drive'], outputDir, hpwrenSource, closestEntry)
             if downloaded and verboseLogs:
                 logging.warning('Successful download for time %s', str(datetime.datetime.fromtimestamp(closestTime)))
             if downloaded:
@@ -228,169 +315,33 @@ def downloadFilesForDate(outputDir, urlParts, cameraID, startTimeDT, endTimeDT, 
     return downloaded_files
 
 
-def downloadFilesHttp(outputDir, cameraID, dirName, startTimeDT, endTimeDT, gapMinutes, verboseLogs):
+def downloadFilesHttp(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
     regexDir = '(c[12])/([^/]+)/large/?'
-    matches = re.findall(regexDir, dirName)
+    matches = re.findall(regexDir, hpwrenSource['dirName'])
     if len(matches) != 1:
-        logging.error('Could not parse dir: %s', dirName)
+        logging.error('Could not parse dir: %s', hpwrenSource['dirName'])
         return None
     match = matches[0]
     (server, subdir) = match
     hpwrenBase = 'http://{server}.hpwren.ucsd.edu/archive'.format(server=server)
-    dateUrlParts = [hpwrenBase, subdir, 'large']
+    hpwrenSource['server'] = server
+    urlParts = [hpwrenBase, subdir, 'large']
+    hpwrenSource['urlParts'] = urlParts
+
     # first try without year directory
-    downloaded_files = downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
+    hpwrenSource['year'] = ''
+    downloaded_files = downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs)
     if downloaded_files:
         return downloaded_files
     # retry with year directory
-    dateUrlParts.append(str(startTimeDT.year))
-    return downloadFilesForDate(outputDir, dateUrlParts, cameraID, startTimeDT, endTimeDT, gapMinutes, verboseLogs)
-
-"""
-The following is the code for AJAX FileRun server for HPWREN
-
-"""
-def listAjax(cookieJar, dirsOrFiles, subPath):
-    baseUrl = 'http://dl-hpwren.ucsd.edu/filerun/?module=fileman_myfiles&section=ajax&page='
-    if dirsOrFiles == 'dirs':
-        baseUrl += 'tree'
-    elif dirsOrFiles == 'files':
-        baseUrl += 'grid'
-    else:
-        logging.error('Invalid list type: %s', dirsOrFiles)
-        return None
-    fullPath = '/ROOT/HOME/' + subPath
-    resp = requests.post(baseUrl, cookies=cookieJar, data={'path': fullPath})
-    respJson = None
-    try:
-        respJson = resp.json()
-    except Exception as e:
-        logging.error('Error listAjax %s: %s', subPath, str(e))
-        return None
-
-    resp.close()
-    if isinstance(respJson, dict) and ('msg' in respJson):
-        logging.error('Got error %s when searching %s in %s', respJson, dirsOrFiles, subPath)
-        return None
-
-    return respJson
+    hpwrenSource['year'] = str(hpwrenSource['startTimeDT'].year)
+    urlParts.append(hpwrenSource['year'])
+    hpwrenSource['urlParts'] = urlParts
+    return downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs)
 
 
-def downloadFileAjax(cookieJar, subPath, outputFile):
-    baseUrl = 'http://dl-hpwren.ucsd.edu/filerun/t.php?'
-    fullPath = '/ROOT/HOME/' + subPath
-    queryParams = {
-        'sn': 1,
-        'p': fullPath,
-    }
-    baseUrl += urllib.parse.urlencode(queryParams)
-    resp = requests.get(baseUrl, cookies=cookieJar, stream=True)
-    with open(outputFile, 'wb') as f:
-        for chunk in resp.iter_content(chunk_size=8192):
-            if chunk: # filter out keep-alive new chunks
-                f.write(chunk)
-    resp.close()
-
-
-def loginAjax():
-    loginUrl = 'http://dl-hpwren.ucsd.edu/filerun/?page=login&action=login&nonajax=1&username=publicuser&password=publicuser1'
-    resp = requests.get(loginUrl, allow_redirects=False) # some machines go into infinite redirect loop without the flag
-    cookies = resp.cookies
-    resp.close()
-    return cookies
-
-
-def chooseCamera(cookieJar, cameraDirInput):
-    cameraDirs = listAjax(cookieJar, 'dirs', '')
-    if not cameraDirs:
-        return None
-    print('Num cameras:', len(cameraDirs))
-    matchingCams = list(filter(lambda x: cameraDirInput in x['text'], cameraDirs))
-    if len(matchingCams) == 0:
-        logging.error('Camera %s not found', cameraDirInput)
-        return None
-    elif len(matchingCams) == 1:
-        return matchingCams[0]['text']
-    else:
-        print('Multiple matching cameras')
-        for (index, cam) in enumerate(matchingCams):
-            print('%d: %s' % (index + 1, cam['text']))
-        choice = int(input('Enter number for desired camera: '))
-        assert choice <= len(matchingCams)
-        cameraDir = matchingCams[choice-1]['text']
-        print('Selected camera is', cameraDir)
-        return cameraDir
-
-
-def getFilesAjax(cookieJar, outputDir, cameraID, cameraDir, startTimeDT, endTimeDT, gapMinutes):
-    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
-    camInfo = None
-    camInfoList = list(filter(lambda x: (x['cameraID'] == cameraID) and (x['dateDirName'] == dateDirName), getFilesAjax.cachedMap))
-    if camInfoList:
-        camInfo = camInfoList[0]
-        pathToDate = camInfo['pathToDate']
-    else:
-        camInfo = {
-            'cameraID': cameraID,
-            'dateDirName': dateDirName,
-            'lastQNum': 0,
-            'dirTimes': None
-        }
-        pathToDate = cameraDir
-        dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
-        if not dateDirs:
-            return None
-        # print('Dates1', len(dateDirs), dateDirs)
-        matchingYear = list(filter(lambda x: str(startTimeDT.year) == x['text'], dateDirs))
-        if len(matchingYear) == 1:
-            pathToDate += '/' + str(startTimeDT.year)
-            dateDirs = listAjax(cookieJar, 'dirs', pathToDate)
-            if not dateDirs:
-                return None
-            # print('Dates2', len(dateDirs), dateDirs)
-        matchingDate = list(filter(lambda x: dateDirName == x['text'], dateDirs))
-        if len(matchingDate) == 1:
-            pathToDate += '/' + dateDirName
-            camInfo['pathToDate'] = pathToDate
-            getFilesAjax.cachedMap.append(camInfo)
-        else:
-            logging.error('Could not find matching date in list %d:%s', len(dateDirs), dateDirs)
-            return None
-
-    timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
-    curTimeDT = startTimeDT
-    imgPaths = []
-    while curTimeDT <= endTimeDT:
-        qNum = 1 + int(curTimeDT.hour/3)
-        pathToQ = pathToDate + '/Q' + str(qNum)
-        if qNum != camInfo['lastQNum']:
-            # List times of files in Q dir and cache
-            listOfFiles = listAjax(cookieJar, 'files', pathToQ)
-            if not listOfFiles:
-                logging.error('Unable to find files in path %s', pathToQ)
-                return imgPaths
-            camInfo['lastQNum'] = qNum
-            logging.warning('Procesed Q dir %s with %d (%d) files', pathToQ, listOfFiles['count'], len(listOfFiles['files']))
-            if len(listOfFiles['files']) == 0:
-                logging.error('Zero files in path %s', pathToQ)
-                return imgPaths
-            camInfo['dirTimes'] = list(map(lambda x: int(x['n'][:-4]), listOfFiles['files']))
-
-        desiredTime = time.mktime(curTimeDT.timetuple())
-        closestTime = min(camInfo['dirTimes'], key=lambda x: abs(x-desiredTime))
-        imgPath = getImgPath(outputDir, cameraID, closestTime)
-        logging.warning('Local file %s', imgPath)
-        if os.path.isfile(imgPath):
-            logging.warning('File %s already downloaded', imgPath)
-        else:
-            downloadFileAjax(cookieJar, pathToQ + '/' + str(closestTime) + '.jpg', imgPath)
-        imgPaths.append(imgPath)
-        curTimeDT += timeGapDelta
-    return imgPaths
-getFilesAjax.cachedMap=[]
-
-def getHpwrenCameraArchives(service, settings):
-    data = goog_helper.readFromSheet(service, settings.camerasSheet, settings.camerasSheetRange)
+def getHpwrenCameraArchives(sheetSvc, settings):
+    data = goog_helper.readFromSheet(sheetSvc, settings.camerasSheet, settings.camerasSheetRange)
     camArchives = []
     for camInfo in data:
         # logging.warning('info %d, %s', len(camInfo), camInfo)
