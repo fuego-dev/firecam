@@ -28,18 +28,19 @@ settings.fuegoRoot = fuegoRoot
 import collect_args
 import goog_helper
 import requests
+import uuid
 
 import logging
 
-def callGCF(url, creds):
+def callGCF(url, creds, cameraID, folderID):
     headers = {'Authorization': f'bearer {creds.id_token_jwt}'}
     data = {
         'hostName': 'c1',
-        'cameraID': 'rm-w-mobo-c',
+        'cameraID': cameraID,
         'yearDir': 2017,
         'dateDir': 20170613,
-        'qName': 'Q3.mp4',
-        'uploadDir': '1KCdRENKi_b9HgiZ9nzq05P5rTuRH71q2',
+        'qNum': 3, # 'Q3.mp4'
+        'uploadDir': folderID
     }
     response = requests.post(url, headers=headers, data=data)
     return response.content
@@ -47,6 +48,7 @@ def callGCF(url, creds):
 
 def main():
     reqArgs = [
+        ["c", "cameraID", "ID (code name) of camera"],
     ]
     optArgs = [
         ["l", "localhost", "localhost for testing"],
@@ -54,12 +56,16 @@ def main():
     
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleCreds = goog_helper.getCreds(settings, args)
+    googleServices = goog_helper.getGoogleServices(settings, args)
 
-    url = 'https://us-central1-dkgu-dev.cloudfunctions.net/fuego-ffmpeg1'
+    folderName = str(uuid.uuid4())
+    folderID = goog_helper.createFolder(googleServices['drive'], settings.ffmpegFolder, folderName)
+    url = settings.ffmpegUrl
     if args.localhost:
         url = 'http://localhost:8080'
-    respData = callGCF(url, googleCreds)
-    logging.warning('Result: %s', respData)
+    respData = callGCF(url, googleCreds, args.cameraID, folderID)
+    logging.warning('GCF Result: %s', respData)
+    logging.warning('New folder %s (%s) should be cleaned up', folderName, folderID)
 
 
 if __name__=="__main__":
