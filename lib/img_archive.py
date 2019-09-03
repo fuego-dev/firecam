@@ -210,7 +210,7 @@ def getMp4Url(urlPartsDate, qNum, verboseLogs):
 
 
 def callGCF(gcfUrl, creds, hpwrenSource, qNum, folderID):
-    headers = {'Authorization': f'bearer {creds.id_token_jwt}'}
+    headers = {'Authorization': 'bearer {}'.format(creds.id_token_jwt)}
     gcfParams = {
         'hostName': hpwrenSource['server'],
         'cameraID': hpwrenSource['cameraID'],
