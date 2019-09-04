@@ -87,6 +87,10 @@ def createFolder(service, parentDirID, folderName):
     return None
 
 
+def deleteItem(service, itemID):
+    return service.files().delete(fileId=itemID, supportsTeamDrives=True).execute()
+
+
 def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageToken=None):
     param = {}
     param['q'] = "'" + parentID + "' in parents and trashed = False"
