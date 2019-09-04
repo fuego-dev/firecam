@@ -232,10 +232,13 @@ def getDriveMp4(googleServices, settings, hpwrenSource, qNum):
         logging.warning('Creating drive folder %s', folderName)
         folderID = goog_helper.createFolder(googleServices['drive'], settings.ffmpegFolder, folderName)
         hpwrenSource['gDriveFolder'] = folderID
+
+    files = goog_helper.searchAllFiles(googleServices['drive'], folderID)
+    if len(files) == 0:
         logging.warning('Calling Cloud Function for folder %s', folderID)
         gcfRes = callGCF(settings.ffmpegUrl, googleServices['creds'], hpwrenSource, qNum, folderID)
         logging.warning('Cloud function result %s', gcfRes)
-    files = goog_helper.searchAllFiles(googleServices['drive'], folderID)
+        files = goog_helper.searchAllFiles(googleServices['drive'], folderID)
     # logging.warning('GDM4: files %d %s', len(files), files)
     imgTimes = []
     for fileInfo in files:
