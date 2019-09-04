@@ -236,12 +236,12 @@ async function gdriveUploadAsync(authClient, filePath, parentDir) {
     }
 }
 
-function getPaddedMinute(minute) {
-    minuteStr = minute.toString()
-    if (minute < 10) {
-        minuteStr = '0' + minuteStr;
+function getPaddedTwoDigits(value) {
+    valueStr = value.toString()
+    if (value < 10) {
+        valueStr = '0' + valueStr;
     }
-    return minuteStr;
+    return valueStr;
 }
 
 async function uploadFiles(fromDir, authClient, uploadDir, driveFilesPrefix, qNum, cb) {
@@ -253,8 +253,8 @@ async function uploadFiles(fromDir, authClient, uploadDir, driveFilesPrefix, qNu
     batchProms = [];
     for (var i = 0; i < fileNames.length; i++) {
         filePath = path.join(fromDir, fileNames[i]);
-        hour = (qNum-1)*3 + Math.floor(i/60);
-        minute = getPaddedMinute(i % 60);
+        hour = getPaddedTwoDigits((qNum-1)*3 + Math.floor(i/60));
+        minute = getPaddedTwoDigits(i % 60);
         newFileName = driveFilesPrefix + hour + ';' + minute + ';00.jpg'
         try {
             batchProms.push(gdriveUploadPromise(authClient, filePath, uploadDir, newFileName));
