@@ -45,6 +45,15 @@ SCOPES = [
 
 
 def getCreds(settings, args):
+    """Get Google credentials (access token and ID token) and refresh if needed
+
+    Args:
+        settings: settings module with pointers to credential files
+        args: arguments associated with credentials
+
+    Returns:
+        Google credentials object
+    """
     store = file.Storage(settings.googleTokenFile)
     creds = store.get()
     if not creds or creds.invalid:
@@ -55,6 +64,15 @@ def getCreds(settings, args):
 
 
 def getGoogleServices(settings, args):
+    """Get Google services for drive and sheet, and the full credentials
+
+    Args:
+        settings: settings module with pointers to credential files
+        args: arguments associated with credentials
+
+    Returns:
+        Dictionary with service tokens
+    """
     creds = getCreds(settings, args)
     driveService = build('drive', 'v3', http=creds.authorize(Http()))
     sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
@@ -66,6 +84,16 @@ def getGoogleServices(settings, args):
 
 
 def createFolder(service, parentDirID, folderName):
+    """Create Google drive folder with given name in given parent folder
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        parentDirID (str): Drive folder ID of parent where to create new folder
+        folderName (str): Name of new folder
+
+    Returns:
+        Drive folder ID of newly created folder or None (on failure)
+    """
     file_metadata = {
         'name': folderName,
         'mimeType': 'application/vnd.google-apps.folder',
@@ -88,10 +116,31 @@ def createFolder(service, parentDirID, folderName):
 
 
 def deleteItem(service, itemID):
+    """Delete Google drive folder or file with given ID
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        itemID (str): Drive ID of item to be deleted
+
+    Returns:
+        Drive API response
+    """
     return service.files().delete(fileId=itemID, supportsTeamDrives=True).execute()
 
 
 def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageToken=None):
+    """Internal function to search items in drive folders
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        parentID (str): Drive folder ID of parent where to search
+        customQuery (str): optional custom query parameters
+        pageToken (str): optional page token for paging results of large sets
+
+    Returns:
+        Tuple (items, nextPageToken) containing the items found and pageToken to retrieve
+        remaining data
+    """
     param = {}
     param['q'] = "'" + parentID + "' in parents and trashed = False"
     if customQuery:
@@ -119,25 +168,33 @@ def driveListFilesQueryWithNextToken(service, parentID, customQuery=None, pageTo
 
 
 def driveListFilesQuery(service, parentID, customQuery=None):
+    # Simple wrapper around driveListFilesQueryWithNextToken without page token
     (items, nextPageToken) = driveListFilesQueryWithNextToken(service, parentID, customQuery)
     return items
 
 
 def driveListFilesByName(service, parentID, searchName=None):
+    # Wrapper around driveListFilesQuery to search for items with given name
     if searchName:
         customQuery = "name = '" + searchName + "'"
     return driveListFilesQuery(service, parentID, customQuery)
 
 
-def readFromSheet(service, sheetID, cellRange):
-    result = service.spreadsheets().values().get(spreadsheetId=sheetID,
-                                                range=cellRange).execute()
-    # print(result)
-    values = result.get('values', [])
-    return values
-
-
 def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None, npt=None):
+    """Search for items in drive folder with given name and time range
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        parentID (str): Drive folder ID of parent where to search
+        minTime (str): optional ISO datetime that items must be modified after
+        maxTime (str): optional ISO datetime that items must be modified before
+        prefix (str): optional string that must be part of the name
+        npt (str): optional page token for paging results of large sets
+
+    Returns:
+        Tuple (items, nextPageToken) containing the items found and pageToken to retrieve
+        remaining data
+    """
     constraints = []
     if minTime:
         constraints.append(" modifiedTime > '" + minTime + "' ")
@@ -156,6 +213,7 @@ def searchFiles(service, parentID, minTime=None, maxTime=None, prefix=None, npt=
 
 
 def searchAllFiles(service, parentID, minTime=None, maxTime=None, prefix=None):
+    # Wrapper around searchFiles that will iterate over all pages to retrieve all items
     allItems = []
     nextPageToken = 'init'
     while nextPageToken:
@@ -164,20 +222,14 @@ def searchAllFiles(service, parentID, minTime=None, maxTime=None, prefix=None):
     return allItems
 
 
-def getDirForClassCamera(service, classLocations, imgClass, cameraID):
-    parent = classLocations[imgClass]
-    dirs = driveListFilesByName(service, parent, cameraID)
-    if len(dirs) != 1:
-        logging.error('Expected 1 directory with name %s, but found %d: %s', cameraID, len(dirs), dirs)
-        logging.error('Searching in dir: %s', parent)
-        logging.error('ImgClass %s, locations: %s', imgClass, classLocations)
-        raise Exception('getDirForClassCam: Directory not found')
-    dirID = dirs[0]['id']
-    dirName = dirs[0]['name']
-    return (dirID, dirName)
-
-
 def downloadFileByID(service, fileID, localFilePath):
+    """Download Googld drive file given ID and save to given local filePath
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        fileID (str): drive ID for file
+        localFilePath (str): path to local file where to store the data
+    """
     # download file from drive to memory object
     request = service.files().get_media(fileId=fileID)
     fh = io.BytesIO()
@@ -194,6 +246,14 @@ def downloadFileByID(service, fileID, localFilePath):
 
 
 def downloadFile(service, dirID, fileName, localFilePath):
+    """Download Googld drive file given folder ID and file nam and save to given local filePath
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        dirID (str): drive ID for folder containing file
+        fileName (str): filename of file in drive folder
+        localFilePath (str): path to local file where to store the data
+    """
     files = driveListFilesByName(service, dirID, fileName)
     if len(files) != 1:
         print('Expected 1 file but found', len(files), files)
@@ -207,6 +267,16 @@ def downloadFile(service, dirID, fileName, localFilePath):
 
 
 def uploadFile(service, dirID, localFilePath):
+    """Upload file to to given Google drive folder ID
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        dirID (str): destination drive ID of folder
+        localFilePath (str): path to local file where to read the data from
+
+    Returns:
+        Drive API upload result
+    """
     file_metadata = {'name': pathlib.PurePath(localFilePath).name, 'parents': [dirID]}
     media = MediaFileUpload(localFilePath,
                             mimetype='image/jpeg')
@@ -227,7 +297,43 @@ def uploadFile(service, dirID, localFilePath):
     return None
 
 
+def getDirForClassCamera(service, classLocations, imgClass, cameraID):
+    """Find Google drive folder ID & name for given camera in Fuego Cropping/Pictures/<imgClass> folder
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        classLocations (dict): Dict of immgClass -> drive folder ID
+        imgClass (str): image class (smoke, nonSmoke, etc..)
+        cameraID (str): ID of the camera
+
+    Returns:
+        Tuple (ID, name) containing the folder ID and name
+    """
+    parent = classLocations[imgClass]
+    dirs = driveListFilesByName(service, parent, cameraID)
+    if len(dirs) != 1:
+        logging.error('Expected 1 directory with name %s, but found %d: %s', cameraID, len(dirs), dirs)
+        logging.error('Searching in dir: %s', parent)
+        logging.error('ImgClass %s, locations: %s', imgClass, classLocations)
+        raise Exception('getDirForClassCam: Directory not found')
+    dirID = dirs[0]['id']
+    dirName = dirs[0]['name']
+    return (dirID, dirName)
+
+
 def downloadClassImage(service, classLocations, imgClass, fileName, outputDirectory):
+    """Download image file with given name from given image class from Fuego Cropping/Pictures/<imgClass> folder
+
+    Args:
+        service: Drive service (from getGoogleServices()['drive'])
+        classLocations (dict): Dict of immgClass -> drive folder ID
+        imgClass (str): image class (smoke, nonSmoke, etc..)
+        fileName (str): Name of image file
+        outputDirectory (str): Local directory where to store the file
+
+    Returns:
+        Local file system path to downloaded file
+    """
     localFilePath = os.path.join(outputDirectory, fileName)
     if os.path.isfile(localFilePath):
         return localFilePath # already downloaded, nothing to do
@@ -244,5 +350,25 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
     return localFilePath
 
 
+def readFromSheet(service, sheetID, cellRange):
+    """Read data from Google sheet for given cell range
+
+    Args:
+        service: Google sheet service (from getGoogleServices()['sheet'])
+        sheetID (str): Google sheet ID
+        cellRange (str): Cell Range (e.g., A1:B3) to read
+
+    Returns:
+        Values from the sheet
+    """
+    result = service.spreadsheets().values().get(spreadsheetId=sheetID,
+                                                range=cellRange).execute()
+    # print(result)
+    values = result.get('values', [])
+    return values
+
+
 def getParentParser():
+    """Get the parent argparse object needed by Google APIs
+    """
     return tools.argparser
