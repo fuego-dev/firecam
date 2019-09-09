@@ -126,6 +126,8 @@ def driveListFilesQuery(service, parentID, customQuery=None):
 def driveListFilesByName(service, parentID, searchName=None):
     if searchName:
         customQuery = "name = '" + searchName + "'"
+    else:
+        customQuery = None
     return driveListFilesQuery(service, parentID, customQuery)
 
 
