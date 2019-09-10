@@ -320,7 +320,7 @@ def main():
                 #+##REPLACE DEP. GDRIVE W HPREWN#time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 #+##REPLACE DEP. GDRIVE W HPREWN#for dirName in archiveDirs:#search directories of camera for a time near
                 #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Searching for files in dir %s', dirName)
-                #+##REPLACE DEP. GDRIVE W HPREWN#    imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                #+##REPLACE DEP. GDRIVE W HPREWN#    imgPaths = img_archive.downloadFilesHpwren(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
                 #+##REPLACE DEP. GDRIVE W HPREWN#    if imgPaths:
                 #+##REPLACE DEP. GDRIVE W HPREWN#        localFilePath = imgPaths[0]
                 #+##REPLACE DEP. GDRIVE W HPREWN#        break
@@ -346,7 +346,7 @@ def main():
                 dt -= timeGapDelta
                 for dirName in archiveDirs:
                     logging.warning('Searching for files in dir %s', dirName)
-                    #+##REPLACE DEP. GDRIVE W HPREWN#imgPaths = img_archive.downloadFilesHttp(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
+                    #+##REPLACE DEP. GDRIVE W HPREWN#imgPaths = img_archive.downloadFilesHpwren(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
                     imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#-##REPLACE DEP. GDRIVE W HPREWN#
                     if imgPaths:
                         earlierImgPath = imgPaths[0]

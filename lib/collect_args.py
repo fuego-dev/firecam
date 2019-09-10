@@ -14,7 +14,8 @@
 # ==============================================================================
 """
 
-Simple utility to get args from command line or input
+Simple wrapper around argparse that supports a data driven (array specs) vs.
+argparse's code driven specs to parse arguments
 
 """
 
@@ -43,4 +44,12 @@ def collectArgsInt(cmdArgs, requiredArgs, optionalArgs, parentParsers, silence):
 
 
 def collectArgs(requiredArgs, optionalArgs=[], parentParsers=None, silence=False):
+    """Parse the process command line parameters into arguments given the specs
+
+    Args:
+        requiredArgs (list): list of required parameters
+        optionalArgs (list): list of optional parameters
+        parentParsers: parsers for arguments for other libraries
+        silence (bool): If true, argument values are logged
+    """
     return collectArgsInt(sys.argv[1:], requiredArgs, optionalArgs, parentParsers, silence)

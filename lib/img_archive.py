@@ -31,6 +31,19 @@ from PIL import Image, ImageMath
 
 
 def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
+    """Generate properly formatted image filename path following Fuego conventions
+       E.g.: lo-s-mobo-c__2018-06-06T11;12;23_Diff1_Crop_627x632x1279x931.jpg
+
+    Args:
+        outputDir (str): Output directory
+        cameraID (str): ID of camera
+        timestamp (int): timestamp
+        cropCoords (tuple): (x0, y0, x1, y1) coordinates of the crop rectangle
+        diffMinutes (int): number of minutes separating the images (for subtracted images)
+
+    Returns:
+        String to full path name
+    """
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
     timeStr = timeStr.replace(':', ';') # make windows happy
     imgName = '__'.join([cameraID, timeStr])
@@ -43,6 +56,17 @@ def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
 
 
 def repackFileName(parsedName):
+    """Generate properly formatted image filename following Fuego conventions
+       based on information from parsedName dictionary
+       E.g.: lo-s-mobo-c__2018-06-06T11;12;23_Diff1_Crop_627x632x1279x931.jpg
+
+    Args:
+        parsedName (dict): Dictionary containing various attributes of image
+                            (likely result from earlier call to parseFilename())
+
+    Returns:
+        String to file name
+    """
     cropCoords = None
     if 'minX' in parsedName:
         cropCoords=(parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY'])
@@ -52,6 +76,14 @@ def repackFileName(parsedName):
 
 
 def parseFilename(fileName):
+    """Parse the image source attributes given the properly formatted image filename
+
+    Args:
+        fileName (str):
+
+    Returns:
+        Dictionary with parsed out attributes
+    """
     # regex to match names like Axis-BaldCA_2018-05-29T16_02_30_129496.jpg
     # and bm-n-mobo-c__2017-06-25z11;53;33.jpg
     regexExpanded = '([A-Za-z0-9-_]+[^_])_+(\d{4}-\d\d-\d\d)T(\d\d)[_;](\d\d)[_;](\d\d)'
@@ -106,6 +138,9 @@ def parseFilename(fileName):
 
 
 class HpwrenHTMLParser(HTMLParser):
+    """Dervied class from HTMLParser to pull out file information from HTML directory listing pages
+        Allows caller to specify fileType (extension) the caller cares about
+    """
     def __init__(self, fileType):
         self.table = []
         self.filetype = fileType
@@ -113,6 +148,11 @@ class HpwrenHTMLParser(HTMLParser):
 
 
     def handle_starttag(self, tag, attrs):
+        """Handler for HTML starting tag (<).
+           If the tag type is <a> and it contains an href link pointing to file of specified type,
+           then save the name for extraction by getTable()
+
+        """
         if (tag == 'a') and len(attrs) > 0:
             # print('Found <a> %s', len(attrs), attrs)
             for attr in attrs:
@@ -125,12 +165,30 @@ class HpwrenHTMLParser(HTMLParser):
 
 
 def parseDirHtml(dirHtml, fileType):
+    """Wrapper around HpwrenHTMLParser to pull out entries of given fileType
+
+    Args:
+        dirHtml (str): HTML page for directory listing
+        fileType (str): File extension (e.g.: '.jpg')
+
+    Returns:
+        List of file names matching extension
+    """
     parser = HpwrenHTMLParser(fileType)
     parser.feed(dirHtml)
     return parser.getTable()
 
 
 def fetchImgOrDir(url, verboseLogs):
+    """Read the given URL and return the data.  Also note if data is an image
+
+    Args:
+        url (str): URL to read
+        verboseLogs (bool): Write verbose logs for debugging
+
+    Returns:
+        Tuple indicating image or directory and the data
+    """
     try:
         resp = urllib.request.urlopen(url)
     except Exception as e:
@@ -144,6 +202,16 @@ def fetchImgOrDir(url, verboseLogs):
 
 
 def readUrlDir(urlPartsQ, verboseLogs, fileType):
+    """Get the files of given fileType from the given HPWREN Q directory URL
+
+    Args:
+        urlPartsQ (list): HPWREN Q directory URL as list of string parts
+        verboseLogs (bool): Write verbose logs for debugging
+        fileType (str): File extension (e.g.: '.jpg')
+
+    Returns:
+        List of file names matching extension
+    """
     # logging.warning('Dir URLparts %s', urlPartsQ)
     url = '/'.join(urlPartsQ)
     # logging.warning('Dir URL %s', url)
@@ -156,6 +224,15 @@ def readUrlDir(urlPartsQ, verboseLogs, fileType):
 
 
 def listTimesinQ(urlPartsQ, verboseLogs):
+    """Get the timestamps of images from the given HPWREN Q directory URL
+
+    Args:
+        urlPartsQ (list): HPWREN Q directory URL as list of string parts
+        verboseLogs (bool): Write verbose logs for debugging
+
+    Returns:
+        List of timestamps
+    """
     files = readUrlDir(urlPartsQ, verboseLogs, '.jpg')
     if files:
         return list(map(lambda x: {'time': int(x[:-4])}, files))
@@ -163,6 +240,17 @@ def listTimesinQ(urlPartsQ, verboseLogs):
 
 
 def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
+    """Download HPWREN image from given HPWREN Q directory URL at given time
+
+    Args:
+        outputDir (str): Output directory path
+        urlPartsQ (list): HPWREN Q directory URL as list of string parts
+        cameraID (str): ID of camera
+        closestTime (int): Desired timestamp
+
+    Returns:
+        Local filesystem path to downloaded image
+    """
     imgPath = getImgPath(outputDir, cameraID, closestTime)
     logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
@@ -187,6 +275,17 @@ def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
 
 
 def downloadDriveFileAtTime(driveSvc, outputDir, hpwrenSource, closestEntry):
+    """Download HPWREN image from google drive folder from ffmpeg Google Cloud Function
+
+    Args:
+        driveSvc: Drive service (from getGoogleServices()['drive'])
+        outputDir (str): Output directory path
+        hpwrenSource (dict): Dictionary containing various HPWREN source information
+        closestEntry (dict): Desired timestamp and drive file ID
+
+    Returns:
+        Local filesystem path to downloaded image
+    """
     imgPath = os.path.join(outputDir, closestEntry['name'])
     logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
@@ -198,6 +297,16 @@ def downloadDriveFileAtTime(driveSvc, outputDir, hpwrenSource, closestEntry):
 
 
 def getMp4Url(urlPartsDate, qNum, verboseLogs):
+    """Get the URL for the MP4 video for given Q
+
+    Args:
+        urlPartsDate (list): HPWREN date directory URL as list of string parts
+        qNum (int): Q number (1-8) where each Q represents 3 hour period
+        verboseLogs (bool): Write verbose logs for debugging
+
+    Returns:
+        URL to Q diretory
+    """
     urlPartsMp4 = urlPartsDate[:] # copy URL
     urlPartsMp4.append('MP4')
     files = readUrlDir(urlPartsMp4, verboseLogs, '.mp4')
@@ -210,6 +319,18 @@ def getMp4Url(urlPartsDate, qNum, verboseLogs):
 
 
 def callGCF(gcfUrl, creds, hpwrenSource, qNum, folderID):
+    """invoke the Google Cloud Function for ffpeg decompression with proper parameters and credentials
+
+    Args:
+        gcfUrl (str): URL for ffmpeg cloud function
+        creds (): Google credentials to identify caller
+        hpwrenSource (dict): Dictionary containing various HPWREN source information
+        qNum (int): Q number (1-8) where each Q represents 3 hour period
+        folderID (str): google drive ID of folder where to extract images
+
+    Returns:
+        Cloud function result
+    """
     headers = {'Authorization': 'bearer {}'.format(creds.id_token_jwt)}
     gcfParams = {
         'hostName': hpwrenSource['server'],
@@ -224,6 +345,17 @@ def callGCF(gcfUrl, creds, hpwrenSource, qNum, folderID):
 
 
 def getDriveMp4(googleServices, settings, hpwrenSource, qNum):
+    """Extract images from Q MP4 video into google drive folder
+
+    Args:
+        googleServices (): Google services and credentials
+        settings (): settings module
+        hpwrenSource (dict): Dictionary containing various HPWREN source information
+        qNum (int): Q number (1-8) where each Q represents 3 hour period
+
+    Returns:
+        Dictionary with drive folder ID containing images and imgTimes metadata
+    """
     folderName = hpwrenSource['cameraID'] + '__' + hpwrenSource['dateDirName'] + 'Q' + str(qNum)
     dirs = goog_helper.searchFiles(googleServices['drive'], settings.ffmpegFolder, prefix=folderName)
     logging.warning('Found drive dirs %s', dirs)
@@ -254,15 +386,23 @@ def getDriveMp4(googleServices, settings, hpwrenSource, qNum):
     }
 
 
-def checkMp4(googleServices, settings, hpwrenSource, urlPartsDate, qNum, verboseLogs):
-    url = getMp4Url(urlPartsDate, qNum, verboseLogs)
-    if not url:
-        return None
-    return getDriveMp4(googleServices, settings, hpwrenSource, qNum)
-
-
 outputDirCheckOnly = '/CHECK:WITHOUT:DOWNLOAD'
 def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
+    """Download HPWREN images from given given date time range with specified gaps
+
+    If outputDir is special value outputDirCheckOnly, then just check if files are retrievable
+
+    Args:
+        googleServices (): Google services and credentials
+        settings (): settings module
+        outputDir (str): Output directory path
+        hpwrenSource (dict): Dictionary containing various HPWREN source information
+        gapMinutes (int): Number of minutes of gap between images for downloading
+        verboseLogs (bool): Write verbose logs for debugging
+
+    Returns:
+        List of local filesystem paths to downloaded images
+    """
     startTimeDT = hpwrenSource['startTimeDT']
     endTimeDT = hpwrenSource['endTimeDT']
     dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
@@ -318,7 +458,23 @@ def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapM
     return downloaded_files
 
 
-def downloadFilesHttp(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
+def downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
+    """Download HPWREN images from given given date time range with specified gaps
+
+    Calls downloadFilesForDate to do the heavy lifting, but first determines the hpwren server.
+    First tries without year directory in URL path, and if that fails, then retries with year dir
+
+    Args:
+        googleServices (): Google services and credentials
+        settings (): settings module
+        outputDir (str): Output directory path
+        hpwrenSource (dict): Dictionary containing various HPWREN source information
+        gapMinutes (int): Number of minutes of gap between images for downloading
+        verboseLogs (bool): Write verbose logs for debugging
+
+    Returns:
+        List of local filesystem paths to downloaded images
+    """
     regexDir = '(c[12])/([^/]+)/large/?'
     matches = re.findall(regexDir, hpwrenSource['dirName'])
     if len(matches) != 1:
@@ -344,6 +500,15 @@ def downloadFilesHttp(googleServices, settings, outputDir, hpwrenSource, gapMinu
 
 
 def getHpwrenCameraArchives(sheetSvc, settings):
+    """Get the HPWREN camera archive directories from Google sheet settings.camerasSheet
+
+    Args:
+        sheetSvc: Google sheet service (from getGoogleServices()['sheet'])
+        settings: settings module
+
+    Returns:
+        List of archive directories
+    """
     data = goog_helper.readFromSheet(sheetSvc, settings.camerasSheet, settings.camerasSheetRange)
     camArchives = []
     for camInfo in data:
@@ -358,6 +523,17 @@ def getHpwrenCameraArchives(sheetSvc, settings):
 
 
 def diffImages(imgA, imgB):
+    """Subtract two images (r-r, g-g, b-b).  Also add 128 to reduce negative values
+       If a pixel is exactly same in both images, then the result will be 128,128,128 gray
+       Out of range values (<0 and > 255) are moved to 0 and 255 by the convert('L') function
+
+    Args:
+        imgA: Pillow image object to subtract from
+        imgB: Pillow image object to subtract
+
+    Returns:
+        Pillow image object containing the results of the subtraction with 128 mean
+    """
     bandsImgA = imgA.split()
     bandsImgB = imgB.split()
     bandsImgOut = []

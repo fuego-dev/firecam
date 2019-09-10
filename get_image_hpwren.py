@@ -74,7 +74,7 @@ def main():
             'endTimeDT': endTimeDT
         }
         logging.warning('Searching for files in dir %s', hpwrenSource['dirName'])
-        found = img_archive.downloadFilesHttp(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
+        found = img_archive.downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
         if found:
             logging.warning('Found files. Exiting')
             return # done

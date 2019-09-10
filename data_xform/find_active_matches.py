@@ -73,7 +73,7 @@ def isCamArchiveAvailable(camArchives, cameraID, timeDT):
             'startTimeDT': timeDT,
             'endTimeDT': timeDT
         }
-        found = img_archive.downloadFilesHttp(None, None, img_archive.outputDirCheckOnly, hpwrenSource, 1, False)
+        found = img_archive.downloadFilesHpwren(None, None, img_archive.outputDirCheckOnly, hpwrenSource, 1, False)
         if found:
             return True
         
