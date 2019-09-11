@@ -25,6 +25,15 @@ import collect_args
 import time
 
 def main():
+    """requests the continual recording of a a particular alertwildfire camera and saves images to outputDir
+    Args:
+        -c  cameraID (str): time in hours to store data
+        -i  interval (str): minutes between observations
+        -d  duration (str): duration of observation (minutes)
+        -o  outputDir (str): directory to save the output image
+    Returns:
+        None
+    """
     reqArgs = [
         ["c", "cameraID", "ID (code name) of camera"]
     ]
