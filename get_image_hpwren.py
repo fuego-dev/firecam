@@ -60,25 +60,11 @@ def main():
     assert endTimeDT >= startTimeDT
 
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
-    matchingCams = list(filter(lambda x: args.cameraID == x['id'], camArchives))
-    logging.warning('Found %d match(es): %s', len(matchingCams), matchingCams)
-    if len(matchingCams) == 0:
+    files = img_archive.getHpwrenImages(googleServices, settings, outputDir, camArchives, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+    if files:
+        logging.warning('Found %d files.', len(files))
+    else:
         logging.error('No matches for camera ID %s', args.cameraID)
-        exit(1)
-    
-    for matchingCam in matchingCams:
-        hpwrenSource = {
-            'cameraID': args.cameraID,
-            'dirName': matchingCam['dir'],
-            'startTimeDT': startTimeDT,
-            'endTimeDT': endTimeDT
-        }
-        logging.warning('Searching for files in dir %s', hpwrenSource['dirName'])
-        found = img_archive.downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
-        if found:
-            logging.warning('Found files. Exiting')
-            return # done
-
 
 
 if __name__=="__main__":

@@ -522,6 +522,55 @@ def getHpwrenCameraArchives(sheetSvc, settings):
     return camArchives
 
 
+def findCameraInArchive(camArchives, cameraID):
+    """Find the entries in the camera archive directories for the given camera
+
+    Args:
+        camArchives (list): Result of getHpwrenCameraArchives() above
+        cameraID (str): ID of camera to fetch images from
+
+    Returns:
+        List of archive dirs that matching camera
+    """
+    matchingCams = list(filter(lambda x: cameraID == x['id'], camArchives))
+    # logging.warning('Found %d match(es): %s', len(matchingCams), matchingCams)
+    return matchingCams
+
+
+def getHpwrenImages(googleServices, settings, outputDir, camArchives, cameraID, startTimeDT, endTimeDT, gapMinutes):
+    """Download HPWREN images from given camera and date time range with specified gaps
+
+    Iterates over all directories for given camera in the archives and then downloads the images
+    by calling downloadFilesHpwren
+
+    Args:
+        googleServices (): Google services and credentials
+        settings (): settings module
+        outputDir (str): Output directory path
+        camArchives (list): Result of getHpwrenCameraArchives() above
+        cameraID (str): ID of camera to fetch images from
+        startTimeDT (datetime): starting time of time range
+        endTimeDT (datetime): ending time of time range
+        gapMinutes (int): Number of minutes of gap between images for downloading
+
+    Returns:
+        List of local filesystem paths to downloaded images
+    """
+    matchingCams = findCameraInArchive(camArchives, cameraID)
+    for matchingCam in matchingCams:
+        hpwrenSource = {
+            'cameraID': cameraID,
+            'dirName': matchingCam['dir'],
+            'startTimeDT': startTimeDT,
+            'endTimeDT': endTimeDT
+        }
+        logging.warning('Searching for files in dir %s', hpwrenSource['dirName'])
+        found = downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
+        if found:
+            return found
+    return None
+
+
 def diffImages(imgA, imgB):
     """Subtract two images (r-r, g-g, b-b).  Also add 128 to reduce negative values
        If a pixel is exactly same in both images, then the result will be 128,128,128 gray

@@ -269,12 +269,8 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
-    cookieJar = None#-##REPLACE DEP. GDRIVE W HPREWN#
-    camArchives = None#-##REPLACE DEP. GDRIVE W HPREWN#
-    #+##REPLACE DEP. GDRIVE W HPREWN#camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
     if minusMinutes:
-        cookieJar = img_archive.loginAjax()#-##REPLACE DEP. GDRIVE W HPREWN#
-        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)#-##REPLACE DEP. GDRIVE W HPREWN#
         timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
     cameraCache = {}
     skippedTiny = []
@@ -334,24 +330,13 @@ def main():
             # if in subracted images mode, download an earlier image and subtract
             if minusMinutes:
                 nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
-                matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
-                if len(matchingCams) != 1:
-                    logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
-                    skippedArchive.append((rowIndex, fileName, matchingCams))
-                    continue
-                archiveDirs = matchingCams[0]['dirs']
-                logging.warning('Found %s directories', archiveDirs)
-                earlierImgPath = None
                 dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 dt -= timeGapDelta
-                for dirName in archiveDirs:
-                    logging.warning('Searching for files in dir %s', dirName)
-                    #+##REPLACE DEP. GDRIVE W HPREWN#imgPaths = img_archive.downloadFilesHpwren(settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1, 0)
-                    imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, nameParsed['cameraID'], dirName, dt, dt, 1)#-##REPLACE DEP. GDRIVE W HPREWN#
-                    if imgPaths:
-                        earlierImgPath = imgPaths[0]
-                        break # done
-                if not earlierImgPath:
+                earlierImgPath = None
+                files = img_archive.getHpwrenImages(googleServices, settings, settings.downloadDir, camArchives, nameParsed['cameraID'], dt, dt, 1)
+                if files:
+                    earlierImgPath = files[0]
+                else:
                     logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
                     skippedArchive.append((rowIndex, fileName, dt))
                     continue
