@@ -39,6 +39,13 @@ import img_archive
 
 
 def cleanup_archive(googleServices, timethreshold):
+    """initializes a continual cleaning function that only acts to remove archived data past a given threshold.
+    Args:
+        googleServices: Drive service (from getGoogleServices())
+        timethreshold (flt): hours to keep data in archive
+    Returns:
+        continual should never return must be manually killed
+    """
     img_archive.getImgPath
     timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
     current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
@@ -52,6 +59,15 @@ def cleanup_archive(googleServices, timethreshold):
     return True
 
 def capture_and_record(googleServices, outputDir, cameras_in_drive, camera_name):
+    """requests current image from camera and uploads it to drive
+    Args:
+        googleServices: Drive service (from getGoogleServices())
+        outputDir (str): folder path to download into
+        cameras_in_drive (dict): dictionary of all camera archive folders with respective google IDs
+        camera_name (str): name of camera as recorded by alertwildfire
+    Returns:
+        imgPath: local path to downloaded object
+    """
     if not camera_name in cameras_in_drive.keys():
         cameras_in_drive[camera_name] = goog_helper.createFolder(googleServices['drive'], settings.alertwildfire_archive,  camera_name)
     dirID = cameras_in_drive[camera_name]
@@ -61,6 +77,15 @@ def capture_and_record(googleServices, outputDir, cameras_in_drive, camera_name)
 
 
 def camera_management(obj):
+    """manages the continual observation of a given set of cameras to watch.
+    Args:
+        obj (tuple): holds the googleServices, cameras_in_drive, camera_names_to_watch arguments
+            googleServices: Drive service (from getGoogleServices())
+            cameras_in_drive (dict): dictionary of all camera archive folders with respective google IDs
+            camera_names_to_watch (List): list of camera names that are to be watched by this process
+    Returns:
+        None
+    """
     googleServices, cameras_in_drive, camera_names_to_watch = obj[0], obj[1], obj[2]
     toggle=True
     while toggle:
@@ -81,6 +106,14 @@ def camera_management(obj):
 
 
 def main():
+    """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
+    Args:
+        "-c  cleaning_threshold" (flt): time in hours to store data
+        "-o  cameras_overide"    (str): list of specific cameras to watch
+        "-p  parallelize"       (bool): toggle to parallelize
+    Returns:
+        None
+    """
     reqArgs = []
     optArgs = [["c", "cleaning_threshold", "time in hours to store data"],
  ["o", "cameras_overide", "specific cameras to watch"],
@@ -107,7 +140,7 @@ def main():
     for elem in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
         cameras_in_drive[elem['name']] = elem['id']
 
-    if parallel:
+    if parallel:#having issues
         num_cameras_per_process = 5
         camera_bunchs = [listofrotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofrotatingCameras)/num_cameras_per_process))]
     
