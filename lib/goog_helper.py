@@ -40,6 +40,7 @@ import img_archive
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/spreadsheets',
+    'https://www.googleapis.com/auth/devstorage.read_write',
     'profile' # to get id_token for gcf_ffmpeg
 ]
 
@@ -76,9 +77,11 @@ def getGoogleServices(settings, args):
     creds = getCreds(settings, args)
     driveService = build('drive', 'v3', http=creds.authorize(Http()))
     sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
+    storageService = build('storage', 'v1', http=creds.authorize(Http()))
     return {
         'drive': driveService,
         'sheet': sheetService,
+        'storage': storageService,
         'creds': creds
     }
 
@@ -278,8 +281,7 @@ def uploadFile(service, dirID, localFilePath):
         Drive API upload result
     """
     file_metadata = {'name': pathlib.PurePath(localFilePath).name, 'parents': [dirID]}
-    media = MediaFileUpload(localFilePath,
-                            mimetype='image/jpeg')
+    media = MediaFileUpload(localFilePath, mimetype = 'image/jpeg')
     retriesLeft = 5
     while retriesLeft > 0:
         retriesLeft -= 1
@@ -372,3 +374,80 @@ def getParentParser():
     """Get the parent argparse object needed by Google APIs
     """
     return tools.argparser
+
+
+def listBuckets(storageSvc, projectName):
+    """List all buckets in given Google Cloud Storage project
+
+    Args:
+        storageSvc: Storage service (from getGoogleServices()['storage'])
+        projectName (str): Cloud project Name
+
+    Returns:
+        List of bucket names or None
+    """
+    fields = 'nextPageToken,items(name)'
+    res = storageSvc.buckets().list(project = projectName, fields = fields).execute()
+    if res and 'items' in res:
+        return [item['name'] for item in res['items']]
+    return None
+
+
+def listBucketObjects(storageSvc, bucketName):
+    """List all objects in given Google Cloud Storage bucket
+
+    Args:
+        storageSvc: Storage service (from getGoogleServices()['storage'])
+        bucketName (str): Cloud Storage bucket name
+
+    Returns:
+        List of file names (note names are full paths in cloud storage)
+    """
+    fields = 'nextPageToken,items(name)'
+    res = storageSvc.objects().list(bucket = bucketName, fields = fields).execute()
+    if res and 'items' in res:
+        return [item['name'] for item in res['items']]
+    return None
+
+
+def downloadBucketObject(storageSvc, bucketName, fileID, localFilePath):
+    """Download the given file in given bucket into local file with given path
+
+    Args:
+        storageSvc: Storage service (from getGoogleServices()['storage'])
+        bucketName (str): Cloud Storage bucket name
+        fileID (str): file path inside bucket
+        localFilePath (str): path to local file where to store the data
+    """
+    # download file from cloud storage to memory object
+    request = storageSvc.objects().get_media(bucket = bucketName, object = fileID)
+    fh = io.BytesIO()
+    downloader = MediaIoBaseDownload(fh, request)
+    done = False
+    while done is False:
+        status, done = downloader.next_chunk()
+        print("Download {}%.".format(int(status.progress() * 100)))
+
+    # store memory object data to local file
+    fh.seek(0)
+    with open(localFilePath, 'wb') as f:
+        shutil.copyfileobj(fh, f)
+
+
+def uploadBucketObject(storageSvc, bucketName, fileID, localFilePath):
+    """Upload the given file to given bucket
+
+    Args:
+        storageSvc: Storage service (from getGoogleServices()['storage'])
+        bucketName (str): Cloud Storage bucket name
+        fileID (str): file path inside bucket
+        localFilePath (str): path to local file where to read the data from
+
+    Returns:
+        Cloud storage file object
+    """
+    file_metadata = {'name': fileID}
+    media = MediaFileUpload(localFilePath, mimetype = 'image/jpeg')
+    res = storageSvc.objects().insert(bucket = bucketName, body = file_metadata,
+                                      media_body = media).execute()
+    return res
