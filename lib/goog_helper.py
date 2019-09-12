@@ -393,20 +393,26 @@ def listBuckets(storageSvc, projectName):
     return None
 
 
-def listBucketObjects(storageSvc, bucketName):
-    """List all objects in given Google Cloud Storage bucket
+def listBucketObjects(storageSvc, bucketName, prefix='', getDirs=False):
+    """List all objects in given Google Cloud Storage bucket matching given prefix and getDirs
 
     Args:
         storageSvc: Storage service (from getGoogleServices()['storage'])
         bucketName (str): Cloud Storage bucket name
+        prefix (str): optional string that must be at start of filename
+        getDirs (bool): if true, return subdirectories vs. files
 
     Returns:
         List of file names (note names are full paths in cloud storage)
     """
-    fields = 'nextPageToken,items(name)'
-    res = storageSvc.objects().list(bucket = bucketName, fields = fields).execute()
-    if res and 'items' in res:
-        return [item['name'] for item in res['items']]
+    fields = 'nextPageToken,items(name),prefixes'
+    res = storageSvc.objects().list(bucket = bucketName, fields = fields,
+                                    prefix = prefix, delimiter = '/').execute()
+    if res:
+        if getDirs and ('prefixes' in res):
+            return res['prefixes']
+        elif ('items' in res) and not getDirs:
+            return [item['name'] for item in res['items']]
     return None
 
 
