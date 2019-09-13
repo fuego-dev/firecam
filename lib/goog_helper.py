@@ -246,4 +246,3 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
 
 def getParentParser():
     return tools.argparser
-
