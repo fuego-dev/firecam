@@ -68,23 +68,30 @@ def capture_and_record(googleServices, outputDir, camera_name):
     Returns:
         imgPath: local path to downloaded object
     """
-    imgPath = alertwildfire_API.request_current_image(outputDir, camera_name)
-    cloud_file_path = camera_name + '/' + pathlib.PurePath(imgPath).name
-    goog_helper.uploadBucketObject(googleServices["storage"],"fuego-firecam-a",cloud_file_path, imgPath)
+    success = False
+    while not success:
+        pull1 = alertwildfire_API.get_individual_camera_info(camera_name)
+        imgPath = alertwildfire_API.request_current_image(outputDir, camera_name) 
+        pull2 = alertwildfire_API.get_individual_camera_info(camera_name)
+        if pull1['position'] == pull1['position']:
+            success = True
+
+    image_base_name = pathlib.PurePath(imgPath).name
+    image_name_with_metadata = image_base_name[:-23]+'p'+str(pull1['position']['pan'])+'_t'+str(pull1['position']['tilt'])+'_z'+str(pull1['position']['zoom'])+  '__'+image_base_name[-23:]
+    cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
+    goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
 
     
 
 
-def fetchAllCameras(obj):
+def fetchAllCameras(googleServices, camera_names_to_watch):
     """manages the continual observation of a given set of cameras to watch.
     Args:
-        obj (tuple): holds the googleServices, camera_names_to_watch arguments
-            googleServices: Drive service (from getGoogleServices())
-            camera_names_to_watch (List): list of camera names that are to be watched by this process
+        googleServices: google service service (from getGoogleServices())
+        camera_names_to_watch (List): list of camera names that are to be watched by this process
     Returns:
         None
     """
-    googleServices, camera_names_to_watch = obj[0], obj[1]
     while True:
         temporaryDir = tempfile.TemporaryDirectory()
         for camera_name in camera_names_to_watch:   
@@ -105,16 +112,14 @@ def fetchAllCameras(obj):
 def main():
     """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
     Args:
-        "-c  cleaning_threshold" (flt): time in hours to store data
-        "-o  cameras_overide"    (str): list of specific cameras to watch
-        "-p  parallelize"       (bool): toggle to parallelize
+        -c  cleaning_threshold" (flt): time in hours to store data
+        -o  cameras_overide"    (str): list of specific cameras to watch
     Returns:
         None
     """
     reqArgs = []
     optArgs = [["c", "cleaning_threshold", "time in hours to store data"],
- ["o", "cameras_overide", "specific cameras to watch"],
- ["p", "parallelize", "toggle parallelisation"]
+ ["o", "cameras_overide", "specific cameras to watch"]
 ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
@@ -126,24 +131,8 @@ def main():
     else:
         listofCameras = alertwildfire_API.get_all_camera_info()
         listofRotatingCameras = [camera["name"] for camera in listofCameras if (camera["name"][-1]=='2') ]
-    if args.parallelize:
-        parallel = args.parallelize
-    else:
-        parallel = False
 
-    if parallel:#having issues
-        num_cameras_per_process = 5
-        camera_bunchs = [listofRotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofRotatingCameras)/num_cameras_per_process))]
-    
-        agents = 3
-        agents = len(camera_bunchs)
-        chunksize = 3
-        with Pool(processes=agents) as pool:
-            data = [(googleServices, bunch) for bunch in camera_bunchs ]
-            result = pool.map(fetchAllCameras, data , chunksize)
-    else:
-        input_obj = (googleServices, listofRotatingCameras)
-        fetchAllCameras(input_obj)
+    fetchAllCameras(googleServices, listofRotatingCameras)
 
 
 
