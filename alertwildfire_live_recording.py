@@ -33,6 +33,7 @@ from multiprocessing import Pool
 import math
 import datetime
 import img_archive
+import pathlib
 
 
 
@@ -46,54 +47,50 @@ def cleanup_archive(googleServices, timethreshold):
     Returns:
         continual should never return must be manually killed
     """
-    img_archive.getImgPath
-    timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
-    current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
-    while True:
-        for folder in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
-            for fileobj in goog_helper.driveListFilesByName(googleServices['drive'], folder['id']):
-                if fileobj['name'][-23:-4]< current_target:
-                    logging.error('deleting file', fileobj['name'])
-                    goog_helper.deleteItem(googleServices['drive'], file_id)
-            
+    #img_archive.getImgPath
+    #timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
+    #current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
+    #while True:
+    #    for folder in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
+    #        for fileobj in goog_helper.driveListFilesByName(googleServices['drive'], folder['id']):
+    #            if fileobj['name'][-23:-4]< current_target:
+    #                logging.error('deleting file', fileobj['name'])
+    #                goog_helper.deleteItem(googleServices['drive'], file_id)
+    #        
     return True
 
-def capture_and_record(googleServices, outputDir, cameras_in_drive, camera_name):
-    """requests current image from camera and uploads it to drive
+def capture_and_record(googleServices, outputDir, camera_name):
+    """requests current image from camera and uploads it to cloud
     Args:
         googleServices: Drive service (from getGoogleServices())
         outputDir (str): folder path to download into
-        cameras_in_drive (dict): dictionary of all camera archive folders with respective google IDs
         camera_name (str): name of camera as recorded by alertwildfire
     Returns:
         imgPath: local path to downloaded object
     """
-    if not camera_name in cameras_in_drive.keys():
-        cameras_in_drive[camera_name] = goog_helper.createFolder(googleServices['drive'], settings.alertwildfire_archive,  camera_name)
-    dirID = cameras_in_drive[camera_name]
     imgPath = alertwildfire_API.request_current_image(outputDir, camera_name)
-    goog_helper.uploadFile(googleServices['drive'], dirID, imgPath)
+    cloud_file_path = camera_name + '/' + pathlib.PurePath(imgPath).name
+    goog_helper.uploadBucketObject(googleServices["storage"],"fuego-firecam-a",cloud_file_path, imgPath)
+
     print(imgPath)
 
 
 def camera_management(obj):
     """manages the continual observation of a given set of cameras to watch.
     Args:
-        obj (tuple): holds the googleServices, cameras_in_drive, camera_names_to_watch arguments
+        obj (tuple): holds the googleServices, camera_names_to_watch arguments
             googleServices: Drive service (from getGoogleServices())
-            cameras_in_drive (dict): dictionary of all camera archive folders with respective google IDs
             camera_names_to_watch (List): list of camera names that are to be watched by this process
     Returns:
         None
     """
-    googleServices, cameras_in_drive, camera_names_to_watch = obj[0], obj[1], obj[2]
+    googleServices, camera_names_to_watch = obj[0], obj[1]
     toggle=True
     while toggle:
         temporaryDir = tempfile.TemporaryDirectory()
-        print(temporaryDir.name)
         for camera_name in camera_names_to_watch:   
             try:
-                capture_and_record(googleServices, temporaryDir.name, cameras_in_drive, camera_name)
+                capture_and_record(googleServices, temporaryDir.name, camera_name)
             except Exception as e:
                 print()
         try:
@@ -134,12 +131,6 @@ def main():
     else:
         parallel = False
 
-    #print(len(listofrotatingCameras))
-    #print(goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive))
-    cameras_in_drive = {}
-    for elem in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
-        cameras_in_drive[elem['name']] = elem['id']
-
     if parallel:#having issues
         num_cameras_per_process = 5
         camera_bunchs = [listofrotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofrotatingCameras)/num_cameras_per_process))]
@@ -148,10 +139,10 @@ def main():
         agents = len(camera_bunchs)
         chunksize = 3
         with Pool(processes=agents) as pool:
-            data = [(googleServices, cameras_in_drive, bunch) for bunch in camera_bunchs ]
+            data = [(googleServices, bunch) for bunch in camera_bunchs ]
             result = pool.map(camera_management, data , chunksize)
     else:
-        input_obj = (googleServices, cameras_in_drive, listofrotatingCameras)
+        input_obj = (googleServices, listofrotatingCameras)
         camera_management(input_obj)
 
 

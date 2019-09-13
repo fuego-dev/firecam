@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """
-
 Helper functions for google cloud APIs (drive, sheets)
-
 """
 
 import os
@@ -248,3 +246,4 @@ def downloadClassImage(service, classLocations, imgClass, fileName, outputDirect
 
 def getParentParser():
     return tools.argparser
+
