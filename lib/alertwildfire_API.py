@@ -69,7 +69,7 @@ def invokeApi(endpoint, queryParams = None, stream = False, url_override = False
     return response
 
 def extractExifTime(imgPath):
-    """reads Exif tag if present in file otherwise returns None
+    """reads Exif tag if present in file and extracts the time information otherwise returns None
     Args:
         imgPath (str): path of image file
     Returns:

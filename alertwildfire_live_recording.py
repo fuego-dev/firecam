@@ -72,10 +72,10 @@ def capture_and_record(googleServices, outputDir, camera_name):
     cloud_file_path = camera_name + '/' + pathlib.PurePath(imgPath).name
     goog_helper.uploadBucketObject(googleServices["storage"],"fuego-firecam-a",cloud_file_path, imgPath)
 
-    print(imgPath)
+    
 
 
-def camera_management(obj):
+def fetchAllCameras(obj):
     """manages the continual observation of a given set of cameras to watch.
     Args:
         obj (tuple): holds the googleServices, camera_names_to_watch arguments
@@ -85,18 +85,18 @@ def camera_management(obj):
         None
     """
     googleServices, camera_names_to_watch = obj[0], obj[1]
-    toggle=True
-    while toggle:
+    while True:
         temporaryDir = tempfile.TemporaryDirectory()
         for camera_name in camera_names_to_watch:   
             try:
                 capture_and_record(googleServices, temporaryDir.name, camera_name)
+                logging.warning('successfully fetched camera %s.', camera_name)
             except Exception as e:
-                print()
+                logging.error('Failed to fetch camera %s. %s', camera_name, str(e))
         try:
             shutil.rmtree(temporaryDir.name)
         except Exception as e:
-            #log error
+            logging.error('Failed to delete temporaryDir %s. %s', temporaryDir.name, str(e))
             pass
 
 
@@ -122,10 +122,10 @@ def main():
         cleaning_threshold = float(args.cleaning_threshold)
         cleanup_archive(googleServices, cleaning_threshold)
     if args.cameras_overide:
-        listofrotatingCameras = list(args.cameras_overide.replace(" ", "").strip('[]').split(','))
+        listofRotatingCameras = list(args.cameras_overide.replace(" ", "").strip('[]').split(','))
     else:
         listofCameras = alertwildfire_API.get_all_camera_info()
-        listofrotatingCameras = [camera["name"] for camera in listofCameras if ("2" in camera["name"]) ]
+        listofRotatingCameras = [camera["name"] for camera in listofCameras if (camera["name"][-1]=='2') ]
     if args.parallelize:
         parallel = args.parallelize
     else:
@@ -133,17 +133,17 @@ def main():
 
     if parallel:#having issues
         num_cameras_per_process = 5
-        camera_bunchs = [listofrotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofrotatingCameras)/num_cameras_per_process))]
+        camera_bunchs = [listofRotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofRotatingCameras)/num_cameras_per_process))]
     
         agents = 3
         agents = len(camera_bunchs)
         chunksize = 3
         with Pool(processes=agents) as pool:
             data = [(googleServices, bunch) for bunch in camera_bunchs ]
-            result = pool.map(camera_management, data , chunksize)
+            result = pool.map(fetchAllCameras, data , chunksize)
     else:
-        input_obj = (googleServices, listofrotatingCameras)
-        camera_management(input_obj)
+        input_obj = (googleServices, listofRotatingCameras)
+        fetchAllCameras(input_obj)
 
 
 
