@@ -109,7 +109,7 @@ def main():
             if batch:
                 batch.execute()
             processedFiles += len(items)
-            logging.warning('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, nextPageToken)
+            logging.warning('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, bool(nextPageToken))
             if (processedFiles >= maxFiles) or not nextPageToken:
                 break # exit if we processed enough files or no files left
         logging.warning('Done')
