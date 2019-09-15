@@ -594,3 +594,28 @@ def diffImages(imgA, imgB):
 
     return Image.merge('RGB', bandsImgOut)
 
+
+def addImageToArchiveDb(dbManager, cameraID, timestamp, storageID, fileID, pan, tilt, zoom):
+    """Add the given image information to the image archive DB
+
+    Args:
+        dbManager (DbManager):
+        cameraID (str): camera ID for DB
+        timestamp (int): time when image was taken
+        storageID (str): location of storage
+        fileID (str): ID for image file on storage above
+        pan (float): Pan value for PTZ cameras
+        tilt (float): Tilt value for PTZ cameras
+        zoom (float): Zoom value for PTZ cameras
+    """
+    dbRow = {
+        'CameraName': cameraID,
+        'Timestamp': timestamp,
+        'StorageID': storageID,
+        'FileID': fileID,
+        'Pan': pan,
+        'Tilt': tilt,
+        'Zoom': zoom
+    }
+    dbManager.add_data('archive', dbRow)
+

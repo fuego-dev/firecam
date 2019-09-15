@@ -165,6 +165,16 @@ class DbManager(object):
             ('ImageID', 'TEXT'),
         ]
 
+        archive_schema = [
+            ('CameraName', 'TEXT'),
+            ('Timestamp', 'INT'),
+            ('StorageID', 'TEXT'),
+            ('FileID', 'TEXT'),
+            ('Pan', 'REAL'),
+            ('Tilt', 'REAL'),
+            ('Zoom', 'REAL'),
+        ]
+
         self.tables = {
             'sources': sources_schema,
             'counters': counters_schema,
@@ -175,6 +185,7 @@ class DbManager(object):
             'scores': scores_schema,
             'detections': detections_schema,
             'alerts': alerts_schema,
+            'archive': archive_schema,
         }
 
         self.sources_table_name = 'sources'
