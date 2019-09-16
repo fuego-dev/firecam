@@ -34,6 +34,14 @@ if settings.alertwildfirekey == 'do not put real key in files in open source git
 
 
 def getApiUrl(endpoint, queryParams = None):
+    """builds the url of a alertwildfire request
+    Args:
+        endpoint (str): name of service to look at
+        (opt) queryParams (str): optional parameters to add to url
+    Returns:
+        url (str): built url for alertwildfire services
+        
+    """
     if queryParams:
         urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint, query = queryParams)
     else:
@@ -42,6 +50,16 @@ def getApiUrl(endpoint, queryParams = None):
     return url
 
 def invokeApi(endpoint, queryParams = None, stream = False, url_override = False):
+    """invokes a request of the alertwildfire system
+    Args:
+        endpoint (str): name of service to look at
+        (opt) queryParams (str): optional parameters to add to url
+        (opt) stream (bool): should the request be streamed
+        (opt) url_override (str): forceful override of url to be used
+    Returns:
+        response (request): the request response from alert wildfire
+        
+    """
     headers = {'X-Api-Key': settings.alertwildfirekey}
     if url_override:
         url = url_override
@@ -51,6 +69,13 @@ def invokeApi(endpoint, queryParams = None, stream = False, url_override = False
     return response
 
 def extractExifTime(imgPath):
+    """reads Exif tag if present in file and extracts the time information otherwise returns None
+    Args:
+        imgPath (str): path of image file
+    Returns:
+        successful: timeStamp (flt): time at which photo was taken
+        failure: None
+    """
     f = open(imgPath, 'rb')
     f_tags = exifread.process_file(f)
     f.close()
@@ -61,6 +86,12 @@ def extractExifTime(imgPath):
         return None
 
 def get_all_camera_info():
+    """returns a list of camera objects
+    Args:
+        None
+    Returns:
+        listofCameras: list of dictionaries with camera information
+    """
     response = invokeApi("/cameras", queryParams = None, stream = False)
     if response.status_code == 404:
         return 
@@ -68,6 +99,12 @@ def get_all_camera_info():
     return listofCameras
 
 def get_individual_camera_info(cameraID):
+    """returns a dictionary of camera attributes
+    Args:
+        cameraID (str): name of the camera
+    Returns:
+        dictionary with camera information
+    """
     response = invokeApi("/cameras", queryParams = "name="+cameraID, stream = False)
     if response.status_code == 404:
         return 
@@ -75,6 +112,15 @@ def get_individual_camera_info(cameraID):
     return listofCameras[0]
 
 def request_current_image(outputDir, cameraID):
+    """downloads the current image of a particular camera 
+    Args:
+        cameraID (str): name of the camera
+        outputDir (str): path of directory in which image will be downloaded
+    Returns:
+        successful: imgPath (str): path of downloaded file
+        failure: None
+
+    """
     camera_info = get_individual_camera_info(cameraID)
     if camera_info["image"]["time"]:
         timeStamp = camera_info["image"]["time"]###need to convert their format
@@ -147,8 +193,6 @@ def request_all_current_images(outputDir, delay_between_requests=None):
 
 
 
-def record_camera_info():
-    #the future ability to correlate image, position and direction
-    return
+
 
 

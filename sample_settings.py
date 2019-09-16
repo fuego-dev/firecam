@@ -21,6 +21,7 @@ labels_file = 'XXX/output_labels.txt'
 db_file = 'XXX/local.db'
 tfSlimDir = 'XXX/tf_models/research/slim'
 downloadDir = 'XXX/orig'
+archive_storage_bucket = "fuego-firecam-a"
 
 teamDriveID = '0ADX9uPkOmsDJUk9PVA' # Fuego Smoke
 allPictures = '1SCXFLE25EbQUQMvTcWfeHFU29qxN8WMM' # Pictures  - Samples and Full Sets

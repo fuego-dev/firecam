@@ -13,9 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 """
-
 Helper functions for google cloud APIs (drive, sheets)
-
 """
 
 import os
@@ -180,6 +178,8 @@ def driveListFilesByName(service, parentID, searchName=None):
     # Wrapper around driveListFilesQuery to search for items with given name
     if searchName:
         customQuery = "name = '" + searchName + "'"
+    else:
+        customQuery = None
     return driveListFilesQuery(service, parentID, customQuery)
 
 
