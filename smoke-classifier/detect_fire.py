@@ -62,6 +62,7 @@ def getNextImage(dbManager, cameras, cameraID=None):
     Args:
         dbManager (DbManager):
         cameras (list): list of cameras
+        cameraID (str): optional specific camera to get image from
 
     Returns:
         Tuple containing camera name, current timestamp, and filepath of the image
@@ -475,6 +476,17 @@ def heartBeat(filename):
 
 
 def segmentAndClassify(imgPath, tfSession, graph, labels):
+    """Segment the given image into squares and classify each square
+
+    Args:
+        imgPath (str): filepath of the image to segment and clasify
+        tfSession: Tensorflow session
+        graph: Tensorflow graph
+        labels: Tensorflow labels
+
+    Returns:
+        list of segments with scores sorted by decreasing score
+    """
     segments = segmentImage(imgPath)
     # print('si', segments)
     tf_helper.classifySegments(tfSession, graph, labels, segments)
@@ -483,6 +495,19 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
 
 
 def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive):
+    """Record the scores for classified segments, and check for detections and alerts
+
+    Args:
+        args: process command line parameters in collect_args/argparse format
+        dbManager (DbManager):
+        cameraID (str): ID for camera associated with the image
+        timestamp (int): time.time() value when image was taken
+        imgPath (str): filepath of the image (possibly derived image by subtraction) that was classified
+        origImgPath (str): filepath of the original image from camera
+        segments (list): List of dictionary containing information on each segment
+        minusMinutes (int): number of minutes separating subtracted images (0 for non-subtracted images)
+        googleDrive: google drive API service
+    """
     recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
     if args.collectPositves:
         collectPositves(googleDrive, imgPath, origImgPath, segments)
@@ -500,6 +525,16 @@ def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPat
 
 
 def genDiffImage(imgPath, earlierImgPath, minusMinutes):
+    """Subtract the two given images and store result in new difference image file
+
+    Args:
+        imgPath (str): filepath of the current image (to subtract from)
+        imgPath (str): filepath of the earlier image (value to subtract)
+        minusMinutes (int): number of minutes separating subtracted images
+
+    Returns:
+        file path to the difference image
+    """
     imgA = Image.open(imgPath)
     imgB = Image.open(earlierImgPath)
     imgDiff = img_archive.diffImages(imgA, imgB)
