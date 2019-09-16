@@ -59,6 +59,21 @@ def cleanup_archive(googleServices, timethreshold):
     #        
     return True
 
+def build_name_with_metadata(image_base_name,metadata):
+    """reformats image name to include positional metadata
+    Args:
+        image_base_name (str): original image name containing only camera name and timestamp
+        metadata (dict): individual camera metadata pulled from alertwildfire_API.get_individual_camera_info
+    Returns:
+        imgname (str): name of image with positionalmetadata
+    """
+
+
+    cameraName_chunk = image_base_name[:-23]
+    metadata_chunk = 'p'+str(metadata['position']['pan'])+'_t'+str(metadata['position']['tilt'])+'_z'+str(metadata['position']['zoom'])
+    timeStamp_chunk = '__'+image_base_name[-23:]
+    imgname = cameraName_chunk+metadata_chunk+timeStamp_chunk
+    return imgname
 def capture_and_record(googleServices, outputDir, camera_name):
     """requests current image from camera and uploads it to cloud
     Args:
@@ -69,15 +84,20 @@ def capture_and_record(googleServices, outputDir, camera_name):
         imgPath: local path to downloaded object
     """
     success = False
-    while not success:
-        pull1 = alertwildfire_API.get_individual_camera_info(camera_name)
+    retriesLeft = 5
+    pull1 = alertwildfire_API.get_individual_camera_info(camera_name)
+    while (not success) and  (retriesLeft > 0):
+        
         imgPath = alertwildfire_API.request_current_image(outputDir, camera_name) 
         pull2 = alertwildfire_API.get_individual_camera_info(camera_name)
         if pull1['position'] == pull1['position']:
             success = True
+        else:
+            pull1 = pull2
+            retriesLeft -= 1
 
     image_base_name = pathlib.PurePath(imgPath).name
-    image_name_with_metadata = image_base_name[:-23]+'p'+str(pull1['position']['pan'])+'_t'+str(pull1['position']['tilt'])+'_z'+str(pull1['position']['zoom'])+  '__'+image_base_name[-23:]
+    image_name_with_metadata = build_name_with_metadata(image_base_name,metadata)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
 
