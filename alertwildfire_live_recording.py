@@ -34,8 +34,8 @@ import math
 import datetime
 import img_archive
 import pathlib
-
-
+import logging
+import db_manager
 
 
 
@@ -74,6 +74,8 @@ def build_name_with_metadata(image_base_name,metadata):
     timeStamp_chunk = '__'+image_base_name[-23:]
     imgname = cameraName_chunk+metadata_chunk+timeStamp_chunk
     return imgname
+
+
 def capture_and_record(googleServices, outputDir, camera_name):
     """requests current image from camera and uploads it to cloud
     Args:
@@ -97,11 +99,20 @@ def capture_and_record(googleServices, outputDir, camera_name):
             retriesLeft -= 1
 
     image_base_name = pathlib.PurePath(imgPath).name
-    image_name_with_metadata = build_name_with_metadata(image_base_name,metadata)
+    image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
-
     
+
+
+    dbManager  = db_manager.DbManager(psqlHost = settings.psqlHost,
+ psqlDb = settings.psqlDb,
+ psqlUser = settings.psqlUser,
+ psqlPasswd = settings.psqlPasswd)
+    timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
+    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'])
+
+
 
 
 def fetchAllCameras(googleServices, camera_names_to_watch):
@@ -113,6 +124,7 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
         None
     """
     while True:
+        tic = time.time()
         temporaryDir = tempfile.TemporaryDirectory()
         for camera_name in camera_names_to_watch:   
             try:
@@ -125,7 +137,7 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
         except Exception as e:
             logging.error('Failed to delete temporaryDir %s. %s', temporaryDir.name, str(e))
             pass
-
+        print('toc = '+str( time.time()-tic))
 
 
 
