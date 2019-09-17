@@ -76,7 +76,7 @@ def build_name_with_metadata(image_base_name,metadata):
     return imgname
 
 
-def capture_and_record(googleServices, outputDir, camera_name):
+def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     """requests current image from camera and uploads it to cloud
     Args:
         googleServices: Drive service (from getGoogleServices())
@@ -105,10 +105,7 @@ def capture_and_record(googleServices, outputDir, camera_name):
     
 
 
-    dbManager  = db_manager.DbManager(psqlHost = settings.psqlHost,
- psqlDb = settings.psqlDb,
- psqlUser = settings.psqlUser,
- psqlPasswd = settings.psqlPasswd)
+    #add to Database
     timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'])
 
@@ -123,12 +120,17 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
     Returns:
         None
     """
+    num_of_watched_cameras = len(camera_names_to_watch)
+    dbManager  = db_manager.DbManager(psqlHost = settings.psqlHost,
+ psqlDb = settings.psqlDb,
+ psqlUser = settings.psqlUser,
+ psqlPasswd = settings.psqlPasswd)
     while True:
         tic = time.time()
         temporaryDir = tempfile.TemporaryDirectory()
         for camera_name in camera_names_to_watch:   
             try:
-                capture_and_record(googleServices, temporaryDir.name, camera_name)
+                capture_and_record(googleServices, dbManager, temporaryDir.name, camera_name)
                 logging.warning('successfully fetched camera %s.', camera_name)
             except Exception as e:
                 logging.error('Failed to fetch camera %s. %s', camera_name, str(e))
@@ -137,7 +139,7 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
         except Exception as e:
             logging.error('Failed to delete temporaryDir %s. %s', temporaryDir.name, str(e))
             pass
-        print('toc = '+str( time.time()-tic))
+        logging.warning('retrieval of %s cameras took %s seconds.',num_of_watched_cameras, time.time()-tic)
 
 
 
