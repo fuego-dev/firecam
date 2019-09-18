@@ -599,13 +599,9 @@ def main():
     # commenting out the print below to reduce showing secrets in settings
     # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
-    if settings.db_file:
-        logging.warning('using sqlite %s', settings.db_file)
-        dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
-    else:
-        logging.warning('using postgres %s', settings.psqlHost)
-        dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                        psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources(activeOnly=True, restrictType=args.restrictType)
 
     deferredImages = []

@@ -36,6 +36,7 @@ import img_archive
 import pathlib
 import logging
 import db_manager
+import hashlib
 
 
 
@@ -104,10 +105,10 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
     
 
-
     #add to Database
+    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
     timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
-    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'])
+    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)
 
 
 
@@ -121,10 +122,9 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
         None
     """
     num_of_watched_cameras = len(camera_names_to_watch)
-    dbManager  = db_manager.DbManager(psqlHost = settings.psqlHost,
- psqlDb = settings.psqlDb,
- psqlUser = settings.psqlUser,
- psqlPasswd = settings.psqlPasswd)
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     while True:
         tic = time.time()
         temporaryDir = tempfile.TemporaryDirectory()
@@ -152,9 +152,10 @@ def main():
         None
     """
     reqArgs = []
-    optArgs = [["c", "cleaning_threshold", "time in hours to store data"],
- ["o", "cameras_overide", "specific cameras to watch"]
-]
+    optArgs = [
+        ["c", "cleaning_threshold", "time in hours to store data"],
+        ["o", "cameras_overide", "specific cameras to watch"]
+    ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
     if args.cleaning_threshold:

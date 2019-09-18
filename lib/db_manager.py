@@ -25,6 +25,7 @@ backends.
 
 """
 
+import logging
 import sqlite3
 import datetime
 import psycopg2
@@ -62,13 +63,14 @@ class DbManager(object):
         """
         self.dbType = None
         if sqliteFile:
+            logging.warning('using sqlite %s', sqliteFile)
             self.dbType = 'sqlite'
             self.conn = sqlite3.connect(sqliteFile)
             self.conn.row_factory = _dict_factory
         elif psqlHost:
+            logging.warning('using postgres %s', psqlHost)
             self.dbType = 'psql'
             self.conn = psycopg2.connect(host=psqlHost, database=psqlDb, user=psqlUser, password=psqlPasswd)
-        print('DbType', self.dbType, sqliteFile, psqlHost)
 
         sources_schema = [
             ('name', 'TEXT'),
@@ -173,6 +175,7 @@ class DbManager(object):
             ('Pan', 'REAL'),
             ('Tilt', 'REAL'),
             ('Zoom', 'REAL'),
+            ('md5', 'TEXT'),
         ]
 
         self.tables = {
