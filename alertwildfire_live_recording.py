@@ -40,25 +40,7 @@ import hashlib
 
 
 
-def cleanup_archive(googleServices, timethreshold):
-    """initializes a continual cleaning function that only acts to remove archived data past a given threshold.
-    Args:
-        googleServices: Drive service (from getGoogleServices())
-        timethreshold (flt): hours to keep data in archive
-    Returns:
-        continual should never return must be manually killed
-    """
-    #img_archive.getImgPath
-    #timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
-    #current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
-    #while True:
-    #    for folder in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
-    #        for fileobj in goog_helper.driveListFilesByName(googleServices['drive'], folder['id']):
-    #            if fileobj['name'][-23:-4]< current_target:
-    #                logging.error('deleting file', fileobj['name'])
-    #                goog_helper.deleteItem(googleServices['drive'], file_id)
-    #        
-    return True
+
 
 def build_name_with_metadata(image_base_name,metadata):
     """reformats image name to include positional metadata
@@ -113,14 +95,16 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
 
 
-def fetchAllCameras(googleServices, camera_names_to_watch):
+def fetchAllCameras(camera_names_to_watch):
     """manages the continual observation of a given set of cameras to watch.
     Args:
-        googleServices: google service service (from getGoogleServices())
         camera_names_to_watch (List): list of camera names that are to be watched by this process
     Returns:
         None
     """
+    googleServices = goog_helper.getGoogleServices(settings, [])
+
+
     num_of_watched_cameras = len(camera_names_to_watch)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
@@ -146,28 +130,39 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
 def main():
     """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
     Args:
-        -c  cleaning_threshold" (flt): time in hours to store data
-        -o  cameras_overide"    (str): list of specific cameras to watch
+        -o  cameras_overide    (str): list of specific cameras to watch
+        -p  parallelize       (bool): toggle to parallelize
     Returns:
         None
     """
     reqArgs = []
     optArgs = [
-        ["c", "cleaning_threshold", "time in hours to store data"],
-        ["o", "cameras_overide", "specific cameras to watch"]
+        ["o", "cameras_overide", "specific cameras to watch"],
+        ["p", "parallelize", "toggle parallelisation"]
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
-    googleServices = goog_helper.getGoogleServices(settings, args)
-    if args.cleaning_threshold:
-        cleaning_threshold = float(args.cleaning_threshold)
-        cleanup_archive(googleServices, cleaning_threshold)
+    
     if args.cameras_overide:
         listofRotatingCameras = list(args.cameras_overide.replace(" ", "").strip('[]').split(','))
     else:
         listofCameras = alertwildfire_API.get_all_camera_info()
         listofRotatingCameras = [camera["name"] for camera in listofCameras if (camera["name"][-1]=='2') ]
+    if args.parallelize:
+        parallel = args.parallelize
+    else:
+        parallel = False
 
-    fetchAllCameras(googleServices, listofRotatingCameras)
+    if parallel:#having issues
+        num_cameras_per_process = 5
+        camera_bunchs = [listofRotatingCameras[num_cameras_per_process*num:num_cameras_per_process*num+num_cameras_per_process] for num in range(0, math.ceil(len(listofRotatingCameras)/num_cameras_per_process))]
+    
+        agents = 3
+        agents = len(camera_bunchs)
+        chunksize = 3
+        with Pool(processes=agents) as pool:
+            result = pool.map(fetchAllCameras, camera_bunchs , chunksize)
+    else:
+        fetchAllCameras(listofRotatingCameras)
 
 
 
