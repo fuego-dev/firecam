@@ -239,7 +239,7 @@ def listTimesinQ(urlPartsQ, verboseLogs):
     return None
 
 
-def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
+def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime, verboseLogs):
     """Download HPWREN image from given HPWREN Q directory URL at given time
 
     Args:
@@ -247,12 +247,14 @@ def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime):
         urlPartsQ (list): HPWREN Q directory URL as list of string parts
         cameraID (str): ID of camera
         closestTime (int): Desired timestamp
+        verboseLogs (bool): Write verbose logs for debugging
 
     Returns:
         Local filesystem path to downloaded image
     """
     imgPath = getImgPath(outputDir, cameraID, closestTime)
-    logging.warning('Local file %s', imgPath)
+    if verboseLogs:
+        logging.warning('Local file %s', imgPath)
     if os.path.isfile(imgPath):
         logging.warning('File %s already downloaded', imgPath)
         return imgPath
@@ -310,7 +312,8 @@ def getMp4Url(urlPartsDate, qNum, verboseLogs):
     urlPartsMp4 = urlPartsDate[:] # copy URL
     urlPartsMp4.append('MP4')
     files = readUrlDir(urlPartsMp4, verboseLogs, '.mp4')
-    logging.warning('MP4s %s', files)
+    if verboseLogs:
+        logging.warning('MP4s %s', files)
     qMp4Name = 'Q' + str(qNum) + '.mp4'
     if files and (qMp4Name in files):
         urlPartsMp4.append(qMp4Name)
@@ -446,7 +449,7 @@ def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapM
             closestTime = closestEntry['time']
             downloaded = None
             if useHttp:
-                downloaded = downloadHttpFileAtTime(outputDir, urlPartsQ, hpwrenSource['cameraID'], closestTime)
+                downloaded = downloadHttpFileAtTime(outputDir, urlPartsQ, hpwrenSource['cameraID'], closestTime, verboseLogs)
             else:
                 downloaded = downloadDriveFileAtTime(googleServices['drive'], outputDir, hpwrenSource, closestEntry)
             if downloaded and verboseLogs:
@@ -565,7 +568,7 @@ def getHpwrenImages(googleServices, settings, outputDir, camArchives, cameraID, 
             'endTimeDT': endTimeDT
         }
         logging.warning('Searching for files in dir %s', hpwrenSource['dirName'])
-        found = downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, True)
+        found = downloadFilesHpwren(googleServices, settings, outputDir, hpwrenSource, gapMinutes, False)
         if found:
             return found
     return None

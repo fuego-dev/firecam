@@ -42,7 +42,7 @@ import logging
 import pathlib
 import tempfile
 import shutil
-import time, datetime
+import time, datetime, dateutil.parser
 import random
 import re
 import hashlib
@@ -494,8 +494,8 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
     return segments
 
 
-def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive):
-    """Record the scores for classified segments, and check for detections and alerts
+def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positiveskOnly):
+    """Record the scores for classified segments, check for detections and alerts, and delete images
 
     Args:
         args: process command line parameters in collect_args/argparse format
@@ -507,17 +507,19 @@ def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPat
         segments (list): List of dictionary containing information on each segment
         minusMinutes (int): number of minutes separating subtracted images (0 for non-subtracted images)
         googleDrive: google drive API service
+        positiveskOnly (bool): only collect/upload positives to google drive - used when training against old images
     """
-    recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
+    annotatedFile = None
     if args.collectPositves:
         collectPositves(googleDrive, imgPath, origImgPath, segments)
-    fireSegment = postFilter(dbManager, cameraID, timestamp, segments)
-    annotatedFile = None
-    if fireSegment:
-        annotatedFile = drawFireBox(origImgPath, fireSegment)
-        driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
-        if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
-            alertFire(cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
+    if not positiveskOnly:
+        recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
+        fireSegment = postFilter(dbManager, cameraID, timestamp, segments)
+        if fireSegment:
+            annotatedFile = drawFireBox(origImgPath, fireSegment)
+            driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
+            if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
+                alertFire(cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
     deleteImageFiles(imgPath, origImgPath, annotatedFile, segments)
     if (args.heartbeat):
         heartBeat(args.heartbeat)
@@ -679,6 +681,59 @@ def genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImag
     return (cameraID, timestamp, imgPath, imgDiffPath)
 
 
+def getArchivedImages(googleServices, settings, camArchives, cameras, startTimeDT, timeRangeSeconds, minusMinutes):
+    """Get random images from HPWREN archive matching given constraints and optionally subtract them
+
+    Args:
+        googleServices (): Google services and credentials
+        settings (): settings module
+        camArchives (list): Result of getHpwrenCameraArchives()
+        cameras (list): list of cameras
+        startTimeDT (datetime): starting time of time range
+        timeRangeSeconds (int): number of seconds in time range
+        minusMinutes (int): number of desired minutes between images to subract
+
+    Returns:
+        Tuple containing camera name, current timestamp, filepath of regular image, and filepath of difference image
+    """
+    if getArchivedImages.tmpDir == None:
+        getArchivedImages.tmpDir = tempfile.TemporaryDirectory()
+        logging.warning('TempDir %s', getArchivedImages.tmpDir.name)
+
+    cameraID = cameras[int(len(cameras)*random.random())]['name']
+    timeDT = startTimeDT + datetime.timedelta(seconds = random.random()*timeRangeSeconds)
+    if minusMinutes:
+        prevTimeDT = timeDT + datetime.timedelta(seconds = -60 * minusMinutes)
+    else:
+        prevTimeDT = timeDT
+    files = img_archive.getHpwrenImages(googleServices, settings, getArchivedImages.tmpDir.name,
+                                        camArchives, cameraID, prevTimeDT, timeDT, minusMinutes or 1)
+    # logging.warning('files %s', str(files))
+    if not files:
+        return (None, None, None, None)
+    if minusMinutes:
+        if len(files) > 1:
+            if files[0] >= files[1]: # files[0] is supposed to be earlier than files[1]
+                logging.warning('unexpected file order %s', str(files))
+                for file in files:
+                    os.remove(file)
+                return (None, None, None, None)
+            imgDiffPath = genDiffImage(files[1], files[0], minusMinutes)
+            os.remove(files[0]) # no longer needed
+            parsedName = img_archive.parseFilename(files[1])
+            return (cameraID, parsedName['unixTime'], files[1], imgDiffPath)
+        else:
+            logging.warning('unexpected file count %s', str(files))
+            for file in files:
+                os.remove(file)
+            return (None, None, None, None)
+    elif len(files) > 0:
+        parsedName = img_archive.parseFilename(files[0])
+        return (cameraID, parsedName['unixTime'], files[0], files[0])
+    return (None, None, None, None)
+getArchivedImages.tmpDir = None
+
+
 def main():
     optArgs = [
         ["b", "heartbeat", "filename used for heartbeating check"],
@@ -687,16 +742,27 @@ def main():
         ["t", "time", "Time breakdown for processing images"],
         ["m", "minusMinutes", "(optional) subtract images from given number of minutes ago"],
         ["r", "restrictType", "Only process images from cameras of given type"],
+        ["s", "startTime", "(optional) performs search with modifiedTime > startTime"],
+        ["e", "endTime", "(optional) performs search with modifiedTime < endTime"],
     ]
     args = collect_args.collectArgs([], optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
-    # commenting out the print below to reduce showing secrets in settings
-    # print('Settings:', list(map(lambda a: (a,getattr(settings,a)), filter(lambda a: not a.startswith('__'), dir(settings)))))
     googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameras = dbManager.get_sources(activeOnly=True, restrictType=args.restrictType)
+    startTimeDT = dateutil.parser.parse(args.startTime) if args.startTime else None
+    endTimeDT = dateutil.parser.parse(args.endTime) if args.endTime else None
+    timeRangeSeconds = None
+    useArchivedImages = False
+    if startTimeDT or endTimeDT:
+        assert startTimeDT and endTimeDT
+        timeRangeSeconds = (endTimeDT-startTimeDT).total_seconds()
+        assert timeRangeSeconds > 0
+        assert args.collectPositves
+        useArchivedImages = True
+        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()
@@ -709,17 +775,19 @@ def main():
         while True:
             classifyImgPath = None
             timeStart = time.time()
-            if minusMinutes:
+            if useArchivedImages:
+                (cameraID, timestamp, imgPath, classifyImgPath) = \
+                    getArchivedImages(googleServices, settings, camArchives, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
+            elif minusMinutes:
                 (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
                 if not queueFull: # queue is not full, so add more to queue
                     addToDeferredImages(dbManager, cameras, deferredImages)
                 if deferredImageInfo:  # we have a deferred image ready to process, now get latest image and subtract
-                    (cameraID, timestamp, imgPath, imgDiffPath) = \
+                    (cameraID, timestamp, imgPath, classifyImgPath) = \
                         genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes)
                     if not cameraID:
-                        updateTimeTracker(processingTimeTracker, time.time() - timeStart)
-                        continue # skip to next camera
-                    classifyImgPath = imgDiffPath
+                        continue # skip to next camera without deleting deferred image which may be reused later
+                    os.remove(deferredImageInfo['imgPath']) # no longer needed
                 else:
                     continue # in diff mode without deferredImage, nothing more to do
             # elif args.imgDirectory:  unused functionality -- to delete?
@@ -727,13 +795,13 @@ def main():
             else: # regular (non diff mode), grab image and process
                 (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
                 classifyImgPath = imgPath
+            if not cameraID:
+                continue # skip to next camera
             timeFetch = time.time()
 
             segments = segmentAndClassify(classifyImgPath, tfSession, graph, labels)
             timeClassify = time.time()
-            recordFilterReport(args, dbManager, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'])
-            if deferredImageInfo:
-                os.remove(deferredImageInfo['imgPath'])
+            recordFilterReport(args, dbManager, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
             timePost = time.time()
             updateTimeTracker(processingTimeTracker, timePost - timeStart)
             if args.time:
