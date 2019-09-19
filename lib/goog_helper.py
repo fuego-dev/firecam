@@ -457,3 +457,15 @@ def uploadBucketObject(storageSvc, bucketName, fileID, localFilePath):
     res = storageSvc.objects().insert(bucket = bucketName, body = file_metadata,
                                       media_body = media).execute()
     return res
+
+
+def deleteBucketObject(storageSvc, bucketName, fileID):
+    """Delete the given file from given bucket
+
+    Args:
+        storageSvc: Storage service (from getGoogleServices()['storage'])
+        bucketName (str): Cloud Storage bucket name
+        fileID (str): file path inside bucket
+    """
+    # the return value seems to be empty string, so nothing useful to return
+    storageSvc.objects().delete(bucket = bucketName, object = fileID).execute()
