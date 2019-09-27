@@ -82,6 +82,16 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
         else:
             pull1 = pull2
             retriesLeft -= 1
+    #validate that it is new data
+    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
+    ###warning approximitly doubles image processing time
+    SQLcommand="select FileID from archive where md5='"+str(md5)+"'"
+    matches = dbManager.query(SQLcommand)
+    if len(matches)>0:
+        logging.warning('skipping %s, image has not changed since last upload.', camera_name)
+        return 
+    ###
+
 
     image_base_name = pathlib.PurePath(imgPath).name
     image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)
@@ -90,7 +100,6 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     
 
     #add to Database
-    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
     timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)
 
@@ -129,25 +138,26 @@ def fetchAllCameras(camera_names_to_watch):
 
 
 
-def cleanup_archive(googleServices, timethreshold):
+def cleanup_archive(googleServices, dbManager, timethreshold):
     """initializes a continual cleaning function that only acts to remove archived data past a given threshold.
     Args:
         googleServices: Drive service (from getGoogleServices())
+        dbManager: Database service
         timethreshold (flt): hours to keep data in archive
     Returns:
         continual should never return must be manually killed
     """
-    #img_archive.getImgPath
-    #timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
-    #current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
-    #while True:
-    #    for folder in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
-    #        for fileobj in goog_helper.driveListFilesByName(googleServices['drive'], folder['id']):
-    #            if fileobj['name'][-23:-4]< current_target:
-    #                logging.error('deleting file', fileobj['name'])
-    #                goog_helper.deleteItem(googleServices['drive'], file_id)
-    #        
+    while True:
+        current_time = time.time()
+        target_time = current_time - timethreshold*60*60
+        SQLcommand="select FileID from archive where timestamp<"+str(target_time)
+        matches = dbManager.query(SQLcommand)
+        for match in matches:
+            goog_helper.deleteBucketObject(googleServices['storage'], settings.archive_storage_bucket, match['fileID'])
+            #does not yet change database
+    
     return True
+
 
 def main():
     """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
@@ -165,12 +175,14 @@ def main():
         ["a", "agents", "number of agents to assign for parallelization"]
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
-    
+    googleServices = goog_helper.getGoogleServices(settings, args)
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
+                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     
     if args.cleaning_threshold:
-        googleServices = goog_helper.getGoogleServices(settings, args)
         cleaning_threshold = float(args.cleaning_threshold)
-        cleanup_archive(googleServices, cleaning_threshold)
+        cleanup_archive(googleServices, dbManager, cleaning_threshold)
     if args.cameras_overide:
         listofRotatingCameras = list(args.cameras_overide.replace(" ", "").strip('[]').split(','))
     else:
@@ -180,10 +192,7 @@ def main():
         agents = int(args.agents)
         #num of camera's per process
         test = "Axis-Briar2"
-        googleServices = goog_helper.getGoogleServices(settings, args)
-        dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                        psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
-                                        psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+
         temporaryDir = tempfile.TemporaryDirectory()
         trial = [x for x in range(0,10)]
         tic = time.time()
