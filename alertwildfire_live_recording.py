@@ -154,7 +154,6 @@ def main():
     Args:
         -c  cleaning_threshold" (flt): time in hours to store data
         -o  cameras_overide    (str): list of specific cameras to watch
-        -p  parallelize       (bool): toggle to parallelize
         -a  agents            (int): number of agents to assign for parallelization
     Returns:
         None
@@ -163,7 +162,6 @@ def main():
     optArgs = [
         ["c", "cleaning_threshold", "time in hours to store data"],
         ["o", "cameras_overide", "specific cameras to watch"],
-        ["p", "parallelize", "toggle parallelisation"],
         ["a", "agents", "number of agents to assign for parallelization"]
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
@@ -180,37 +178,29 @@ def main():
         listofRotatingCameras = [camera["name"] for camera in listofCameras if (camera["name"][-1]=='2') ]
     if args.agents:
         agents = int(args.agents)
-    else:
-        agents = None
-    if args.parallelize:
-        parallel = True
         #num of camera's per process
         test = "Axis-Briar2"
         googleServices = goog_helper.getGoogleServices(settings, args)
         dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                        psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                        psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
         temporaryDir = tempfile.TemporaryDirectory()
+        trial = [x for x in range(0,10)]
         tic = time.time()
-        capture_and_record(googleServices, dbManager, temporaryDir.name, test)
+        for x in trial:
+            capture_and_record(googleServices, dbManager, temporaryDir.name, test)
         toc =time.time()-tic
+        toc_avg = toc/len(trial)
         # target estimate of camera refresh time
         target_refresh_time_per_camera = 12#secs
-        num_cameras_per_process = math.floor(target_refresh_time_per_camera / toc)
-    else:
-        parallel = False
-    
-
-    if parallel:
-        
+        num_cameras_per_process = math.floor(target_refresh_time_per_camera / toc_avg)
+        #future ability to re-adjust as needed
 
         #divy the cameras
         camera_bunchs= []
         num_of_processes_needed  =  math.ceil(len(listofRotatingCameras)/num_cameras_per_process)
-        if not agents:
-            agents = multiprocessing.cpu_count() -2#as not to inhibit computer functionality
         if num_of_processes_needed>agents:
-            logging.warning('unable to process all cameras on this machine and maintain a target refresh rate of %s seconds, please reduce number of cameras to less than %s', target_refresh_time_per_camera,num_cameras_per_process*agents)
+            logging.warning('unable to process all given cameras on this machine with %s agents and maintain a target refresh rate of %s seconds, please reduce number of cameras to less than %s',agents, target_refresh_time_per_camera,num_cameras_per_process*agents)
             return
 
         for num in range(0, num_of_processes_needed):
