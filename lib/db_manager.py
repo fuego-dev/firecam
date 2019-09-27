@@ -178,6 +178,16 @@ class DbManager(object):
             ('md5', 'TEXT'),
         ]
 
+        notifications_schema = [
+            ('Name', 'TEXT'),
+            ('Email', 'TEXT'),
+            ('EmailStartTime', 'INT'),
+            ('EmailEndTime', 'INT'),
+            ('Phone', 'TEXT'),
+            ('PhoneStartTime', 'INT'),
+            ('PhoneEndTime', 'INT'),
+        ]
+
         self.tables = {
             'sources': sources_schema,
             'counters': counters_schema,
@@ -189,6 +199,7 @@ class DbManager(object):
             'detections': detections_schema,
             'alerts': alerts_schema,
             'archive': archive_schema,
+            'notifications': notifications_schema,
         }
 
         self.sources_table_name = 'sources'
