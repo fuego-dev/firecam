@@ -188,7 +188,7 @@ def main():
         test = "Axis-Briar2"
         googleServices = goog_helper.getGoogleServices(settings, args)
         dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                        psqlHost=settings.psqlHost,                  psqlDb=settings.psqlDb,    
+                                        psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                         psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
         temporaryDir = tempfile.TemporaryDirectory()
         tic = time.time()
