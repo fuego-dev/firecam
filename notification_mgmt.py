@@ -31,31 +31,6 @@ import db_manager
 import logging
 import time, datetime, dateutil.parser
 
-def getNotifications(dbManager, filterActiveEmail = False, filterActivePhone = False):
-    """Get all the notifications matching optinal active email and phone filters
-
-    Args:
-        dbManager (DbManager):
-        filterActiveEmail (bool): only return notificaitons with currently active emails
-        filterActivePhone (bool): only return notificaitons with currently active phones
-
-    Returns:
-        list of notifications
-    """
-    sqlTemplate = """SELECT * FROM notifications"""
-    filters = []
-    timeNow = int(time.time())
-    if filterActiveEmail:
-        filters.append('email is not null AND EmailStartTime < %s and EmailEndTime > %s' % (timeNow, timeNow))
-    if filterActivePhone:
-        filters.append('phone is not null AND PhoneStartTime < %s and PhoneEndTime > %s' % (timeNow, timeNow))
-    if filters:
-        sqlTemplate += ' WHERE ' + ' AND '.join(filters)
-    sqlStr = sqlTemplate
-    dbResult = dbManager.query(sqlStr)
-    return dbResult
-
-
 def getTimeRangeStr(startTime, endTime):
     """Return a string with given time range and indication whether current time is in range
 
@@ -117,9 +92,9 @@ def main():
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-    notifications = getNotifications(dbManager)
-    activeEmails = getNotifications(dbManager, filterActiveEmail=True)
-    activePhones = getNotifications(dbManager, filterActivePhone=True)
+    notifications = dbManager.getNotifications()
+    activeEmails = dbManager.getNotifications(filterActiveEmail=True)
+    activePhones = dbManager.getNotifications(filterActivePhone=True)
     logging.warning('Num all notifications: %d.  Active emails: %d.  Active phones: %d',
                      len(notifications), len(activeEmails), len(activePhones))
     if args.operation == 'list':
@@ -161,7 +136,7 @@ def main():
                 sqlStr = sqlTemplate % (args.phone, startTime, endTime, args.name)
                 dbManager.execute(sqlStr)
             logging.warning('Successfully updated notification for %s', args.name)
-        notifications = getNotifications(dbManager)
+        notifications = dbManager.getNotifications()
         matching = list(filter(lambda x: x['name'] == args.name, notifications))
         printNoficiation(matching[0])
     elif args.operation == 'delete':

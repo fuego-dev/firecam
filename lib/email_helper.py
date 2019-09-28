@@ -26,25 +26,22 @@ from email import encoders
 import pathlib
 
 
-def send_email(fromAccount, toaddr, subject, body, attachments=[]):
-    '''
-        Inputs:
-            - fromAccount: tuple of (email, password) of from account
-            - toaddr: email address or list of addresses to send email to as string e.g. 'joe@gmail.com'
-            - accuracy: decimal accuracy of the detection from Caffe
-            - location: string for location identification e.g. 'High Point East'
-    '''
+def send_email(fromAccount, toaddr, bcc, subject, body, attachments=[]):
+    """Send an email using credentials of fromAccount to given recepients
 
+    Args:
+        fromAccount (tuple): tuple of (email, password) of from account
+        toaddr (str or list): email address(es) to send email to as string e.g. 'joe@gmail.com'
+        bcc (str or list): email address(es) to bcc the email
+        subject (str): subject of the email
+        body (str): body of the email
+        attachments (list): optional list of attachements files
+    """
     (fromEmail, fromPass) = fromAccount
-    #if we have a list of emails, join them into a string
-    try:
-        if not isinstance(toaddr, str):
-            msgto = ', '.join(list(toaddr))
-        else:
-            msgto = toaddr
-    except Exception as e:
-        print("BASE STRING?", e)
-        return
+    if isinstance(toaddr, str):
+        toaddr = [toaddr]
+    if isinstance(bcc, str):
+        bcc = [bcc]
 
     parts=[]
     for filePath in attachments:
@@ -61,7 +58,7 @@ def send_email(fromAccount, toaddr, subject, body, attachments=[]):
     #setup message headers
     msg = MIMEMultipart()
     msg['From'] = fromEmail
-    msg['To'] = msgto
+    msg['To'] = ', '.join(list(toaddr))
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
     for part in parts:
@@ -93,7 +90,7 @@ def send_email(fromAccount, toaddr, subject, body, attachments=[]):
         return
 
     try:
-        server.sendmail(fromEmail, toaddr, text)
+        server.sendmail(fromEmail, toaddr + bcc, text)
     except Exception as e:
         print("Sending Email Failed", e)
         # print("From Addess ", fromEmail)

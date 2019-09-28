@@ -36,6 +36,7 @@ import goog_helper
 import tf_helper
 import db_manager
 import email_helper
+import sms_helper
 import img_archive
 
 import logging
@@ -201,6 +202,13 @@ def postFilter(dbManager, camera, timestamp, segments):
         Dictionary with information for the segment most likely to be smoke
         or None
     """
+    # enable the next few lines fakes a detection to test alerting functionality
+    # maxFireSegment = segments[0]
+    # maxFireSegment['HistAvg'] = 0.1
+    # maxFireSegment['HistMax'] = 0.2
+    # maxFireSegment['HistNumSamples'] = 10
+    # return maxFireSegment
+
     # segments is sorted, so skip all work if max score is < .5
     if segments[0]['score'] < .5:
         return None
@@ -411,20 +419,35 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     return True
 
 
-def alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
-    """Send an email alert for a potential new fire
-
-    Send email with information about the camera and fire score includeing
-    image attachments
+def alertFire(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
+    """Send alerts about given fire through all channels (currently email and sms)
 
     Args:
+        dbManager (DbManager):
         camera (str): camera name
         imgPath: filepath of the original image
         annotatedFile: filepath of the annotated image
         driveFileIDs (list): List of Google drive IDs for the uploaded image files
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
     """
-    # send email
+    emailFireNotification(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment)
+    smsFireNotification(dbManager, camera)
+
+
+def emailFireNotification(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
+    """Send an email alert for a potential new fire
+
+    Send email with information about the camera and fire score includeing
+    image attachments
+
+    Args:
+        dbManager (DbManager):
+        camera (str): camera name
+        imgPath: filepath of the original image
+        annotatedFile: filepath of the annotated image
+        driveFileIDs (list): List of Google drive IDs for the uploaded image files
+        fireSegment (dictionary): dictionary with information for the segment with fire/smoke
+    """
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), camera)
     body = 'Please check the attached image for fire.'
@@ -432,7 +455,27 @@ def alertFire(camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
         driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
         driveBody = driveTempl % driveFileID
         body += driveBody
-    email_helper.send_email(fromAccount, settings.detectionsEmail, subject, body, [imgPath, annotatedFile])
+
+    # emails are sent from settings.fuegoEmail to settings.detectionsEmail with bcc to everyone
+    # with active emails in notifications SQL table
+    dbResult = dbManager.getNotifications(filterActiveEmail = True)
+    emails = [x['email'] for x in dbResult]
+    email_helper.send_email(fromAccount, settings.detectionsEmail, emails, subject, body, [imgPath, annotatedFile])
+
+
+def smsFireNotification(dbManager, camera):
+    """Send an sms (phone text message) alert for a potential new fire
+
+    Args:
+        dbManager (DbManager):
+        camera (str): camera name
+    """
+    message = 'Fuego fire notification in camera %s. Please check email for details' % camera
+    dbResult = dbManager.getNotifications(filterActivePhone = True)
+    phones = [x['phone'] for x in dbResult]
+    if len(phones) > 0:
+        for phone in phones:
+            sms_helper.sendSms(settings, phone, message)
 
 
 def deleteImageFiles(imgPath, origImgPath, annotatedFile, segments):
@@ -494,7 +537,7 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
     return segments
 
 
-def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positiveskOnly):
+def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positivesOnly):
     """Record the scores for classified segments, check for detections and alerts, and delete images
 
     Args:
@@ -507,19 +550,19 @@ def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPat
         segments (list): List of dictionary containing information on each segment
         minusMinutes (int): number of minutes separating subtracted images (0 for non-subtracted images)
         googleDrive: google drive API service
-        positiveskOnly (bool): only collect/upload positives to google drive - used when training against old images
+        positivesOnly (bool): only collect/upload positives to google drive - used when training against old images
     """
     annotatedFile = None
     if args.collectPositves:
         collectPositves(googleDrive, imgPath, origImgPath, segments)
-    if not positiveskOnly:
+    if not positivesOnly:
         recordScores(dbManager, cameraID, timestamp, segments, minusMinutes)
         fireSegment = postFilter(dbManager, cameraID, timestamp, segments)
         if fireSegment:
             annotatedFile = drawFireBox(origImgPath, fireSegment)
             driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
             if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
-                alertFire(cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
+                alertFire(dbManager, cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
     deleteImageFiles(imgPath, origImgPath, annotatedFile, segments)
     if (args.heartbeat):
         heartBeat(args.heartbeat)

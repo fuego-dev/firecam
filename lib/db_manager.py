@@ -27,7 +27,7 @@ backends.
 
 import logging
 import sqlite3
-import datetime
+import time, datetime
 import psycopg2
 import psycopg2.extras
 
@@ -387,3 +387,27 @@ class DbManager(object):
 
     def getNextSourcesCounter(self):
         return self.incrementCounter('sources')
+
+
+    def getNotifications(self, filterActiveEmail = False, filterActivePhone = False):
+        """Get all the notifications matching optinal active email and phone filters
+
+        Args:
+            filterActiveEmail (bool): only return notificaitons with currently active emails
+            filterActivePhone (bool): only return notificaitons with currently active phones
+
+        Returns:
+            list of notifications
+        """
+        sqlTemplate = """SELECT * FROM notifications"""
+        filters = []
+        timeNow = int(time.time())
+        if filterActiveEmail:
+            filters.append('email is not null AND EmailStartTime < %s and EmailEndTime > %s' % (timeNow, timeNow))
+        if filterActivePhone:
+            filters.append('phone is not null AND PhoneStartTime < %s and PhoneEndTime > %s' % (timeNow, timeNow))
+        if filters:
+            sqlTemplate += ' WHERE ' + ' AND '.join(filters)
+        sqlStr = sqlTemplate
+        dbResult = self.query(sqlStr)
+        return dbResult
