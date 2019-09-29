@@ -47,7 +47,6 @@ camerasSheetRange = 'Code Name Archive Mapping!A1:G1000'
 
 fuegoEmail = 'fuego.response@gmail.com'
 fuegoPasswd = 'do not put real password in files in open source git repo'
-detectionsEmail = 'fuego.detect@gmail.com'
 
 psqlHost = '127.0.0.1'
 psqlDb = 'postgres'
