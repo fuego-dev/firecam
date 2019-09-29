@@ -456,11 +456,11 @@ def emailFireNotification(dbManager, camera, imgPath, annotatedFile, driveFileID
         driveBody = driveTempl % driveFileID
         body += driveBody
 
-    # emails are sent from settings.fuegoEmail to settings.detectionsEmail with bcc to everyone
-    # with active emails in notifications SQL table
+    # emails are sent from settings.fuegoEmail and bcc to everyone with active emails in notifications SQL table
     dbResult = dbManager.getNotifications(filterActiveEmail = True)
     emails = [x['email'] for x in dbResult]
-    email_helper.send_email(fromAccount, settings.detectionsEmail, emails, subject, body, [imgPath, annotatedFile])
+    if len(emails) > 0:
+        email_helper.send_email(fromAccount, settings.fuegoEmail, emails, subject, body, [imgPath, annotatedFile])
 
 
 def smsFireNotification(dbManager, camera):

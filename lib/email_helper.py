@@ -26,22 +26,22 @@ from email import encoders
 import pathlib
 
 
-def send_email(fromAccount, toaddr, bcc, subject, body, attachments=[]):
+def send_email(fromAccount, visibleToAddrs, realToAddrs, subject, body, attachments=[]):
     """Send an email using credentials of fromAccount to given recepients
 
     Args:
         fromAccount (tuple): tuple of (email, password) of from account
-        toaddr (str or list): email address(es) to send email to as string e.g. 'joe@gmail.com'
-        bcc (str or list): email address(es) to bcc the email
+        visibleToAddrs (str or list): email address(es) that appear in "To"
+        realToAddrs (str or list): email address(es) to which email is actually sent to
         subject (str): subject of the email
         body (str): body of the email
         attachments (list): optional list of attachements files
     """
     (fromEmail, fromPass) = fromAccount
-    if isinstance(toaddr, str):
-        toaddr = [toaddr]
-    if isinstance(bcc, str):
-        bcc = [bcc]
+    if isinstance(visibleToAddrs, str):
+        visibleToAddrs = [visibleToAddrs]
+    if isinstance(realToAddrs, str):
+        realToAddrs = [realToAddrs]
 
     parts=[]
     for filePath in attachments:
@@ -58,7 +58,7 @@ def send_email(fromAccount, toaddr, bcc, subject, body, attachments=[]):
     #setup message headers
     msg = MIMEMultipart()
     msg['From'] = fromEmail
-    msg['To'] = ', '.join(list(toaddr))
+    msg['To'] = ', '.join(list(visibleToAddrs))
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
     for part in parts:
@@ -90,13 +90,12 @@ def send_email(fromAccount, toaddr, bcc, subject, body, attachments=[]):
         return
 
     try:
-        server.sendmail(fromEmail, toaddr + bcc, text)
+        server.sendmail(fromEmail, realToAddrs, text)
     except Exception as e:
         print("Sending Email Failed", e)
         # print("From Addess ", fromEmail)
-        # print("To Address", toaddr)
+        # print("To Address", realToAddrs)
         # print("Text", text)
-        # server.sendmail(fromEmail, toaddr, text)
         return
         
     try:
