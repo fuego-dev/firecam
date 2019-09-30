@@ -118,7 +118,7 @@ def fetchAllCameras(camera_names_to_watch):
     googleServices = goog_helper.getGoogleServices(settings, [])
     num_of_watched_cameras = len(camera_names_to_watch)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                    psqlHost=settings.psqlHost,              psqlDb=settings.psqlDb,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     while True:
         tic = time.time()
