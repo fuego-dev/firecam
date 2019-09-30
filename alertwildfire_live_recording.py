@@ -147,6 +147,7 @@ def cleanup_archive(googleServices, dbManager, timethreshold):
     Returns:
         continual should never return must be manually killed
     """
+    Default_refresh_time = 10*60#10 min in seconds
     while True:
         current_time = time.time()
         target_time = current_time - timethreshold*60*60
@@ -155,8 +156,9 @@ def cleanup_archive(googleServices, dbManager, timethreshold):
         for match in matches:
             goog_helper.deleteBucketObject(googleServices['storage'], settings.archive_storage_bucket, match['fileID'])
             #does not yet change database
+        time.sleep(Default_refresh_time)
     
-    return True
+
 
 
 def main():
