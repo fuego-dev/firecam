@@ -29,6 +29,7 @@ import collect_args
 import tempfile
 import time
 import shutil
+import multiprocessing
 from multiprocessing import Pool
 import math
 import datetime
@@ -40,25 +41,7 @@ import hashlib
 
 
 
-def cleanup_archive(googleServices, timethreshold):
-    """initializes a continual cleaning function that only acts to remove archived data past a given threshold.
-    Args:
-        googleServices: Drive service (from getGoogleServices())
-        timethreshold (flt): hours to keep data in archive
-    Returns:
-        continual should never return must be manually killed
-    """
-    #img_archive.getImgPath
-    #timestamp = time.mktime(datetime.datetime.now().timetuple()) -60*timethreshold
-    #current_target = img_archive.getImgPath("./", "test", timestamp)[-23:-4]
-    #while True:
-    #    for folder in goog_helper.driveListFilesByName(googleServices['drive'], settings.alertwildfire_archive):
-    #        for fileobj in goog_helper.driveListFilesByName(googleServices['drive'], folder['id']):
-    #            if fileobj['name'][-23:-4]< current_target:
-    #                logging.error('deleting file', fileobj['name'])
-    #                goog_helper.deleteItem(googleServices['drive'], file_id)
-    #        
-    return True
+
 
 def build_name_with_metadata(image_base_name,metadata):
     """reformats image name to include positional metadata
@@ -72,8 +55,9 @@ def build_name_with_metadata(image_base_name,metadata):
 
     cameraName_chunk = image_base_name[:-23]
     metadata_chunk = 'p'+str(metadata['position']['pan'])+'_t'+str(metadata['position']['tilt'])+'_z'+str(metadata['position']['zoom'])
-    timeStamp_chunk = '__'+image_base_name[-23:]
-    imgname = cameraName_chunk+metadata_chunk+timeStamp_chunk
+    timeStamp_chunk = image_base_name[-23:-4]+'__'
+    fileTag=image_base_name[-4:]
+    imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
 
 
@@ -98,6 +82,16 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
         else:
             pull1 = pull2
             retriesLeft -= 1
+    #validate that it is new data
+    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
+    ###warning approximitly doubles image processing time
+    SQLcommand="select FileID from archive where md5='"+str(md5)+"'"
+    matches = dbManager.query(SQLcommand)
+    if len(matches)>0:
+        logging.warning('skipping %s, image has not changed since last upload.', camera_name)
+        return 
+    ###
+
 
     image_base_name = pathlib.PurePath(imgPath).name
     image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)
@@ -106,21 +100,22 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     
 
     #add to Database
-    md5 = hashlib.md5(open(imgPath, 'rb').read()).hexdigest()
     timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)
 
 
 
 
-def fetchAllCameras(googleServices, camera_names_to_watch):
+def fetchAllCameras(camera_names_to_watch):
     """manages the continual observation of a given set of cameras to watch.
     Args:
-        googleServices: google service service (from getGoogleServices())
         camera_names_to_watch (List): list of camera names that are to be watched by this process
     Returns:
         None
     """
+    #please do not remove googleServices definintion from this function
+    # it is needed for the parallel processing authentication
+    googleServices = goog_helper.getGoogleServices(settings, [])
     num_of_watched_cameras = len(camera_names_to_watch)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
@@ -143,31 +138,92 @@ def fetchAllCameras(googleServices, camera_names_to_watch):
 
 
 
+def cleanup_archive(googleServices, dbManager, timethreshold):
+    """initializes a continual cleaning function that only acts to remove archived data past a given threshold.
+    Args:
+        googleServices: Drive service (from getGoogleServices())
+        dbManager: Database service
+        timethreshold (flt): hours to keep data in archive
+    Returns:
+        continual should never return must be manually killed
+    """
+    Default_refresh_time = 10*60#10 min in seconds
+    while True:
+        current_time = time.time()
+        target_time = current_time - timethreshold*60*60
+        SQLcommand="select FileID from archive where timestamp<"+str(target_time)
+        matches = dbManager.query(SQLcommand)
+        for match in matches:
+            goog_helper.deleteBucketObject(googleServices['storage'], settings.archive_storage_bucket, match['fileID'])
+            #does not yet change database
+        time.sleep(Default_refresh_time)
+    
+
+
+
 def main():
     """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
     Args:
         -c  cleaning_threshold" (flt): time in hours to store data
-        -o  cameras_overide"    (str): list of specific cameras to watch
+        -o  cameras_overide    (str): list of specific cameras to watch
+        -a  agents            (int): number of agents to assign for parallelization
     Returns:
         None
     """
     reqArgs = []
     optArgs = [
         ["c", "cleaning_threshold", "time in hours to store data"],
-        ["o", "cameras_overide", "specific cameras to watch"]
+        ["o", "cameras_overide", "specific cameras to watch"],
+        ["a", "agents", "number of agents to assign for parallelization"]
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
+                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+    
     if args.cleaning_threshold:
         cleaning_threshold = float(args.cleaning_threshold)
-        cleanup_archive(googleServices, cleaning_threshold)
+        cleanup_archive(googleServices, dbManager, cleaning_threshold)
     if args.cameras_overide:
         listofRotatingCameras = list(args.cameras_overide.replace(" ", "").strip('[]').split(','))
     else:
         listofCameras = alertwildfire_API.get_all_camera_info()
         listofRotatingCameras = [camera["name"] for camera in listofCameras if (camera["name"][-1]=='2') ]
+    if args.agents:
+        agents = int(args.agents)
+        #num of camera's per process
+        test = "Axis-Briar2"
 
-    fetchAllCameras(googleServices, listofRotatingCameras)
+        temporaryDir = tempfile.TemporaryDirectory()
+        trial = [x for x in range(0,10)]
+        tic = time.time()
+        for x in trial:
+            capture_and_record(googleServices, dbManager, temporaryDir.name, test)
+        toc =time.time()-tic
+        toc_avg = toc/len(trial)
+        # target estimate of camera refresh time
+        target_refresh_time_per_camera = 12#secs
+        num_cameras_per_process = math.floor(target_refresh_time_per_camera / toc_avg)
+        #future ability to re-adjust as needed
+
+        #divy the cameras
+        camera_bunchs= []
+        num_of_processes_needed  =  math.ceil(len(listofRotatingCameras)/num_cameras_per_process)
+        if num_of_processes_needed>agents:
+            logging.warning('unable to process all given cameras on this machine with %s agents and maintain a target refresh rate of %s seconds, please reduce number of cameras to less than %s',agents, target_refresh_time_per_camera,num_cameras_per_process*agents)
+            return
+
+        for num in range(0, num_of_processes_needed):
+            split_start = num_cameras_per_process*num
+            split_stop = num_cameras_per_process*num+num_cameras_per_process
+            camera_bunchs.append(listofRotatingCameras[split_start:split_stop])
+
+        with Pool(processes=agents) as pool:
+            result = pool.map(fetchAllCameras, camera_bunchs)
+            pool.close()
+    else:
+        fetchAllCameras(listofRotatingCameras)
 
 
 
