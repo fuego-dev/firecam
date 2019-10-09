@@ -624,3 +624,50 @@ def addImageToArchiveDb(dbManager, cameraID, timestamp, storageID, fileID, pan, 
     }
     dbManager.add_data('archive', dbRow)
 
+
+def getAlertImages(googleServices, dbManager, settings, outputDir, cameraID, startTimeDT, endTimeDT, periodSeconds):
+    """Download AlertWildfire images from given camera and date time range with specified gaps
+       The files are downloaded from Feugo's Google Cloud Storage AlertWildfire archive
+
+    Args:
+        googleServices (): Google services and credentials
+        dbManager (DbManager):
+        settings (): settings module
+        outputDir (str): Output directory path
+        cameraID (str): ID of camera to fetch images from
+        startTimeDT (datetime): starting time of time range
+        endTimeDT (datetime): ending time of time range
+        periodSeconds (int): Number of seconds of gap between images for downloading
+
+    Returns:
+        List of local filesystem paths to downloaded images
+    """
+    downloaded_files = []
+    if startTimeDT == endTimeDT:
+        sqlTemplate = """SELECT timestamp, fileid FROM archive
+        WHERE CameraName='%s'
+        ORDER BY ABS(timestamp - %s)
+        LIMIT 1"""
+        sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()))
+    else:
+        sqlTemplate = """SELECT distinct timestamp,fileid FROM archive
+        WHERE CameraName='%s' and timestamp >= %s and timestamp < %s"""
+        sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()), time.mktime(endTimeDT.timetuple()))
+    dbResult = dbManager.query(sqlStr)
+    # logging.warning('dbr %d: %s', len(dbResult), str(dbResult))
+    if not dbResult:
+        return []
+
+    timeGapDelta = datetime.timedelta(seconds = periodSeconds)
+    curTimeDT = startTimeDT
+    while curTimeDT <= endTimeDT:
+        curTimeDT += timeGapDelta
+        closestEntry = min(dbResult, key=lambda x: abs(x['timestamp']-time.mktime(curTimeDT.timetuple())))
+        fileId = closestEntry['fileid']
+        fileName = fileId.split('/')[-1]
+        localFilePath = os.path.join(outputDir, fileName)
+        goog_helper.downloadBucketObject(googleServices['storage'], settings.archive_storage_bucket,
+                                         fileId, localFilePath)
+        downloaded_files.append(localFilePath)
+        logging.warning('Got file %s for time %s', fileName, curTimeDT.isoformat())
+    return downloaded_files
