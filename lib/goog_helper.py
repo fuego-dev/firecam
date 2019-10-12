@@ -425,6 +425,9 @@ def downloadBucketObject(storageSvc, bucketName, fileID, localFilePath):
         fileID (str): file path inside bucket
         localFilePath (str): path to local file where to store the data
     """
+    if os.path.isfile(localFilePath):
+        return # already downloaded, nothing to do
+
     # download file from cloud storage to memory object
     request = storageSvc.objects().get_media(bucket = bucketName, object = fileID)
     fh = io.BytesIO()

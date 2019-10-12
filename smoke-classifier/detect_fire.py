@@ -419,58 +419,71 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     return True
 
 
-def alertFire(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
+def alertFire(constants, cameraID, imgPath, annotatedFile, driveFileIDs, fireSegment, timestamp):
     """Send alerts about given fire through all channels (currently email and sms)
 
     Args:
-        dbManager (DbManager):
-        camera (str): camera name
+        constants (dict): "global" contants
+        cameraID (str): camera name
         imgPath: filepath of the original image
         annotatedFile: filepath of the annotated image
         driveFileIDs (list): List of Google drive IDs for the uploaded image files
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
+        timestamp (int): time.time() value when image was taken
     """
-    emailFireNotification(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment)
-    smsFireNotification(dbManager, camera)
+    emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFileIDs, fireSegment, timestamp)
+    smsFireNotification(constants['dbManager'], cameraID)
 
 
-def emailFireNotification(dbManager, camera, imgPath, annotatedFile, driveFileIDs, fireSegment):
+def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFileIDs, fireSegment, timestamp):
     """Send an email alert for a potential new fire
 
     Send email with information about the camera and fire score includeing
     image attachments
 
     Args:
-        dbManager (DbManager):
-        camera (str): camera name
+        constants (dict): "global" contants
+        cameraID (str): camera name
         imgPath: filepath of the original image
         annotatedFile: filepath of the annotated image
         driveFileIDs (list): List of Google drive IDs for the uploaded image files
         fireSegment (dictionary): dictionary with information for the segment with fire/smoke
+        timestamp (int): time.time() value when image was taken
     """
+    dbManager = constants['dbManager']
     fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
-    subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), camera)
-    body = 'Please check the attached image for fire.'
-    for driveFileID in driveFileIDs:
-        driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
-        driveBody = driveTempl % driveFileID
-        body += driveBody
+    subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), cameraID)
+    body = 'Please check the attached images for fire.'
+    # commenting out links to google drive because they appear as extra attachments causing confusion
+    # and some email recipients don't even have permissions to access drive.
+    # for driveFileID in driveFileIDs:
+    #     driveTempl = '\nAlso available from google drive as https://drive.google.com/file/d/%s'
+    #     driveBody = driveTempl % driveFileID
+    #     body += driveBody
 
     # emails are sent from settings.fuegoEmail and bcc to everyone with active emails in notifications SQL table
     dbResult = dbManager.getNotifications(filterActiveEmail = True)
     emails = [x['email'] for x in dbResult]
     if len(emails) > 0:
-        email_helper.send_email(fromAccount, settings.fuegoEmail, emails, subject, body, [imgPath, annotatedFile])
+        # attach images spanning a few minutes so reviewers can evaluate based on progression
+        startTimeDT = datetime.datetime.fromtimestamp(timestamp - 3*60)
+        endTimeDT = datetime.datetime.fromtimestamp(timestamp - 1*60)
+        with tempfile.TemporaryDirectory() as tmpDirName:
+            oldImages = img_archive.getHpwrenImages(constants['googleServices'], settings, tmpDirName,
+                                                    constants['camArchives'], cameraID, startTimeDT, endTimeDT, 1)
+            oldImages = oldImages or []
+            attachments = oldImages + [imgPath, annotatedFile]
+            email_helper.send_email(fromAccount, settings.fuegoEmail, emails, subject, body, attachments)
 
 
-def smsFireNotification(dbManager, camera):
+def smsFireNotification(dbManager, cameraID):
     """Send an sms (phone text message) alert for a potential new fire
 
     Args:
         dbManager (DbManager):
-        camera (str): camera name
+        cameraID (str): camera name
     """
-    message = 'Fuego fire notification in camera %s. Please check email for details' % camera
+    message = 'Fuego fire notification in camera %s. Please check email for details' % cameraID
     dbResult = dbManager.getNotifications(filterActivePhone = True)
     phones = [x['phone'] for x in dbResult]
     if len(phones) > 0:
@@ -537,12 +550,11 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
     return segments
 
 
-def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positivesOnly):
+def recordFilterReport(constants, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positivesOnly):
     """Record the scores for classified segments, check for detections and alerts, and delete images
 
     Args:
-        args: process command line parameters in collect_args/argparse format
-        dbManager (DbManager):
+        constants (dict): "global" contants
         cameraID (str): ID for camera associated with the image
         timestamp (int): time.time() value when image was taken
         imgPath (str): filepath of the image (possibly derived image by subtraction) that was classified
@@ -553,6 +565,8 @@ def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPat
         positivesOnly (bool): only collect/upload positives to google drive - used when training against old images
     """
     annotatedFile = None
+    args = constants['args']
+    dbManager = constants['dbManager']
     if args.collectPositves:
         collectPositves(googleDrive, imgPath, origImgPath, segments)
     if not positivesOnly:
@@ -562,7 +576,7 @@ def recordFilterReport(args, dbManager, cameraID, timestamp, imgPath, origImgPat
             annotatedFile = drawFireBox(origImgPath, fireSegment)
             driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
             if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
-                alertFire(dbManager, cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment)
+                alertFire(constants, cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment, timestamp)
     deleteImageFiles(imgPath, origImgPath, annotatedFile, segments)
     if (args.heartbeat):
         heartBeat(args.heartbeat)
@@ -724,13 +738,11 @@ def genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImag
     return (cameraID, timestamp, imgPath, imgDiffPath)
 
 
-def getArchivedImages(googleServices, settings, camArchives, cameras, startTimeDT, timeRangeSeconds, minusMinutes):
+def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes):
     """Get random images from HPWREN archive matching given constraints and optionally subtract them
 
     Args:
-        googleServices (): Google services and credentials
-        settings (): settings module
-        camArchives (list): Result of getHpwrenCameraArchives()
+        constants (dict): "global" contants
         cameras (list): list of cameras
         startTimeDT (datetime): starting time of time range
         timeRangeSeconds (int): number of seconds in time range
@@ -749,8 +761,8 @@ def getArchivedImages(googleServices, settings, camArchives, cameras, startTimeD
         prevTimeDT = timeDT + datetime.timedelta(seconds = -60 * minusMinutes)
     else:
         prevTimeDT = timeDT
-    files = img_archive.getHpwrenImages(googleServices, settings, getArchivedImages.tmpDir.name,
-                                        camArchives, cameraID, prevTimeDT, timeDT, minusMinutes or 1)
+    files = img_archive.getHpwrenImages(constants['googleServices'], settings, getArchivedImages.tmpDir.name,
+                                        constants['camArchives'], cameraID, prevTimeDT, timeDT, minusMinutes or 1)
     # logging.warning('files %s', str(files))
     if not files:
         return (None, None, None, None)
@@ -799,13 +811,19 @@ def main():
     endTimeDT = dateutil.parser.parse(args.endTime) if args.endTime else None
     timeRangeSeconds = None
     useArchivedImages = False
+    camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
+    constants = { # dictionary of constants to reduce parameters in various functions
+        'args': args,
+        'googleServices': googleServices,
+        'camArchives': camArchives,
+        'dbManager': dbManager,
+    }
     if startTimeDT or endTimeDT:
         assert startTimeDT and endTimeDT
         timeRangeSeconds = (endTimeDT-startTimeDT).total_seconds()
         assert timeRangeSeconds > 0
         assert args.collectPositves
         useArchivedImages = True
-        camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()
@@ -820,7 +838,7 @@ def main():
             timeStart = time.time()
             if useArchivedImages:
                 (cameraID, timestamp, imgPath, classifyImgPath) = \
-                    getArchivedImages(googleServices, settings, camArchives, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
+                    getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
             elif minusMinutes:
                 (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
                 if not queueFull: # queue is not full, so add more to queue
@@ -844,7 +862,7 @@ def main():
 
             segments = segmentAndClassify(classifyImgPath, tfSession, graph, labels)
             timeClassify = time.time()
-            recordFilterReport(args, dbManager, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
+            recordFilterReport(constants, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
             timePost = time.time()
             updateTimeTracker(processingTimeTracker, timePost - timeStart)
             if args.time:
