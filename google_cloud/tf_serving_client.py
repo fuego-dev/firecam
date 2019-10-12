@@ -1,3 +1,7 @@
+"""
+tmp scratch file for messing around and debugging
+"""
+
 import rect_to_squares
 from PIL import Image
 import pathlib
@@ -34,6 +38,8 @@ def load_crops(crop_root):
 
 
 server_ip_and_port = '34.82.71.243:8500'
+# server_ip_and_port = 'localhost:8500'
+
 
 #crop image into sqaures
 # test_path = '/Users/henrypinkard/Desktop/fuego_smoke_img/test_smoke_2.jpg'
@@ -48,6 +54,7 @@ crops = load_crops(crop_root)
 
 prediction_service = connect_to_prediction_service(server_ip_and_port)
 result = predict_batch(prediction_service, crops)
+print(result)
 
 pass
 

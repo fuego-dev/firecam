@@ -38,6 +38,8 @@ import db_manager
 import email_helper
 import sms_helper
 import img_archive
+from gcp_helper import connect_to_prediction_service, predict_batch
+
 
 import logging
 import pathlib
@@ -48,7 +50,7 @@ import random
 import re
 import hashlib
 from urllib.request import urlretrieve
-import tensorflow as tf
+import numpy as np
 from PIL import Image, ImageFile, ImageDraw, ImageFont
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -531,7 +533,7 @@ def heartBeat(filename):
     pathlib.Path(filename).touch()
 
 
-def segmentAndClassify(imgPath, tfSession, graph, labels):
+def segmentAndClassify(imgPath, prediction_service):
     """Segment the given image into squares and classify each square
 
     Args:
@@ -543,9 +545,23 @@ def segmentAndClassify(imgPath, tfSession, graph, labels):
     Returns:
         list of segments with scores sorted by decreasing score
     """
+    #this crops segments and saves them
     segments = segmentImage(imgPath)
-    # print('si', segments)
-    tf_helper.classifySegments(tfSession, graph, labels, segments)
+    #TODO: just load the image and crop without resaving to disk
+    #this loads all the crops into a single numpy array
+    crops = []
+    crop_dir = os.path.dir(imgPath)
+    for file in os.listdir(crop_dir):
+        if 'Crop' in file and imgPath.split(os.sep)[-1][-4] in file:
+            array = np.asarray(Image.open(crop_dir + file))
+            crops.append(array)
+    batch = np.stack(crops)
+    predictions = predict_batch(prediction_service, batch)
+
+    #put predictions into expected form
+    for idx, segmentInfo in enumerate(segments):
+        segmentInfo['score'] = float(predictions[idx, 1])
+
     segments.sort(key=lambda x: -x['score'])
     return segments
 
@@ -827,47 +843,42 @@ def main():
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
-    graph = tf_helper.load_graph(settings.model_file)
-    labels = tf_helper.load_labels(settings.labels_file)
-    config = tf.ConfigProto()
-    config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
-    with tf.Session(graph=graph, config=config) as tfSession:
-        while True:
-            classifyImgPath = None
-            timeStart = time.time()
-            if useArchivedImages:
+    prediction_service = connect_to_prediction_service(settings.server_ip_and_port)
+    while True:
+        classifyImgPath = None
+        timeStart = time.time()
+        if useArchivedImages:
+            (cameraID, timestamp, imgPath, classifyImgPath) = \
+                getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
+        elif minusMinutes:
+            (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
+            if not queueFull: # queue is not full, so add more to queue
+                addToDeferredImages(dbManager, cameras, deferredImages)
+            if deferredImageInfo:  # we have a deferred image ready to process, now get latest image and subtract
                 (cameraID, timestamp, imgPath, classifyImgPath) = \
-                    getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
-            elif minusMinutes:
-                (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
-                if not queueFull: # queue is not full, so add more to queue
-                    addToDeferredImages(dbManager, cameras, deferredImages)
-                if deferredImageInfo:  # we have a deferred image ready to process, now get latest image and subtract
-                    (cameraID, timestamp, imgPath, classifyImgPath) = \
-                        genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes)
-                    if not cameraID:
-                        continue # skip to next camera without deleting deferred image which may be reused later
-                    os.remove(deferredImageInfo['imgPath']) # no longer needed
-                else:
-                    continue # in diff mode without deferredImage, nothing more to do
-            # elif args.imgDirectory:  unused functionality -- to delete?
-            #     (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
-            else: # regular (non diff mode), grab image and process
-                (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
-                classifyImgPath = imgPath
-            if not cameraID:
-                continue # skip to next camera
-            timeFetch = time.time()
+                    genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes)
+                if not cameraID:
+                    continue # skip to next camera without deleting deferred image which may be reused later
+                os.remove(deferredImageInfo['imgPath']) # no longer needed
+            else:
+                continue # in diff mode without deferredImage, nothing more to do
+        # elif args.imgDirectory:  unused functionality -- to delete?
+        #     (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
+        else: # regular (non diff mode), grab image and process
+            (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
+            classifyImgPath = imgPath
+        if not cameraID:
+            continue # skip to next camera
+        timeFetch = time.time()
 
-            segments = segmentAndClassify(classifyImgPath, tfSession, graph, labels)
-            timeClassify = time.time()
-            recordFilterReport(constants, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
-            timePost = time.time()
-            updateTimeTracker(processingTimeTracker, timePost - timeStart)
-            if args.time:
-                logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
-                    timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
+        segments = segmentAndClassify(classifyImgPath, prediction_service)
+        timeClassify = time.time()
+        recordFilterReport(constants, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
+        timePost = time.time()
+        updateTimeTracker(processingTimeTracker, timePost - timeStart)
+        if args.time:
+            logging.warning('Timings: fetch=%.2f, classify=%.2f, post=%.2f',
+                timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
 
 
 if __name__=="__main__":

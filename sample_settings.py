@@ -23,6 +23,8 @@ tfSlimDir = 'XXX/tf_models/research/slim'
 downloadDir = 'XXX/orig'
 archive_storage_bucket = "fuego-firecam-a"
 
+server_ip_and_port = 'localhost:8500' #depends on the specific inference server running on GCP
+
 teamDriveID = '0ADX9uPkOmsDJUk9PVA' # Fuego Smoke
 allPictures = '1SCXFLE25EbQUQMvTcWfeHFU29qxN8WMM' # Pictures  - Samples and Full Sets
 # smokePictures = '1jq9p2A5BVLh1oWKktpV1oaWTVUU9KmNJ' # Smoke
