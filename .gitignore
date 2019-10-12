@@ -7,3 +7,4 @@ credentials.json
 token.json
 local.db
 node_modules
+.idea #pycharm files
