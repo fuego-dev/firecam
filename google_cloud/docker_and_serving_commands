@@ -1,0 +1,57 @@
+docker pull tensorflow/serving:latest
+
+#list running containers
+docker ps
+
+#kill a containter thats running
+docker kill CONTAINERID
+
+#remove an old image
+docker image ls
+docker image rm ID
+
+#explore a container
+docker run -t --rm  -i tf_serving_aug23_model /bin/bash
+
+
+#Make sure this works first
+docker run -p 8501:8501   \
+  --mount type=bind,source=/home/henry/aug23_model_SavedModel,target=/models/my_model/1 \
+  -e MODEL_NAME=my_model -t tensorflow/serving
+
+
+#then build its own container
+sudo docker run -d --name serving_base_cpu tensorflow/serving:latest
+sudo docker cp aug23_model_SavedModel serving_base_cpu:/models/inception/1
+docker commit --change "ENV MODEL_NAME inception" serving_base inception_serving
+
+sudo docker kill serving_base_cpu
+sudo docker rm serving_base_cpu
+
+#run that container in the backgd
+docker run -p 8500:8500 -t inception_serving &
+
+
+
+
+
+
+docker pull tensorflow/serving:latest-gpu
+
+docker image ls
+
+sudo docker run -d --name serving_base tensorflow/serving:latest-gpu
+sudo docker cp aug23_model_SavedModel serving_base:/models/model
+
+docker commit --change "ENV TEST_MODEL_AUG_23 model" serving_base tf_serving_aug23_model
+
+sudo docker kill serving_base
+sudo docker rm serving_base
+
+
+docker run -p 8501:8501 \
+  --mount type=bind,source=/home/henry/model/,target=/models/my_model \
+  -e MODEL_NAME=frozen_aug23_223692.pb -t tensorflow/serving
+
+#run serving model in background
+docker run -t --rm -p 8501:8501 serving_with_model &
