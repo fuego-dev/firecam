@@ -33,6 +33,7 @@ settings.fuegoRoot = fuegoRoot
 import collect_args
 import rect_to_squares
 import goog_helper
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging (must be done before tf_helper)
 import tf_helper
 import db_manager
 import email_helper
@@ -827,7 +828,6 @@ def main():
 
     deferredImages = []
     processingTimeTracker = initializeTimeTracker()
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging
     graph = tf_helper.load_graph(settings.model_file)
     labels = tf_helper.load_labels(settings.labels_file)
     config = tf.ConfigProto()
