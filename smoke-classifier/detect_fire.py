@@ -451,7 +451,6 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
         timestamp (int): time.time() value when image was taken
     """
     dbManager = constants['dbManager']
-    fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), cameraID)
     body = 'Please check the attached images for fire.'
     # commenting out links to google drive because they appear as extra attachments causing confusion
@@ -473,7 +472,7 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
                                                     constants['camArchives'], cameraID, startTimeDT, endTimeDT, 1)
             oldImages = oldImages or []
             attachments = oldImages + [imgPath, annotatedFile]
-            email_helper.send_email(fromAccount, settings.fuegoEmail, emails, subject, body, attachments)
+            email_helper.sendEmail(constants['googleServices']['mail'], settings.fuegoEmail, emails, subject, body, attachments)
 
 
 def smsFireNotification(dbManager, cameraID):
