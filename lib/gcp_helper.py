@@ -35,7 +35,7 @@ def connect_to_prediction_service(server_ip_and_port):
     """
     tf.app.flags.DEFINE_string('server', server_ip_and_port, 'PredictionService host:port')
     channel = grpc.insecure_channel(tf.app.flags.FLAGS.server)
-    grpc.secure_channel()
+    # grpc.secure_channel()
     return prediction_service_pb2_grpc.PredictionServiceStub(channel)
 
 def predict_batch(prediction_service, crops, timing=False):

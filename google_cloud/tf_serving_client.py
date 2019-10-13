@@ -37,8 +37,8 @@ def load_crops(crop_root):
 
 
 
-server_ip_and_port = '34.82.71.243:8500'
-# server_ip_and_port = 'localhost:8500'
+# server_ip_and_port = '34.82.71.243:8500'
+server_ip_and_port = 'localhost:8500'
 
 
 #crop image into sqaures
@@ -47,14 +47,20 @@ server_ip_and_port = '34.82.71.243:8500'
 
 #load all crops
 # crop_root = '/Users/henrypinkard/Desktop/fuego_test_img/'
+# crop_root = '/home/henry/fuego_smoke_img/'
 crop_root = '/Users/henrypinkard/Desktop/fuego_smoke_img/'
+
 crops = load_crops(crop_root)
 
-
-
 prediction_service = connect_to_prediction_service(server_ip_and_port)
-result = predict_batch(prediction_service, crops)
-print(result)
+
+result = predict_batch(prediction_service, crops, timing=True)
+
+#do again now that memory allocated
+result = predict_batch(prediction_service, crops, timing=True)
+result = predict_batch(prediction_service, crops, timing=True)
+
+
 
 pass
 
