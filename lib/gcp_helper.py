@@ -33,8 +33,9 @@ def connect_to_prediction_service(server_ip_and_port):
     :param server_ip_and_port: string with ip address followed by port (e.g. '34.82.71.243:8500')
     :return: PredicitonServiceStub object
     """
-    tf.app.flags.DEFINE_string('server', server_ip_and_port, 'PredictionService host:port')
-    channel = grpc.insecure_channel(tf.app.flags.FLAGS.server)
+    # tf.app.flags.DEFINE_string('server', server_ip_and_port, 'PredictionService host:port')
+    # channel = grpc.insecure_channel(tf.app.flags.FLAGS.server)
+    channel = grpc.insecure_channel(server_ip_and_port)
     # grpc.secure_channel()
     return prediction_service_pb2_grpc.PredictionServiceStub(channel)
 

@@ -529,8 +529,8 @@ def heartBeat(filename):
     pathlib.Path(filename).touch()
 
 
-def segmentAndClassify(imgPath, prediction_service):
-    """Segment the given image into squares and classify each square
+def classify(image_crops, segment_infos, prediction_service):
+    """Classify each square
 
     Args:
         imgPath (str): filepath of the image to segment and clasify
@@ -541,8 +541,6 @@ def segmentAndClassify(imgPath, prediction_service):
     Returns:
         list of segments with scores sorted by decreasing score
     """
-    #this crops segments and saves them
-    image_crops, segment_infos = segmentImage(imgPath)
     batch = np.stack(image_crops)
     predictions = predict_batch(prediction_service, batch)
 
@@ -857,9 +855,10 @@ def main():
             classifyImgPath = imgPath
         if not cameraID:
             continue # skip to next camera
+        image_crops, segment_infos = segmentImage(classifyImgPath)
         timeFetch = time.time()
 
-        segments = segmentAndClassify(classifyImgPath, prediction_service)
+        segments = classify(image_crops, segment_infos, prediction_service)
         timeClassify = time.time()
         recordFilterReport(constants, cameraID, timestamp, classifyImgPath, imgPath, segments, minusMinutes, googleServices['drive'], useArchivedImages)
         timePost = time.time()
