@@ -151,10 +151,9 @@ def segmentImage(imgPath):
         List of dictionary containing information on each segment
     """
     img = Image.open(imgPath)
-    ppath = pathlib.PurePath(imgPath)
-    segments = rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
+    image_crops, segment_infos = rect_to_squares.cutBoxes(img)
     img.close()
-    return segments
+    return image_crops, segment_infos
 
 
 def recordScores(dbManager, camera, timestamp, segments, minusMinutes):
@@ -493,7 +492,7 @@ def smsFireNotification(dbManager, cameraID):
             sms_helper.sendSms(settings, phone, message)
 
 
-def deleteImageFiles(imgPath, origImgPath, annotatedFile, segments):
+def deleteImageFiles(imgPath, origImgPath, annotatedFile):
     """Delete all image files given in segments
 
     Args:
@@ -501,14 +500,11 @@ def deleteImageFiles(imgPath, origImgPath, annotatedFile, segments):
         annotatedFile: filepath of the annotated image
         segments (list): List of dictionary containing information on each segment
     """
-    for segmentInfo in segments:
-        os.remove(segmentInfo['imgPath'])
     os.remove(imgPath)
     if imgPath != origImgPath:
         os.remove(origImgPath)
     if annotatedFile:
         os.remove(annotatedFile)
-    ppath = pathlib.PurePath(imgPath)
     # leftoverFiles = os.listdir(str(ppath.parent))
     # if len(leftoverFiles) > 0:
     #     logging.warning('leftover files %s', str(leftoverFiles))
@@ -546,24 +542,16 @@ def segmentAndClassify(imgPath, prediction_service):
         list of segments with scores sorted by decreasing score
     """
     #this crops segments and saves them
-    segments = segmentImage(imgPath)
-    #TODO: just load the image and crop without resaving to disk
-    #this loads all the crops into a single numpy array
-    crops = []
-    crop_dir = os.path.dir(imgPath)
-    for file in os.listdir(crop_dir):
-        if 'Crop' in file and imgPath.split(os.sep)[-1][-4] in file:
-            array = np.asarray(Image.open(crop_dir + file))
-            crops.append(array)
-    batch = np.stack(crops)
+    image_crops, segment_infos = segmentImage(imgPath)
+    batch = np.stack(image_crops)
     predictions = predict_batch(prediction_service, batch)
 
     #put predictions into expected form
-    for idx, segmentInfo in enumerate(segments):
+    for idx, segmentInfo in enumerate(segment_infos):
         segmentInfo['score'] = float(predictions[idx, 1])
 
-    segments.sort(key=lambda x: -x['score'])
-    return segments
+    segment_infos.sort(key=lambda x: -x['score'])
+    return segment_infos
 
 
 def recordFilterReport(constants, cameraID, timestamp, imgPath, origImgPath, segments, minusMinutes, googleDrive, positivesOnly):
@@ -593,7 +581,7 @@ def recordFilterReport(constants, cameraID, timestamp, imgPath, origImgPath, seg
             driveFileIDs = recordDetection(dbManager, googleDrive, cameraID, timestamp, origImgPath, annotatedFile, fireSegment)
             if checkAndUpdateAlerts(dbManager, cameraID, timestamp, driveFileIDs):
                 alertFire(constants, cameraID, origImgPath, annotatedFile, driveFileIDs, fireSegment, timestamp)
-    deleteImageFiles(imgPath, origImgPath, annotatedFile, segments)
+    deleteImageFiles(imgPath, origImgPath, annotatedFile)
     if (args.heartbeat):
         heartBeat(args.heartbeat)
     logging.warning('Highest score for camera %s: %f' % (cameraID, segments[0]['score']))
@@ -881,5 +869,5 @@ def main():
                 timeFetch-timeStart, timeClassify-timeFetch, timePost-timeClassify)
 
 
-if __name__=="__main__":
+if __name__== "__main__":
     main()

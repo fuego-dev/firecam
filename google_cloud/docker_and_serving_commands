@@ -7,8 +7,6 @@ docker run -p 8501:8501   \
   -e MODEL_NAME=my_model -t tensorflow/serving
 
 
-docker pull tensorflow/serving:latest
-
 #list running containers
 docker ps
 
@@ -20,21 +18,7 @@ docker image ls
 docker image rm ID
 
 #explore a container
-docker run -t --rm  -i tf_serving_aug23_model /bin/bash
-
-
-
-#then build its own container
-sudo docker run -d --name serving_base_cpu tensorflow/serving:latest
-sudo docker exec serving_base_cpu mkdir -p /models/inception #create intermediate dir
-sudo docker cp aug23_model_SavedModel serving_base_cpu:/models/inception/1
-sudo docker commit --change "ENV MODEL_NAME inception" serving_base_cpu inception_serving
-
-sudo docker kill serving_base_cpu
-sudo docker rm serving_base_cpu
-
-#run that container in the backgd
-docker run -p 8500:8500 -t inception_serving &
+docker run -t --rm  -i inception_serving /bin/bash
 
 
 
@@ -52,6 +36,16 @@ sudo docker rm serving_base
 docker run -p 8500:8500 -t inception_serving &
 
 
+#setting up nvidia docker
+distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+sudo systemctl restart docker
+
+#test it
+docker run --gpus all nvidia/cuda:9.0-base nvidia-smi
 
 
 #setting up k8s
