@@ -35,10 +35,12 @@ import collect_args
 import img_archive
 
 # If modifying these scopes, delete the file token.json.
+# TODO: This is getting too big.  We should ask for different subsets for each app
 SCOPES = [
     'https://www.googleapis.com/auth/drive',
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/devstorage.read_write',
+    'https://www.googleapis.com/auth/gmail.send',
     'profile' # to get id_token for gcf_ffmpeg
 ]
 
@@ -73,13 +75,11 @@ def getGoogleServices(settings, args):
         Dictionary with service tokens
     """
     creds = getCreds(settings, args)
-    driveService = build('drive', 'v3', http=creds.authorize(Http()))
-    sheetService = build('sheets', 'v4', http=creds.authorize(Http()))
-    storageService = build('storage', 'v1', http=creds.authorize(Http()))
     return {
-        'drive': driveService,
-        'sheet': sheetService,
-        'storage': storageService,
+        'drive': build('drive', 'v3', http=creds.authorize(Http())),
+        'sheet': build('sheets', 'v4', http=creds.authorize(Http())),
+        'storage': build('storage', 'v1', http=creds.authorize(Http())),
+        'mail': build('gmail', 'v1', http=creds.authorize(Http())),
         'creds': creds
     }
 

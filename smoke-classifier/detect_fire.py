@@ -33,6 +33,7 @@ settings.fuegoRoot = fuegoRoot
 import collect_args
 import rect_to_squares
 import goog_helper
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging (must be done before tf_helper)
 import tf_helper
 import db_manager
 import email_helper
@@ -452,7 +453,6 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
         timestamp (int): time.time() value when image was taken
     """
     dbManager = constants['dbManager']
-    fromAccount = (settings.fuegoEmail, settings.fuegoPasswd)
     subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), cameraID)
     body = 'Please check the attached images for fire.'
     # commenting out links to google drive because they appear as extra attachments causing confusion
@@ -474,7 +474,7 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
                                                     constants['camArchives'], cameraID, startTimeDT, endTimeDT, 1)
             oldImages = oldImages or []
             attachments = oldImages + [imgPath, annotatedFile]
-            email_helper.send_email(fromAccount, settings.fuegoEmail, emails, subject, body, attachments)
+            email_helper.sendEmail(constants['googleServices']['mail'], settings.fuegoEmail, emails, subject, body, attachments)
 
 
 def smsFireNotification(dbManager, cameraID):
@@ -833,23 +833,23 @@ def main():
     processingTimeTracker = initializeTimeTracker()
     prediction_service = connect_to_prediction_service(settings.server_ip_and_port)
     while True:
-        classifyImgPath = None
         timeStart = time.time()
         if useArchivedImages:
             (cameraID, timestamp, imgPath, classifyImgPath) = \
                 getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
         elif minusMinutes:
-            (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
-            if not queueFull: # queue is not full, so add more to queue
+            (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes,
+                                                                    timeStart)
+            if not queueFull:  # queue is not full, so add more to queue
                 addToDeferredImages(dbManager, cameras, deferredImages)
             if deferredImageInfo:  # we have a deferred image ready to process, now get latest image and subtract
                 (cameraID, timestamp, imgPath, classifyImgPath) = \
                     genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes)
                 if not cameraID:
-                    continue # skip to next camera without deleting deferred image which may be reused later
-                os.remove(deferredImageInfo['imgPath']) # no longer needed
+                    continue  # skip to next camera without deleting deferred image which may be reused later
+                os.remove(deferredImageInfo['imgPath'])  # no longer needed
             else:
-                continue # in diff mode without deferredImage, nothing more to do
+                continue  # in diff mode without deferredImage, nothing more to do
         # elif args.imgDirectory:  unused functionality -- to delete?
         #     (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
         else: # regular (non diff mode), grab image and process

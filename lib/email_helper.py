@@ -24,10 +24,74 @@ from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 import pathlib
+import logging
+import base64
+import time
 
 
-def send_email(fromAccount, visibleToAddrs, realToAddrs, subject, body, attachments=[]):
-    """Send an email using credentials of fromAccount to given recepients
+def addAttachments(msg, attachments):
+    """Add given attachements to the given email message as MIME parts
+
+    Args:
+        msg: MIME email message
+        attachments (list): list of attachements files
+    """
+    for filePath in attachments:
+        #convert image to base64 encoding
+        attachFh = open(filePath, "rb")
+        part = MIMEBase('application', 'octet-stream')
+        part.set_payload((attachFh).read())
+        encoders.encode_base64(part)
+        filename = pathlib.PurePath(filePath).name
+        filename = filename.replace(';','_') # gmail considers ';' to mark end of filename
+        part.add_header('Content-Disposition', "attachment; filename= %s" % filename)
+        msg.attach(part)
+
+
+def sendEmail(mailService, toAddrs, bccAddrs, subject, body, attachments=[]):
+    """Send an email using GMail API and oauth2 service authentication
+       to given visible and bcc recepients with given subject,body, and attachments
+
+    Args:
+        mailService: Gmail service (from getGoogleServices()['mail'])
+        visibleToAddrs (str or list): email address(es) that appear in "To"
+        realToAddrs (str or list): email address(es) to which email is actually sent to
+        subject (str): subject of the email
+        body (str): body of the email
+        attachments (list): optional list of attachements files
+    """
+    if isinstance(toAddrs, str):
+        toAddrs = [toAddrs]
+    if isinstance(bccAddrs, str):
+        bccAddrs = [bccAddrs]
+
+    #setup message headers
+    msg = MIMEMultipart()
+    msg['From'] = 'me'
+    msg['To'] = ', '.join(list(toAddrs))
+    msg['Bcc'] = ', '.join(list(bccAddrs))
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    addAttachments(msg, attachments)
+
+    #send the message
+    retriesLeft = 5
+    while retriesLeft > 0:
+        retriesLeft -= 1
+        try:
+            body = {'raw': base64.urlsafe_b64encode(msg.as_string().encode('utf-8')).decode()}
+            result = mailService.users().messages().send(userId='me', body=body).execute()
+            return
+        except Exception as e:
+            logging.error('Error sending email. %d retries left. %s', retriesLeft, str(e))
+            if retriesLeft > 0:
+                time.sleep(5) # wait 5 seconds before retrying
+    logging.error('Too many email send failures')
+
+
+def sendEmailSmtp(fromAccount, visibleToAddrs, realToAddrs, subject, body, attachments=[]):
+    """Send an email using SMTP API and user/password authentication
+       to given visible and bcc recepients with given subject,body, and attachments
 
     Args:
         fromAccount (tuple): tuple of (email, password) of from account
@@ -43,26 +107,13 @@ def send_email(fromAccount, visibleToAddrs, realToAddrs, subject, body, attachme
     if isinstance(realToAddrs, str):
         realToAddrs = [realToAddrs]
 
-    parts=[]
-    for filePath in attachments:
-        #convert image to base64 encoding 
-        attachFh = open(filePath, "rb")
-        part = MIMEBase('application', 'octet-stream')
-        part.set_payload((attachFh).read())
-        encoders.encode_base64(part)
-        filename = pathlib.PurePath(filePath).name
-        filename = filename.replace(';','_') # gmail considers ';' to mark end of filename
-        part.add_header('Content-Disposition', "attachment; filename= %s" % filename)
-        parts.append(part)
-
     #setup message headers
     msg = MIMEMultipart()
     msg['From'] = fromEmail
     msg['To'] = ', '.join(list(visibleToAddrs))
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain'))
-    for part in parts:
-        msg.attach(part)
+    addAttachments(msg, attachments)
 
     #send the message
     try:
