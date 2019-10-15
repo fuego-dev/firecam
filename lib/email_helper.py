@@ -26,6 +26,7 @@ from email import encoders
 import pathlib
 import logging
 import base64
+import time
 
 
 def addAttachments(msg, attachments):
@@ -74,11 +75,18 @@ def sendEmail(mailService, toAddrs, bccAddrs, subject, body, attachments=[]):
     addAttachments(msg, attachments)
 
     #send the message
-    try:
-        body = {'raw': base64.urlsafe_b64encode(msg.as_string().encode('utf-8')).decode()}
-        result = mailService.users().messages().send(userId='me', body=body).execute()
-    except Exception as e:
-        logging.error('Error sending email. %s', str(e))
+    retriesLeft = 5
+    while retriesLeft > 0:
+        retriesLeft -= 1
+        try:
+            body = {'raw': base64.urlsafe_b64encode(msg.as_string().encode('utf-8')).decode()}
+            result = mailService.users().messages().send(userId='me', body=body).execute()
+            return
+        except Exception as e:
+            logging.error('Error sending email. %d retries left. %s', retriesLeft, str(e))
+            if retriesLeft > 0:
+                time.sleep(5) # wait 5 seconds before retrying
+    logging.error('Too many email send failures')
 
 
 def sendEmailSmtp(fromAccount, visibleToAddrs, realToAddrs, subject, body, attachments=[]):
