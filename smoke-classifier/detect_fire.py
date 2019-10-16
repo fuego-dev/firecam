@@ -168,6 +168,7 @@ def recordScores(dbManager, camera, timestamp, segments, minusMinutes):
     dt = datetime.datetime.fromtimestamp(timestamp)
     secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
 
+    dbRows = []
     for segmentInfo in segments:
         dbRow = {
             'CameraName': camera,
@@ -180,8 +181,8 @@ def recordScores(dbManager, camera, timestamp, segments, minusMinutes):
             'MinusMinutes': minusMinutes,
             'SecondsInDay': secondsInDay
         }
-        dbManager.add_data('scores', dbRow, commit=False)
-    dbManager.commit()
+        dbRows.append(dbRow)
+    dbManager.add_data('scores', dbRows)
 
 
 def postFilter(dbManager, camera, timestamp, segments):
