@@ -174,7 +174,8 @@ def main():
         if data == None:
             logging.warning("request could not be made")
             return 
-        csvFile = open('forestryDBfrom'+startTimeDT+'to'+endTimeDT+'.csv', 'w')
+        file_name = 'forestryDBfrom'+startTimeDT+'to'+endTimeDT+'.csv'
+        csvFile = open(file_name.replace(":",";").replace(" ","T"), 'w')
         writer = csv.writer(csvFile)
         header1 = ["properties","","","","","","","geometry","","","type"]
         header2 = ["ig_test","ig_date","created","id","ig_time","ig_confidence","ig_identity","coordinates","","type"]
