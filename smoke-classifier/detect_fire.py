@@ -153,6 +153,8 @@ def segmentImage(imgPath):
     """
     img = Image.open(imgPath)
     image_crops, segment_infos = rect_to_squares.cutBoxes(img)
+    for info in segment_infos:
+        info['ImgPath'] = imgPath
     img.close()
     return image_crops, segment_infos
 
