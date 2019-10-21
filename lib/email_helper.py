@@ -27,6 +27,8 @@ import pathlib
 import logging
 import base64
 import time
+from googleapiclient.http import MediaIoBaseUpload
+from io import BytesIO
 
 
 def addAttachments(msg, attachments):
@@ -48,6 +50,28 @@ def addAttachments(msg, attachments):
         msg.attach(part)
 
 
+def createMimeMsg(fromAddr, toAddrs, bccAddrs, subject, body):
+    """Create a MIME formatted message with given from,to,bcc,subject and body text
+
+    Args:
+        fromAddr (str): address to send from
+        toAddrs (list): list of addresses in 'To'
+        bccAddrs (list): list of addresses in 'Bcc'
+        subject (str): subject of the email
+        body (str): Text in the body of the email
+
+    Returns:
+        MIME object
+    """
+    msg = MIMEMultipart()
+    msg['From'] = fromAddr
+    msg['To'] = ', '.join(list(toAddrs))
+    msg['Bcc'] = ', '.join(list(bccAddrs))
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
+    return msg
+
+
 def sendEmail(mailService, toAddrs, bccAddrs, subject, body, attachments=[]):
     """Send an email using GMail API and oauth2 service authentication
        to given visible and bcc recepients with given subject,body, and attachments
@@ -65,22 +89,17 @@ def sendEmail(mailService, toAddrs, bccAddrs, subject, body, attachments=[]):
     if isinstance(bccAddrs, str):
         bccAddrs = [bccAddrs]
 
-    #setup message headers
-    msg = MIMEMultipart()
-    msg['From'] = 'me'
-    msg['To'] = ', '.join(list(toAddrs))
-    msg['Bcc'] = ', '.join(list(bccAddrs))
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+    msg = createMimeMsg('me', toAddrs, bccAddrs, subject, body)
     addAttachments(msg, attachments)
 
-    #send the message
     retriesLeft = 5
     while retriesLeft > 0:
         retriesLeft -= 1
         try:
-            body = {'raw': base64.urlsafe_b64encode(msg.as_string().encode('utf-8')).decode()}
-            result = mailService.users().messages().send(userId='me', body=body).execute()
+            # Using resumable uploadType because we have large attachments that don't always
+            # succeed using the simple method
+            media = MediaIoBaseUpload(BytesIO(msg.as_bytes()), mimetype='message/rfc822', resumable=True)
+            result = mailService.users().messages().send(userId='me', body={}, media_body=media).execute()
             return
         except Exception as e:
             logging.error('Error sending email. %d retries left. %s', retriesLeft, str(e))
@@ -107,12 +126,7 @@ def sendEmailSmtp(fromAccount, visibleToAddrs, realToAddrs, subject, body, attac
     if isinstance(realToAddrs, str):
         realToAddrs = [realToAddrs]
 
-    #setup message headers
-    msg = MIMEMultipart()
-    msg['From'] = fromEmail
-    msg['To'] = ', '.join(list(visibleToAddrs))
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+    msg = createMimeMsg(fromEmail, visibleToAddrs, [], subject, body)
     addAttachments(msg, attachments)
 
     #send the message

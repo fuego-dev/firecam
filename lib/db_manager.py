@@ -246,14 +246,29 @@ class DbManager(object):
 
         Args:
             tableName (str):
-            keyValues (dict: str->str): Dictory of key/value pairs for data to insert
+            keyValues (dict or list): Dictory of key/value pairs for data to insert
+                                      Or a list of dictionaries when inserting multiple rows
             commit (bool): [default true] - If true, transaction is committed
         """
-        sql_template = 'insert into {table_name} ({fields}) values ({values})'
+        if type(keyValues) is list:
+            kvList = keyValues
+        else:
+            kvList = [keyValues]
+        valuesList = []
+        firstKeys = [key for (key,_) in kvList[0].items()]
+        for kvEntry in kvList:
+            assert type(kvEntry) is dict
+            keys = [key for (key,_) in kvEntry.items()]
+            assert firstKeys == keys
+            rowData = ", ".join(repr(val) for (_, val) in kvEntry.items())
+            valuesList.append('(%s)' % rowData)
+        valuesStr = ', '.join(valuesList)
+
+        sql_template = 'insert into {table_name} ({fields}) values {values}'
         db_command = sql_template.format(
             table_name = tableName,
-            fields = ", ".join(key for (key, _) in keyValues.items()),
-            values = ", ".join(repr(val) for (_, val) in keyValues.items())
+            fields = ", ".join(firstKeys),
+            values = valuesStr
         )
         self.execute(db_command, commit=commit)
 

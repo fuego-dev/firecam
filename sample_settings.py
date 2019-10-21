@@ -50,6 +50,10 @@ camerasSheetRange = 'Code Name Archive Mapping!A1:G1000'
 fuegoEmail = 'fuego.response@gmail.com'
 fuegoPasswd = 'do not put real password in files in open source git repo'
 
+forest_service_url == 'do not put real url in files in open source git repo'
+forest_service_key == 'do not put real key in files in open source git repo'
+
+
 psqlHost = '127.0.0.1'
 psqlDb = 'postgres'
 psqlUser = 'postgres'
