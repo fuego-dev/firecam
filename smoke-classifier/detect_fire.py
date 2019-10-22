@@ -304,7 +304,7 @@ def collectPositves(service, imgPath, origImgPath, segments):
             else:
                 goog_helper.uploadFile(service, settings.positivePictures, cropImgPath)
             #delete the cropped file
-            os.rm(cropImgPath)
+            os.remove(cropImgPath)
             positiveSegments += 1
 
     if positiveSegments > 0:
