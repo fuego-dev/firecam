@@ -153,8 +153,6 @@ def segmentImage(imgPath):
     """
     img = Image.open(imgPath)
     image_crops, segment_infos = rect_to_squares.cutBoxes(img)
-    for info in segment_infos:
-        info['ImgPath'] = imgPath
     img.close()
     return image_crops, segment_infos
 
@@ -284,6 +282,10 @@ def collectPositves(service, imgPath, origImgPath, segments):
                 else:
                     goog_helper.uploadFile(service, settings.positivePictures, cropImgPath)
                 os.remove(cropImgPath)
+
+            
+
+
             if hasattr(settings, 'positivePicturesDir'):
                 pp = pathlib.PurePath(segmentInfo['imgPath'])
                 destPath = os.path.join(settings.positivePicturesDir, pp.name)
