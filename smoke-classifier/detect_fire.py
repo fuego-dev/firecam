@@ -286,21 +286,22 @@ def collectPositves(service, imgPath, origImgPath, segments):
 
                 #do cropping now that we want to add to training set
                 imgName = pathlib.PurePath(origImgPath).name
+                outputDir = str(pathlib.PurePath(origImgPath).parent)
                 imgNameNoExt = str(os.path.splitext(imgName)[0])
                 coords = (segmentInfo['MinX'], segmentInfo['MinY'], segmentInfo['MaxX'], segmentInfo['MaxY'])
                 # output cropped image
                 cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), coords))) + '.jpg'
-                cropImgPath = os.path.join(outputDirectory, cropImgName)
+                cropImgPath = os.path.join(outputDir, cropImgName)
                 cropped_img = origImg.crop(coords)
                 cropped_img.save(cropImgPath, format='JPEG')
                 cropped_img.close()
 
             if hasattr(settings, 'positivePicturesDir'):
-                pp = pathlib.PurePath(segmentInfo['imgPath'])
+                pp = pathlib.PurePath(cropImgPath)
                 destPath = os.path.join(settings.positivePicturesDir, pp.name)
-                shutil.copy(segmentInfo['imgPath'], destPath)
+                shutil.copy(cropImgPath, destPath)
             else:
-                goog_helper.uploadFile(service, settings.positivePictures, segmentInfo['imgPath'])
+                goog_helper.uploadFile(service, settings.positivePictures, cropImgPath)
             #delete the cropped file
             os.rm(cropImgPath)
             positiveSegments += 1
