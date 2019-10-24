@@ -1,0 +1,18 @@
+[Unit]
+Description=Fuego wildifre detection
+After=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=root
+ExecStart=/bin/bash -c '/usr/bin/python3 /root/firecam/smoke-classifier/detect_monitor.py -g 1 -c 1 -r HPWREN-Mobotix >> /tmp/detect.log 2>&1'
+#ExecStart=/usr/bin/python3 /root/firecam/smoke-classifier/detect_monitor.py -g 1 -c 1 -r HPWREN-Mobotix
+#StandardOutput=syslog
+#StandardError=syslog
+#SyslogIdentifier=firecam
+
+[Install]
+WantedBy=multi-user.target
