@@ -159,6 +159,10 @@ def cleanup_archive(googleServices, dbManager, timethreshold):
         time.sleep(Default_refresh_time)
     
 def test_System_response_time(trial_length = 10):
+    googleServices = goog_helper.getGoogleServices(settings, [])
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
+                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     temporaryDir = tempfile.TemporaryDirectory()
     trial = [x for x in range(0,trial_length)]
     test_cameras = [camera['name'] for camera in alertwildfire_API.get_all_camera_info()[0:len(trial)]]
@@ -184,7 +188,7 @@ def main():
     optArgs = [
         ["c", "cleaning_threshold", "time in hours to store data"],
         ["o", "cameras_overide", "specific cameras to watch"],
-        ["a", "agents", "number of agents to assign for parallelization"]
+        ["a", "agents", "number of agents to assign for parallelization"],
         ["f", "full_system", "toggle to cover all of alert wildfire with unrestrained parallelization"]
     ]
     args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
@@ -248,7 +252,7 @@ def main():
                 for num in range(0, num_of_processes_needed[type]):
                     split_start = num_cameras_per_process[type]*num
                     split_stop = num_cameras_per_process[type]*num+num_cameras_per_process[type]
-                    camera_bunchs.append(listofRotatingCameras[type][split_start:split_stop])
+                    camera_bunchs.append(listofTargetCameras[type][split_start:split_stop])
 
             with Pool(processes=num_of_agents_needed) as pool:
                 result = pool.map(fetchAllCameras, camera_bunchs)

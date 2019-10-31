@@ -26,6 +26,7 @@ import img_archive
 import exifread
 import urllib.parse as urlp
 baseApiUrl =urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')#initialize
+import logging
 
 
 
