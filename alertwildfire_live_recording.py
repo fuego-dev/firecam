@@ -113,6 +113,7 @@ def fetchAllCameras(camera_names_to_watch):
     Returns:
         None
     """
+    logging.warning('process fetching %s cameras.', len(camera_names_to_watch))
     #please do not remove googleServices definintion from this function
     # it is needed for the parallel processing authentication
     googleServices = goog_helper.getGoogleServices(settings, [])
@@ -158,19 +159,14 @@ def cleanup_archive(googleServices, dbManager, timethreshold):
             #does not yet change database
         time.sleep(Default_refresh_time)
     
-def test_System_response_time(trial_length = 10):
-    googleServices = goog_helper.getGoogleServices(settings, [])
-    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,    
-                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+def test_System_response_time(googleServices, dbManager, trial_length = 10):
     temporaryDir = tempfile.TemporaryDirectory()
-    trial = [x for x in range(0,trial_length)]
-    test_cameras = [camera['name'] for camera in alertwildfire_API.get_all_camera_info()[0:len(trial)]]
+    test_cameras = [camera['name'] for camera in random.sample(alertwildfire_API.get_all_camera_info(), trial_length)]
     tic = time.time()
     for test in test_cameras:
         capture_and_record(googleServices, dbManager, temporaryDir.name, test)
     toc =time.time()-tic
-    toc_avg = toc/len(trial)
+    toc_avg = toc/len(test_cameras)
     return toc_avg
 
 
@@ -210,7 +206,7 @@ def main():
         #num of camera's per process
 
       
-        toc_avg = test_System_response_time(trial_length = 10)
+        toc_avg = test_System_response_time(googleServices, dbManager, trial_length = 10)
         # target estimate of camera refresh time
         target_refresh_time_per_camera = 12#secs
         num_cameras_per_process = math.floor(target_refresh_time_per_camera / toc_avg)
@@ -233,7 +229,7 @@ def main():
             pool.close()
     else:
         if args.full_system:
-            response_time_per_camera = test_System_response_time(trial_length = 10)
+            response_time_per_camera = test_System_response_time(googleServices, dbManager, trial_length = 10)
             listofCameras = alertwildfire_API.get_all_camera_info()
             target_refresh_time_per_camera, listofTargetCameras, num_of_processes_needed, num_cameras_per_process, num_of_agents_needed = {},{},{},{},0
             # target estimate of camera refresh time
