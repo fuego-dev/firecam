@@ -393,8 +393,6 @@ def recordDetection(dbManager, service, camera, timestamp, imgPath, annotatedFil
 def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     """Check if alert has been recently sent out for given camera
 
-    If an alert of this camera has't been recorded recently, record this as an alert
-
     Args:
         dbManager (DbManager):
         camera (str): camera name
@@ -404,12 +402,15 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     Returns:
         True if this is a new alert, False otherwise
     """
-    sqlTemplate = """SELECT * FROM alerts
-    where CameraName='%s' and timestamp > %s"""
-    sqlStr = sqlTemplate % (camera, timestamp - 60*60*2) # suppress alerts for 2 hours
+    # Only alert if there has not been a detection in the last hour.  This prevents spam
+    # from long lasting fires.
+    sqlTemplate = """SELECT * FROM detections
+    where CameraName='%s' and timestamp > %s and timestamp < %s"""
+    sqlStr = sqlTemplate % (camera, timestamp - 60*60, timestamp)
+
     dbResult = dbManager.query(sqlStr)
     if len(dbResult) > 0:
-        logging.warning('Supressing new alert due to recent alert')
+        logging.warning('Supressing new alert due to recent detection')
         return False
 
     dbRow = {
