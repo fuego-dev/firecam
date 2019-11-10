@@ -63,14 +63,9 @@ def main():
         ["u", "url", "url to get images from camera"],
     ]
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs)
-    if settings.db_file:
-        logging.warning('using sqlite %s', settings.db_file)
-        dbManager = db_manager.DbManager(sqliteFile=settings.db_file)
-    else:
-        logging.warning('using postgres %s', settings.psqlHost)
-        dbManager = db_manager.DbManager(psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                        psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-
+    dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
+                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     cameraInfos = dbManager.get_sources(activeOnly=False)
     logging.warning('Num all cameras: %d', len(cameraInfos))
     logging.warning('Num active cameras: %d', len(list(filter(lambda x: x['dormant'] == 0, cameraInfos))))
