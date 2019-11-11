@@ -30,7 +30,7 @@ import re
 from PIL import Image, ImageMath
 
 
-def getImgPath(outputDir, cameraID, timestamp, cropCoords=None):
+def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
     """Generate properly formatted image filename path following Fuego conventions
        E.g.: lo-s-mobo-c__2018-06-06T11;12;23_Diff1_Crop_627x632x1279x931.jpg
 
@@ -39,6 +39,7 @@ def getImgPath(outputDir, cameraID, timestamp, cropCoords=None):
         cameraID (str): ID of camera
         timestamp (int): timestamp
         cropCoords (tuple): (x0, y0, x1, y1) coordinates of the crop rectangle
+        diffMinutes (int): number of minutes separating the images (for subtracted images)
 
     Returns:
         String to full path name
@@ -46,7 +47,8 @@ def getImgPath(outputDir, cameraID, timestamp, cropCoords=None):
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
     timeStr = timeStr.replace(':', ';') # make windows happy
     imgName = '__'.join([cameraID, timeStr])
-
+    if diffMinutes:
+        imgName += ('_Diff%d' % diffMinutes)
     if cropCoords:
         imgName += '_Crop_' + 'x'.join(list(map(lambda x: str(x), cropCoords)))
     imgPath = os.path.join(outputDir, imgName + '.jpg')
