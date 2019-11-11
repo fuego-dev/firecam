@@ -14,9 +14,12 @@ import math
 
 class InceptionV3AndHistoricalThreshold:
 
+<<<<<<< HEAD
     SEQUENCE_LENGTH = 1
     SEQUENCE_SPACING_MIN = None
 
+=======
+>>>>>>> parent of 54503a7... Revert "Merge branch 'master' of https://github.com/fuego-dev/firecam"
     def __init__(self, settings, args, google_services, dbManager):
         self.dbManager = dbManager
         self.prediction_service = connect_to_prediction_service(settings.server_ip_and_port)
@@ -183,7 +186,11 @@ class InceptionV3AndHistoricalThreshold:
 
         # segments is sorted, so skip all work if max score is < .5
         if segments[0]['score'] < .5:
+<<<<<<< HEAD
             return []
+=======
+            return None
+>>>>>>> parent of 54503a7... Revert "Merge branch 'master' of https://github.com/fuego-dev/firecam"
 
         sqlTemplate = """SELECT MinX,MinY,MaxX,MaxY,count(*) as cnt, avg(score) as avgs, max(score) as maxs FROM scores
         WHERE CameraName='%s' and Timestamp > %s and Timestamp < %s and SecondsInDay > %s and SecondsInDay < %s
