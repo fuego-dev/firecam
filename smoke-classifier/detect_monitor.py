@@ -101,7 +101,7 @@ def main():
     for i in range(numProcesses):
         heartbeatFile = tempfile.NamedTemporaryFile()
         heartbeatFileName = heartbeatFile.name
-        proc = startProcess(scriptName, heartbeatFileName, args._collect_positives, args.restrictType)
+        proc = startProcess(scriptName, heartbeatFileName, args.collectPositves, args.restrictType)
         procInfos.append({
             'proc': proc,
             'heartbeatFile': heartbeatFile,
@@ -121,7 +121,7 @@ def main():
             if (timestamp - lastTS) > 4*60: # kill if stuck more than 4 minutes
                 logging.warning('Killing %d', proc.pid)
                 proc.kill()
-                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args._collect_positives, args.restrictType)
+                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves, args.restrictType)
         time.sleep(30)
 
 

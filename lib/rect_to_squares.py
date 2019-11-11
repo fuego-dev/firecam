@@ -24,7 +24,6 @@ import pathlib
 import math
 import collect_args
 import logging
-import numpy as np
 
 MIN_SQUARE_SIZE = 150
 
@@ -168,7 +167,7 @@ def getSegmentRanges(fullSize, segmentSize):
     return ranges
 
 
-def cutBoxesFixed(imgOrig):
+def cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     """Cut the given image into fixed size boxes
 
     Divide the given image into square segments of 299x299 (segmentSize below)
@@ -183,30 +182,40 @@ def cutBoxesFixed(imgOrig):
         callBackFn (function): callback function that's called for each square
 
     Returns:
-        (list): list of segments with numpy arrays of image patches and coordinates
+        (list): list of segments with filename and coordinates
     """
     segmentSize = 299
     segments = []
+    imgName = pathlib.PurePath(imageFileName).name
+    imgNameNoExt = str(os.path.splitext(imgName)[0])
     xRanges = getSegmentRanges(imgOrig.size[0], segmentSize)
     yRanges = getSegmentRanges(imgOrig.size[1], segmentSize)
-    full_image = np.asarray(imgOrig)
 
-    crops = []
     for yRange in yRanges:
         for xRange in xRanges:
-            crops.append(full_image[yRange[0]:yRange[1], xRange[0]:xRange[1]])
             coords = (xRange[0], yRange[0], xRange[1], yRange[1])
+            if callBackFn != None:
+                skip = callBackFn(coords)
+                if skip:
+                    continue
+            # output cropped image
+            cropImgName = imgNameNoExt + '_Crop_' + 'x'.join(list(map(lambda x: str(x), coords))) + '.jpg'
+            cropImgPath = os.path.join(outputDirectory, cropImgName)
+            cropped_img = imgOrig.crop(coords)
+            cropped_img.save(cropImgPath, format='JPEG')
+            cropped_img.close()
             segments.append({
+                'imgPath': cropImgPath,
                 'MinX': coords[0],
                 'MinY': coords[1],
                 'MaxX': coords[2],
                 'MaxY': coords[3]
             })
-    return crops, segments
+    return segments
 
 
-def cutBoxes(imgOrig):
-    return cutBoxesFixed(imgOrig)
+def cutBoxes(imgOrig, outputDirectory, imageFileName, callBackFn=None):
+    return cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None)
 
 
 def test():

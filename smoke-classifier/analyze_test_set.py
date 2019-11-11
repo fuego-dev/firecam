@@ -52,7 +52,8 @@ def listJpegs(dirName):
 
 def segmentImage(imgPath):
     img = Image.open(imgPath)
-    return rect_to_squares.cutBoxes(img)
+    ppath = pathlib.PurePath(imgPath)    
+    return rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
 
     
 def deleteImageFiles(segments):
@@ -73,8 +74,7 @@ def classifyImages(graph, labels, imageList, className, outFile):
         with tf.Session(graph=graph, config=config) as tfSession:
             for image in imageList:
                 isPositive = False
-                #TODO: update to reflect fact that segments now contains numpy arrays
-                crops, segments = segmentImage(image)
+                segments = segmentImage(image)
                 try:
                     tf_helper.classifySegments(tfSession, graph, labels, segments)
                     for i in range(len(segments)):

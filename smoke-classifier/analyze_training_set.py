@@ -58,7 +58,8 @@ config.gpu_options.per_process_gpu_memory_fraction = 0.1
 
 def segmentImage(imgPath):
     img = Image.open(imgPath)
-    return rect_to_squares.cutBoxes(img)
+    ppath = pathlib.PurePath(imgPath)    
+    return rect_to_squares.cutBoxes(img, str(ppath.parent), imgPath)
     
     
 def smoke_check(tfSession, graph, labels, imgPath):
@@ -120,8 +121,7 @@ def main():
                 writer.writerow([smoke_image[39:], smoke_score, 'smoke'])
                 
             for other_image in other_image_list:
-                #TODO: segments now contains numpy arrays
-                crops, segments = segmentImage(other_image)
+                segments = segmentImage(other_image)
                 tf_helper.classifySegments(tfSession, graph, labels, segments)
                 for i in range(len(segments)):
                     writer.writerow([segments[i]['imgPath'][39:],segments[i]['score'],'other'])
