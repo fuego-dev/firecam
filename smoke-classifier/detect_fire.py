@@ -53,7 +53,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 import numpy as np
 
 
-def getNextImage(dbManager, cameras, cameraID=None):
+def getNextImage(dbManager, cameras, cameraID=None, sequence_length=1, sequence_interval=None):
     """Gets the next image to check for smoke
 
     Uses a shared counter being updated by all cooperating detection processes
@@ -72,11 +72,13 @@ def getNextImage(dbManager, cameras, cameraID=None):
         getNextImage.tmpDir = tempfile.TemporaryDirectory()
         logging.warning('TempDir %s', getNextImage.tmpDir.name)
 
+    #determine which camera to use
     if cameraID:
         camera = list(filter(lambda x: x['name'] == cameraID, cameras))[0]
     else:
         index = dbManager.getNextSourcesCounter() % len(cameras)
         camera = cameras[index]
+
     timestamp = int(time.time())
     imgPath = img_archive.getImgPath(getNextImage.tmpDir.name, camera['name'], timestamp)
     # logging.warning('urlr %s %s', camera['url'], imgPath)
@@ -91,6 +93,7 @@ def getNextImage(dbManager, cameras, cameraID=None):
         # skip to next camera
         return getNextImage(dbManager, cameras)
     camera['md5'] = md5
+
     return (camera['name'], timestamp, imgPath)
 getNextImage.tmpDir = None
 
@@ -387,7 +390,7 @@ def initializeTimeTracker():
         'timePerSample': 3 # start off with estimate of 3 seconds per camera
     }
 
-def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds):
+def getRandomArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds):
     """Get random images from HPWREN archive matching given constraints
 
     Args:
@@ -397,25 +400,74 @@ def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds):
         timeRangeSeconds (int): number of seconds in time range
 
     Returns:
-        Tuple containing camera name, current timestamp, filepath of regular image, and filepath of difference image
+        Tuple containing camera name, current timestamp, filepath image
     """
-    if getArchivedImages.tmpDir == None:
-        getArchivedImages.tmpDir = tempfile.TemporaryDirectory()
-        logging.warning('TempDir %s', getArchivedImages.tmpDir.name)
+    if getRandomArchivedImages.tmpDir == None:
+        getRandomArchivedImages.tmpDir = tempfile.TemporaryDirectory()
+        logging.warning('TempDir %s', getRandomArchivedImages.tmpDir.name)
 
     cameraID = cameras[int(len(cameras)*random.random())]['name']
     timeDT = startTimeDT + datetime.timedelta(seconds = random.random()*timeRangeSeconds)
     prevTimeDT = timeDT
-    files = img_archive.getHpwrenImages(constants['googleServices'], settings, getArchivedImages.tmpDir.name,
+    files = img_archive.getHpwrenImages(constants['googleServices'], settings, getRandomArchivedImages.tmpDir.name,
                                         constants['camArchives'], cameraID, prevTimeDT, timeDT, 1)
     # logging.warning('files %s', str(files))
     if not files:
-        return (None, None, None, None)
+        return None, None, None
     if len(files) > 0:
         parsedName = img_archive.parseFilename(files[0])
-        return (cameraID, parsedName['unixTime'], files[0])
-    return (None, None, None, None)
-getArchivedImages.tmpDir = None
+        return cameraID, parsedName['unixTime'], files[0]
+    return None, None, None
+getRandomArchivedImages.tmpDir = None
+
+def get_specific_archived_images(cameraID, start_time, end_time, download_dir, constants, period_seconds=60):
+    """
+    Download historical images from archivea
+
+    :param cameraID:
+    :param start_time: beginning of search range in seconds
+    :param end_time: end of search range in seconds
+    :param download_dir: where the image should be downloaded to
+    :param constants:
+    :param period_seconds: not sure what this is...copied it from get_images.py
+    :return:
+    """
+
+    # TODO: need to add filtering based on pan and azimuth
+
+    startTimeDT = datetime.datetime.fromtimestamp(start_time)
+    endTimeDT = datetime.datetime.fromtimestamp(end_time)
+
+    assert startTimeDT.year == endTimeDT.year
+    assert startTimeDT.month == endTimeDT.month
+    assert startTimeDT.day == endTimeDT.day
+    assert endTimeDT >= startTimeDT
+    alertWildfire = False
+    hpwren = False
+
+    if cameraID.startswith('Axis-'):
+        alertWildfire = True
+    elif cameraID.endswith('-mobo-c'):
+        hpwren = True
+    else:
+        logging.error('Unexpected camera ID %s.  Must start with either "Axis-" or end with "mobo-c"', cameraID)
+        exit(1)
+
+    if hpwren:
+        camArchives = img_archive.getHpwrenCameraArchives(constants['googleServices']['sheet'], settings)
+        gapMinutes = max(round(float(period_seconds)/60), 1) # convert to minutes and ensure at least 1 minute
+        files = img_archive.getHpwrenImages(constants['googleServices'], settings, download_dir, camArchives,
+                                            cameraID, startTimeDT, endTimeDT, gapMinutes)
+    else:
+        assert alertWildfire
+        files = img_archive.getAlertImages(constants['googleServices'], constants['dbManager'], settings,
+                                           download_dir, cameraID, startTimeDT, endTimeDT, period_seconds)
+
+    if files:
+        return files[0]
+    else:
+        logging.error('No matches for camera ID %s', cameraID)
+
 
 
 def main():
@@ -455,28 +507,46 @@ def main():
 
     processingTimeTracker = initializeTimeTracker()
     detection_policy = InceptionV3AndHistoricalThreshold(settings, args, googleServices, dbManager)
+    num_input_images = detection_policy.SEQUENCE_LENGTH
+    sequence_spacing = detection_policy.SEQUENCE_SPACING_MIN
     while True:
         timeStart = time.time()
 
         #### Generate ImageSpec: Load sequence of one or more images, either from archives or live cameras ####
-        #TODO: switch to sequence of images
+        #Start
         if useArchivedImages:
-            (cameraID, timestamp, imgPath) = getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds)
+            if num_input_images != 1:
+                raise Exception('Archived images do net yet work with sequnces >1')
+            (cameraID, timestamp, imgPath) = getRandomArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds)
+            image_spec = [{}]
+            image_spec[-1]['path'] = imgPath
+            image_spec[-1]['timestamp'] = timestamp
+            image_spec[-1]['cameraID'] = cameraID
+            #TODO: this archive mode is not yet set up to work with sequences of images
+            if not cameraID:
+                continue  # skip to next camera
         else: # regular (non diff mode), grab image and process
             cameraID, timestamp, imgPath = getNextImage(dbManager, cameras)
-        if not cameraID:
-            continue # skip to next camera
+            if not cameraID:
+                continue # skip to next camera
+            image_spec = []
+            image_spec.append({'path': imgPath, 'timestamp': timestamp, 'cameraID': cameraID })
+            #build the rest of the sequence, if applicable
+            for images_back in range(1, num_input_images):
+                time_end = timestamp - 10 - (images_back - 1) * sequence_spacing
+                time_start = timestamp - 10 - (images_back) * sequence_spacing
+                previous_image_path = get_specific_archived_images(cameraID, time_start, time_end,
+                                                                   getNextImage.tmpDir.name, constants)
+                #TODO: should be replaced when better time metadata mechanism online
+                previous_timestamp = timestamp - sequence_spacing
+                # add to beginning of list
+                image_spec.insert(0, {'path': previous_image_path, 'timestamp': previous_timestamp, 'cameraID': cameraID} )
 
-        #TODO: delete testing code:
-        imgPath = '/Users/henrypinkard/Desktop/fuego_smoke_img/test_smoke_2.jpg'
-
-        image_spec = [{}]
-        image_spec[-1]['path'] = imgPath
-        image_spec[-1]['timestamp'] = timestamp
-        image_spec[-1]['cameraID'] = cameraID
+            if len(image_spec) != num_input_images:
+                logging.warn('Coulndt find historical images for camera {} as required by DetectionPolicy. skipping')
+                continue
 
         timeFetch = time.time()
-
 
         ##### Send loaded images to detection policy ####
         detection_spec = detection_policy.run_detection(image_spec)
@@ -492,8 +562,9 @@ def main():
                 alertFire(constants, cameraID, imgPath, annotatedFile, driveFileIDs, detection_spec, timestamp)
         timePost = time.time()
 
-        #TODO: delete image sequnce
-        os.remove(imgPath)
+        #delete image sequnce
+        for image in image_spec:
+            os.remove(image['path'])
 
         updateTimeTracker(processingTimeTracker, timePost - timeStart)
         if args.time:
