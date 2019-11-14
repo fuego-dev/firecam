@@ -77,7 +77,7 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
         
         imgPath = alertwildfire_API.request_current_image(outputDir, camera_name) 
         pull2 = alertwildfire_API.get_individual_camera_info(camera_name)
-        if pull1['position'] == pull1['position']:
+        if pull1['position'] == pull2['position']:
             success = True
         else:
             pull1 = pull2
@@ -94,14 +94,15 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
 
     image_base_name = pathlib.PurePath(imgPath).name
-    image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)
+    #implement the ocr 
+    image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)#################use OCR metadata
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
     
 
     #add to Database
     timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
-    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)
+    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)#################use OCR metadata
 
 
 
@@ -171,7 +172,7 @@ def test_System_response_time(googleServices, dbManager, trial_length = 10):
 
 
 def main():
-    """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
+    """directs the funtionality of the process ie start a cleanup, record all cameras on (2min refresh/rotating,1min cadence/stationary, record a subset of cameras, manage multiprocessed recording of cameras
     Args:
         -c  cleaning_threshold" (flt): time in hours to store data
         -o  cameras_overide    (str): list of specific cameras to watch
