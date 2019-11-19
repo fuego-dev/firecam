@@ -29,8 +29,7 @@ def _parse_function(example_proto):
     image = tf.reshape(image, [299, 299, 3]) #weird workaround because decode image doesnt get shape
     label = tf.one_hot(example['image/class/label'], depth=2)
 
-    #TODO: should images be mean and standard eviation normalized here?
-
+    image = (tf.cast(image, tf.float32) - 128) / 128.0
     return [image, label]
 
 
@@ -46,6 +45,8 @@ def main():
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
 
     batch_size = 32
+    max_epochs = 1000
+    steps_per_epoch=30
 
     train_filenames = glob.glob(args.inputDir + 'firecam_train_*.tfrecord')
     val_filenames = glob.glob(args.inputDir + 'firecam_validation_*.tfrecord')
@@ -64,7 +65,7 @@ def main():
                  keras.callbacks.ModelCheckpoint(filepath=args.outputDir + 'best_model',
                                                  monitor='val_loss', save_best_only=True)]
 
-    inception.fit(dataset_train, validation_data=dataset_val, epochs=10, callbacks=callbacks)
+    inception.fit(dataset_train, validation_data=dataset_val, epochs=max_epochs, steps_per_epoch=steps_per_epoch, callbacks=callbacks)
 
 
 if __name__ == "__main__":
