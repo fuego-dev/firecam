@@ -1,8 +1,8 @@
-import numpy as np
-import os
+import glob
 import tensorflow as tf
 from tensorflow import keras
-
+import collect_args
+import goog_helper
 
 def _parse_function(example_proto):
     """
@@ -28,33 +28,44 @@ def _parse_function(example_proto):
 
     image = tf.reshape(image, [299, 299, 3]) #weird workaround because decode image doesnt get shape
     label = tf.one_hot(example['image/class/label'], depth=2)
+
+    #TODO: should images be mean and standard eviation normalized here?
+
     return [image, label]
 
 
+def main():
+    reqArgs = [
+        ["i", "inputDir", "local directory containing both smoke and nonSmoke images"],
+        ["o", "outputDir", "local directory to write out TFRecords files"],
+    ]
+    optArgs = [
+        ["t", "trainPercentage", "percentage of data to use for training vs. validation (default 90)"]
+    ]
+
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+
+    batch_size = 32
+
+    train_filenames = glob.glob(args.inputDir + 'firecam_train_*.tfrecord')
+    val_filenames = glob.glob(args.inputDir + 'firecam_validation_*.tfrecord')
+
+    raw_dataset_train = tf.data.TFRecordDataset(train_filenames)
+    raw_dataset_val = tf.data.TFRecordDataset(val_filenames)
+
+    dataset_train = raw_dataset_train.map(_parse_function).shuffle(batch_size * 5).batch(batch_size)
+    dataset_val = raw_dataset_val.map(_parse_function).batch(batch_size)
+
+    inception = keras.applications.inception_v3.InceptionV3(weights=None, include_top=True, input_tensor=None,
+                                                            classes=2)
+    inception.compile(optimizer='adam', loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
+
+    callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', patience=2),
+                 keras.callbacks.ModelCheckpoint(filepath=args.outputDir + 'best_model',
+                                                 monitor='val_loss', save_best_only=True)]
+
+    inception.fit(dataset_train, validation_data=dataset_val, epochs=10, callbacks=callbacks)
 
 
-
-train_filename = '/Users/henrypinkard/Desktop/firecam_train_00000-of-00008.tfrecord'
-val_filename = '/home/henry/training_set/firecam_validation_00000-of-00001.tfrecord'
-batch_size = 3
-
-raw_dataset_train = tf.data.TFRecordDataset(train_filename).take(20)
-raw_dataset_val = tf.data.TFRecordDataset(train_filename).take(20)
-
-dataset_train = raw_dataset_train.map(_parse_function).shuffle(batch_size * 5).batch(batch_size)
-dataset_val = raw_dataset_val.map(_parse_function).batch(batch_size)
-
-inception = keras.applications.inception_v3.InceptionV3(weights=None, include_top=True, input_tensor=None, classes=2)
-inception.compile(optimizer='adam',
-              loss=tf.keras.losses.BinaryCrossentropy(),
-              metrics=['accuracy'])
-
-inception.fit(dataset_train, validation_data=dataset_val, epochs=10)
-pass
-#TODO: export model
-#TODO: early stopping
-#TODO: checkoiunting
-
-
-
-
+if __name__ == "__main__":
+    main()
