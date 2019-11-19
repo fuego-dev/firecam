@@ -467,9 +467,6 @@ def main():
         if not cameraID:
             continue # skip to next camera
 
-        #TODO: delete testing code:
-        imgPath = '/Users/henrypinkard/Desktop/fuego_smoke_img/test_smoke_2.jpg'
-
         image_spec = [{}]
         image_spec[-1]['path'] = imgPath
         image_spec[-1]['timestamp'] = timestamp
