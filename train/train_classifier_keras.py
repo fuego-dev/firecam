@@ -46,7 +46,11 @@ def main():
 
     batch_size = 32
     max_epochs = 1000
-    steps_per_epoch=30
+    steps_per_epoch=250
+    overshoot_epochs=200 #number of epochs over which validation loss hasnt decreased to stop training at
+    val_steps = 100 #only needed for now because of a bug in tf2.0, which should be fixed in next version
+    #TODO: either set this to # of validation examples /batch size (i.e. figure out num validation examples)
+    #or upgrade to 2.1 when its ready and automatically go thorugh the whole set
 
     train_filenames = glob.glob(args.inputDir + 'firecam_train_*.tfrecord')
     val_filenames = glob.glob(args.inputDir + 'firecam_validation_*.tfrecord')
@@ -59,13 +63,14 @@ def main():
 
     inception = keras.applications.inception_v3.InceptionV3(weights=None, include_top=True, input_tensor=None,
                                                             classes=2)
-    inception.compile(optimizer='adam', loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, amsgrad=False)
+    inception.compile(optimizer=optimizer, loss=tf.keras.losses.BinaryCrossentropy(), metrics=['accuracy'])
 
-    callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', patience=2),
+    callbacks = [keras.callbacks.EarlyStopping(monitor='val_loss', patience=overshoot_epochs),
                  keras.callbacks.ModelCheckpoint(filepath=args.outputDir + 'best_model',
                                                  monitor='val_loss', save_best_only=True)]
 
-    inception.fit(dataset_train, validation_data=dataset_val, epochs=max_epochs, steps_per_epoch=steps_per_epoch, callbacks=callbacks)
+    inception.fit(dataset_train, validation_data=dataset_val, epochs=max_epochs, steps_per_epoch=steps_per_epoch, validation_steps=val_steps,callbacks=callbacks)
 
 
 if __name__ == "__main__":
