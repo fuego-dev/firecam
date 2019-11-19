@@ -39,9 +39,9 @@ cropSmokePictures = '15mtvAWTtFV8if1y-isKFDKlxUdlB4Wfm' # test-crop-smoke
 detectionPictures = '1cNe2ohmCAJwgFPh5_nT4zaTwlHRtMRw6' # test-detections
 positivePictures = '154ayDGQ-cc89eGbbj48byTe1K4Lvnwan' # test-positives
 
-imagesSheet = '1QJgeJc3YIERxoYR-iKvgbTlRoLa_OVnXE_8LQX1Tb0Y' # Images
+imagesSheet = '19dd0I8XiLbWmzFPzDdXFXkTPoeuHtjZ1r3aaXnzsB-g' # Images
 imagesSheetAppendRange = 'A1' # append below this cell
-cropImagesSheet = '1oI2a7n0uY7iMK2YB8aLKiDDjSCRj-s2lpxUnbkevYZY' # Cropped Images
+cropImagesSheet = '12OH_cqLomFXd3JVoXCcnNmr8xHSuF6mmo-i_gEYA2gc' # Cropped Images
 cropImagesSheetAppendRange = 'A1' # append below this cell
 cropEveryNMinutes = 1 # crop smoke images that are at least 1 minutes apart
 camerasSheet = '1wG5j2p5LfgZc7dluKC6g8eGSg_B1KLZ9K147X5WYYhQ' # Camera Names and Codenames
