@@ -4,6 +4,7 @@ from matplotlib.image import imread
 from PIL import Image
 import tempfile
 import math
+import logging
 def load_image( infilename ) :
     """loads an image file to an array
     Args:
@@ -97,53 +98,58 @@ def test_iden(filename,cam_type):
 
 import pytesseract
 import time
-def ocr_core(filename):
+def ocr_core(filename=None, data=None):
     """
     This function will handle the core OCR processing of images.
     Args:
-        filename (str) : filepath
-        camera_type (str): {'hpwren','Axis','unknown'} defined type of image to remove metadata from.
+        opt filename (str) : filepath
+        opt data (array): data
     Returns:
         list of OCR recognized data
     """
-    text = pytesseract.image_to_string(load_image( filename ))
+    if filename:
+        text = pytesseract.image_to_string(load_image( filename ))
+    if data:
+        text = pytesseract.image_to_string(data)
+    else:
+        logging.warning('Please feed in processable data to ocr_core of type filename or data')
+        return
     return text.split(' ')
 
 
 
-def pull_metadata(filename):
+def pull_metadata(filename = None, data = None,camera_type,save_location=False):
     """test function to assess the capability of the OCR
     Args:
-        filename (str) : filepath
+        opt filename (str) : filepath
+        opt data (array): data
         camera_type (str): {'hpwren','Axis','unknown'} defined type of image to remove metadata from.
+        opt save_location (str): filepath to save metadata strip to
     Returns:
         vals (list): list of OCR recognized data
     """
-    tempfilepath = tempfile.TemporaryFile(suffix=".jpg")
-    img = load_image( filename )
-    metadata = cut_metadata(img,"Axis")#for now its hardcoded
-    save_image(metadata,"test4.jpg")#tempfilepath.name
-    tic=time.time()
-    vals = ocr_core('./test4.jpg')#tempfilepath.name
-    print(time.time()-tic)
+    if filename:
+        img = load_image( filename )
+    elif data:
+        img = data
+    else:
+        logging.warning('specify data location or data itself')
+    metadata = cut_metadata(img,camera_type)
+    tic=time.time()#####################
+    vals = ocr_core(data = metadata)
+    logging.warning('time to complete OCR: %s',time.time()-tic)##################
+    if save_location:
+        save_image(metadata,save_location)
+        logging.warning('metadata strip saved to location, %s',save_location)
     return vals
 
 
-"""
-name = vals[0]
-date = [elem for elem in vals if elem.count("/") == 2][0]
-time = [elem for elem in vals if elem.count(":") == 2][0]
-P = 1
-T = 1
-Z = 1"""
-
-"""
 #script to run over all of the alert archive
 #open the postgress/cloud platform
 #read all uploaded images
 #download image? 
 #perform OCR
 #update name in GCP and POSTGRES
-"""
+
 
 

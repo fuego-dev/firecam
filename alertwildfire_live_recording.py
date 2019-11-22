@@ -39,7 +39,7 @@ import logging
 import db_manager
 import hashlib
 import random
-
+import OCR
 
 
 
@@ -56,6 +56,14 @@ def build_name_with_metadata(image_base_name,metadata):
     cameraName_chunk = image_base_name[:-23]
     metadata_chunk = 'p'+str(metadata['position']['pan'])+'_t'+str(metadata['position']['tilt'])+'_z'+str(metadata['position']['zoom'])
     timeStamp_chunk = image_base_name[-23:-4]+'__'
+    fileTag=image_base_name[-4:]
+    imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
+    return imgname
+
+def build_name_with_OCR_metadata(image_base_name,metadata):
+    cameraName_chunk = metadata['Name']+"__" 
+    metadata_chunk = 'p'+str(metadata['Pan'])+'_t'+str(metadata['Tilt'])+'_z'+str(metadata['Zoom'])
+    timeStamp_chunk = metadata['Date'].replace('/','-')+'T'+metadata['Time'].replace(':',';').split('.')[0]+'__'
     fileTag=image_base_name[-4:]
     imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
@@ -95,15 +103,28 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
     image_base_name = pathlib.PurePath(imgPath).name
     #implement the ocr 
-    image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)#################use OCR metadata
+    vals = OCR.pull_metadata(imgPath, "Axis")
+    metadata = {
+                "Name" : camera_name,
+                "Date" : [elem for elem in vals if elem.count("/") == 2][0],
+                "Time" : [elem for elem in vals if elem.count(":") == 2][0],
+                "Pan" : float([elem for elem in vals if "X" in elem][0][2:]),
+                "Tilt" : float([elem for elem in vals if "Y" in elem][0][2:]),
+                "Zoom" : float([elem for elem in vals if "Z" in elem][0][2:]),
+
+
+}
+
+    image_name_with_metadata = build_name_with_OCR_metadata(image_base_name,metadata)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
     
 
-    #add to Database
-    timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
-    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)#################use OCR metadata
-
+    #add to Database 
+    timeStamp = img_archive.parseFilename(image_name_with_metadata)['unixTime']
+    print(timeStamp)
+    stop
+    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['Pan'], metadata['Tilt'], metadata['Zoom'], md5)
 
 
 
