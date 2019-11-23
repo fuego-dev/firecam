@@ -103,7 +103,10 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
     image_base_name = pathlib.PurePath(imgPath).name
     #implement the ocr 
-    vals = OCR.pull_metadata(imgPath, "Axis")
+    vals = OCR.pull_metadata("Axis", filename = imgPath )
+    if len(vals) ==0:
+        logging.warning('OCR Failed image not recorded')
+        return
     metadata = {
                 "Name" : camera_name,
                 "Date" : [elem for elem in vals if elem.count("/") == 2][0],
@@ -121,9 +124,9 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     
 
     #add to Database 
-    timeStamp = img_archive.parseFilename(image_name_with_metadata)['unixTime']
-    print(timeStamp)
-    stop
+    dt = dateutil.parser.parse(metadata['Date'].replace('/','-')+'T'+metadata['Time'].replace(':',';').split('.')[0])
+    timeStamp = time.mktime(dt.timetuple())
+    #timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['Pan'], metadata['Tilt'], metadata['Zoom'], md5)
 
 

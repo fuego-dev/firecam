@@ -26,7 +26,7 @@ def save_image( npdata, outfilename ) :
     outimg = Image.fromarray( npdata, "RGB" )
     outimg.save( outfilename )
 
-#im[:,100,0] = 0`
+
 def cut_metadata(im, camera_type):
     """locates and cuts the metadata tag from image
     Args:
@@ -109,7 +109,7 @@ def ocr_core(filename=None, data=None):
     """
     if filename:
         text = pytesseract.image_to_string(load_image( filename ))
-    if data:
+    if type(data) == np.ndarray:
         text = pytesseract.image_to_string(data)
     else:
         logging.warning('Please feed in processable data to ocr_core of type filename or data')
@@ -118,7 +118,7 @@ def ocr_core(filename=None, data=None):
 
 
 
-def pull_metadata(filename = None, data = None,camera_type,save_location=False):
+def pull_metadata(camera_type,filename = None, data = None, save_location=False):
     """test function to assess the capability of the OCR
     Args:
         opt filename (str) : filepath
@@ -130,7 +130,7 @@ def pull_metadata(filename = None, data = None,camera_type,save_location=False):
     """
     if filename:
         img = load_image( filename )
-    elif data:
+    elif type(data) == np.ndarray:
         img = data
     else:
         logging.warning('specify data location or data itself')
