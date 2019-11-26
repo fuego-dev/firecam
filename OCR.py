@@ -5,6 +5,13 @@ from PIL import Image
 import tempfile
 import math
 import logging
+import string
+char_whitelist = string.digits
+char_whitelist += string.ascii_lowercase
+char_whitelist += string.ascii_uppercase
+char_whitelist += string.punctuation.replace("'","").replace('"','')
+
+
 def load_image( infilename ) :
     """loads an image file to an array
     Args:
@@ -84,7 +91,7 @@ def test_iden(filename,cam_type):
     metadata = cut_metadata(img,cam_type)
     save_image(metadata,"test4.jpg")
     tic=time.time()
-    print(time.time()-tic)
+    logging.warning('time taken to cut metadata %s',time.time()-tic)
 
 
 
@@ -108,9 +115,9 @@ def ocr_core(filename=None, data=None):
         list of OCR recognized data
     """
     if filename:
-        text = pytesseract.image_to_string(load_image( filename ))
+        text = pytesseract.image_to_string(load_image( filename ),config="-c tessedit_char_whitelist=%s_-." % char_whitelist)
     if type(data) == np.ndarray:
-        text = pytesseract.image_to_string(data)
+        text = pytesseract.image_to_string(data,config="-c tessedit_char_whitelist=%s_-." % char_whitelist)
     else:
         logging.warning('Please feed in processable data to ocr_core of type filename or data')
         return

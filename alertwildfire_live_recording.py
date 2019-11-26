@@ -40,7 +40,7 @@ import db_manager
 import hashlib
 import random
 import OCR
-
+import dateutil
 
 
 def build_name_with_metadata(image_base_name,metadata):
@@ -124,7 +124,7 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     
 
     #add to Database 
-    dt = dateutil.parser.parse(metadata['Date'].replace('/','-')+'T'+metadata['Time'].replace(':',';').split('.')[0])
+    dt = dateutil.parser.parse(metadata['Date']+'T'+metadata['Time'].split('.')[0])
     timeStamp = time.mktime(dt.timetuple())
     #timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['Pan'], metadata['Tilt'], metadata['Zoom'], md5)
