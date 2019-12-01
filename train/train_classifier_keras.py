@@ -50,7 +50,7 @@ def main():
     overshoot_epochs=15 #number of epochs over which validation loss hasnt decreased to stop training at
     val_steps = 100 #only needed for now because of a bug in tf2.0, which should be fixed in next version
     #TODO: either set this to # of validation examples /batch size (i.e. figure out num validation examples)
-    #or upgrade to 2.1 when its ready and automatically go thorugh the whole set
+    #or upgrade to TF2.1 when its ready and automatically go thorugh the whole set
 
     train_filenames = glob.glob(args.inputDir + 'firecam_train_*.tfrecord')
     val_filenames = glob.glob(args.inputDir + 'firecam_validation_*.tfrecord')
