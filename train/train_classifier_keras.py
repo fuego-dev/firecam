@@ -47,7 +47,7 @@ def main():
     batch_size = 32
     max_epochs = 1000
     steps_per_epoch=250
-    overshoot_epochs=200 #number of epochs over which validation loss hasnt decreased to stop training at
+    overshoot_epochs=15 #number of epochs over which validation loss hasnt decreased to stop training at
     val_steps = 100 #only needed for now because of a bug in tf2.0, which should be fixed in next version
     #TODO: either set this to # of validation examples /batch size (i.e. figure out num validation examples)
     #or upgrade to 2.1 when its ready and automatically go thorugh the whole set
@@ -58,8 +58,8 @@ def main():
     raw_dataset_train = tf.data.TFRecordDataset(train_filenames)
     raw_dataset_val = tf.data.TFRecordDataset(val_filenames)
 
-    dataset_train = raw_dataset_train.map(_parse_function).shuffle(batch_size * 5).batch(batch_size)
-    dataset_val = raw_dataset_val.map(_parse_function).batch(batch_size)
+    dataset_train = raw_dataset_train.map(_parse_function).repeat(max_epochs * steps_per_epoch).shuffle(batch_size * 5).batch(batch_size)
+    dataset_val = raw_dataset_val.map(_parse_function).repeat().batch(batch_size)
 
     inception = keras.applications.inception_v3.InceptionV3(weights=None, include_top=True, input_tensor=None,
                                                             classes=2)
@@ -70,7 +70,7 @@ def main():
                  keras.callbacks.ModelCheckpoint(filepath=args.outputDir + 'best_model',
                                                  monitor='val_loss', save_best_only=True)]
 
-    inception.fit(dataset_train, validation_data=dataset_val, epochs=max_epochs, steps_per_epoch=steps_per_epoch, validation_steps=val_steps,callbacks=callbacks)
+    inception.fit(dataset_train, validation_data=dataset_val, epochs=max_epochs, validation_steps=val_steps, steps_per_epoch=steps_per_epoch, callbacks=callbacks)
 
 
 if __name__ == "__main__":
