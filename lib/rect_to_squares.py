@@ -14,9 +14,7 @@
 # ==============================================================================
 """
 @author: Kinshuk Govil
-
 Simple utility to break up rectangle into squares
-
 """
 
 import os
@@ -33,7 +31,6 @@ def rect_to_squares(selectionX0, selectionY0, selectionX1, selectionY1, limitX, 
     close enough to a square.  Also, squares must meet minimium size requiremet of
     minSize and must be centered around the selected rectangle.  All squares must fit
     between (0,0) and (limitX, limitY)
-
     Returns array/list of coordinates for the squares.  The coordinates are represented
     by 4-tuples (x0,y0,x1,y1)
     """
@@ -130,15 +127,12 @@ def cutBoxesOld(imgOrig, outputDirectory, imageFileName, callBackFn=None):
 
 def getSegmentRanges(fullSize, segmentSize):
     """Break the given fullSize into ranges of segmentSize
-
     Divide the range (0,fullSize) into multiple ranges of size
     segmentSize that are equally spaced apart and have approximately
     10% overlap (overlapRatio)
-
     Args:
         fullSize (int): size of the full range (0, fullSize)
         segmentSize (int): size of each segment
-
     Returns:
         (list): list of tuples (start, end) marking each segment's range
     """
@@ -169,18 +163,15 @@ def getSegmentRanges(fullSize, segmentSize):
 
 def cutBoxesFixed(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     """Cut the given image into fixed size boxes
-
     Divide the given image into square segments of 299x299 (segmentSize below)
     to match the size of images used by InceptionV3 image classification
     machine learning model.  This function uses the getSegmentRanges() function
     above to calculate the exact start and end of each square
-
     Args:
         imgOrig (Image): Image object of the original image
         outputDirectory (str): name of directory to store the segments
         imageFileName (str): nane of image file (used as segment file prefix)
         callBackFn (function): callback function that's called for each square
-
     Returns:
         (list): list of segments with filename and coordinates
     """

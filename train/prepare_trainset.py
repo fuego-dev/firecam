@@ -188,7 +188,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
                 output_filename = _get_dataset_filename(
                     dataset_dir, split_name, shard_id, numShards)
 
-                with tf.python_io.TFRecordWriter(output_filename) as tfrecord_writer:
+                with tf.io.TFRecordWriter(output_filename) as tfrecord_writer:
                     start_ndx = shard_id * num_per_shard
                     end_ndx = min((shard_id+1) * num_per_shard, len(filenames))
                     for i in range(start_ndx, end_ndx):
@@ -197,7 +197,7 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
                         sys.stdout.flush()
 
                         # Read the filename:
-                        image_data = tf.gfile.FastGFile(filenames[i], 'rb').read()
+                        image_data = tf.gfile.GFile(filenames[i], 'rb').read()
                         height, width = image_reader.read_image_dims(sess, image_data)
 
                         class_name = os.path.basename(os.path.dirname(filenames[i]))

@@ -10,7 +10,7 @@ import goog_helper
 import settings
 import datetime
 import math
-
+import docker
 
 class InceptionV3AndHistoricalThreshold:
 
@@ -19,6 +19,9 @@ class InceptionV3AndHistoricalThreshold:
 
     def __init__(self, settings, args, google_services, dbManager):
         self.dbManager = dbManager
+        #start up docker daemon with tf serving        
+        client = docker.from_env()
+        client.containers.run("inception_serving", detach=True, ports={'8500/tcp': 8500}, tty=True)
         self.prediction_service = connect_to_prediction_service(settings.server_ip_and_port)
         self.args = args
         self.google_services = google_services

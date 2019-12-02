@@ -17,6 +17,10 @@ apt-get -y install sqlite3
 pip3 install -U pip
 pip3 install -U psycopg2
 pip3 install -U twilio
+pip3 install -U numpy
+pip3 install -U scipy
+pip3 install -U docker
+
 
 # change timezone
 ln -fs /usr/share/zoneinfo/America/Los_Angeles /etc/localtime
