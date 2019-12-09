@@ -33,15 +33,15 @@ import collect_args
 import goog_helper
 
 import logging
+import time
 
-# template function for batch deletion
+# function for handling failures from batch deletion
 def delete_file(request_id, response, exception):
     if exception is not None:
-        # Do something with the exception
-        pass
-    else:
-        # Do something with the response
-        pass
+        logging.error('Encountered error %d: %s', delete_file.numErrors, str(exception))
+        delete_file.numErrors += 1
+        time.sleep(1) # the errors are usually about rate limits, so slowing down to reduce errors
+delete_file.numErrors = 0
 
 
 def main():
@@ -65,6 +65,8 @@ def main():
     # default mode is to download a single file
     operation = 'download'
     multipleFiles = False
+    batchMode = True
+    MAX_BATCH_SIZE = 25  # increasing size beyond 60 tends to generate http 500 errors
 
     if args.upload:
         operation = 'upload'
@@ -90,8 +92,7 @@ def main():
         processedFiles = 0
         while True:
             batch = None
-            if operation == 'delete':
-                batch = googleServices['drive'].new_batch_http_request(callback = delete_file)
+            batchCount = 0
 
             (items, nextPageToken) = goog_helper.searchFiles(googleServices['drive'], args.dirID, args.startTime, args.endTime, args.fileName, npt=nextPageToken)
             firstLast = ''
@@ -103,11 +104,23 @@ def main():
                 logging.warning('All files: %s', items)
             for item in items:
                 if operation == 'delete':
-                    batch.add(googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True))
+                    if batchMode:
+                        if not batch:
+                            batch = googleServices['drive'].new_batch_http_request(callback = delete_file)
+                        batch.add(googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True))
+                        batchCount += 1
+                        if batchCount == MAX_BATCH_SIZE:
+                            logging.warning('Execute batch with %d items', batchCount)
+                            batch.execute()
+                            batch = None
+                            batchCount = 0
+                    else:
+                        googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True).execute()
                 elif operation == 'download':
                     goog_helper.downloadFileByID(googleServices['drive'], item['id'], item['name'])
-            if batch:
+            if batch and batchCount:
                 batch.execute()
+                batch = None
             processedFiles += len(items)
             logging.warning('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, bool(nextPageToken))
             if (processedFiles >= maxFiles) or not nextPageToken:
