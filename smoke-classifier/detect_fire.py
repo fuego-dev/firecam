@@ -608,19 +608,6 @@ def genDiffImage(imgPath, earlierImgPath, minusMinutes):
     return imgDiffPath
 
 
-def expectedDrainSeconds(deferredImages, timeTracker):
-    """Calculate the expected time to drain the deferred images queue
-
-    Args:
-        deferredImages (list): list of deferred images
-        timeTracker (dict): tracks recent image processing times
-
-    Returns:
-        Seconds to process deferred images
-    """
-    return len(deferredImages)*timeTracker['timePerSample']
-
-
 def updateTimeTracker(timeTracker, processingTime):
     """Update the time tracker data with given time to process current image
 
@@ -653,91 +640,6 @@ def initializeTimeTracker():
         'numSamples': 0,
         'timePerSample': 3 # start off with estimate of 3 seconds per camera
     }
-
-
-def getDeferrredImgageInfo(deferredImages, timeTracker, minusMinutes, currentTime):
-    """Returns tuple of boolean indicating whether queue is full, and optionally deferred image if ready to process
-
-    Args:
-        deferredImages (list): list of deferred images
-        timeTracker (dict): tracks recent image processing times
-        minusMinutes (int): number of desired minutes between images to subract
-        currentTime (float): current time.time() value
-
-    Returns:
-        Tuple (bool, dict or None)
-    """
-    if minusMinutes == 0:
-        return (False, None)
-    if len(deferredImages) == 0:
-        return (False, None)
-    minusSeconds = 60*minusMinutes
-    queueFull = (expectedDrainSeconds(deferredImages, timeTracker) >= minusSeconds)
-    if queueFull or (deferredImages[0]['timestamp'] + minusSeconds < currentTime):
-        img = deferredImages[0]
-        del deferredImages[0]
-        return (queueFull, img)
-    return (queueFull, None)
-
-
-def addToDeferredImages(dbManager, cameras, deferredImages):
-    """Fetch a new image and add it to deferred images queue
-
-    Args:
-        dbManager (DbManager):
-        cameras (list): list of cameras
-        deferredImages (list): list of deferred images
-    """
-    (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
-    # add image to Q if not already another one from same camera
-    matches = list(filter(lambda x: x['cameraID'] == cameraID, deferredImages))
-    if len(matches) > 0:
-        assert len(matches) == 1
-        logging.warning('Camera already in list waiting processing %s', matches[0])
-        time.sleep(2) # take a nap to let things catch up
-        return
-    deferredImages.append({
-        'timestamp': timestamp,
-        'cameraID': cameraID,
-        'imgPath': imgPath,
-        'md5': md5,
-        'oldWait': 0
-    })
-    logging.warning('Defer camera %s.  Len %d', cameraID, len(deferredImages))
-
-
-def genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes):
-    """Generate a difference image baed on given deferred image
-
-    Args:
-        dbManager (DbManager):
-        cameras (list): list of cameras
-        deferredImageInfo (dict): deferred image to process
-        deferredImages (list): list of deferred images
-        minusMinutes (int): number of desired minutes between images to subract
-
-    Returns:
-        Tuple containing camera name, current timestamp, filepath of regular image, and filepath of difference image
-    """
-    # logging.warning('DefImg: %d, %s, %s', len(deferredImages), timeStart, deferredImageInfo)
-    (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras, deferredImageInfo['cameraID'])
-    timeDiff = timestamp - deferredImageInfo['timestamp']
-    if md5 == deferredImageInfo['md5']: # check if image hasn't changed
-        logging.warning('Camera %s unchanged (oldWait=%d, diff=%d)', cameraID, deferredImageInfo['oldWait'], timeDiff)
-        if (timeDiff + deferredImageInfo['oldWait']) < min(2 * 60 * minusMinutes, 5 * 60):
-            # some cameras may not referesh fast enough so give another chance up to 2x minusMinutes or 5 mins
-            # Putting it back at the end of the queue with updated timestamp
-            # Updating timestamp so this doesn't take priority in processing
-            deferredImageInfo['timestamp'] = timestamp
-            deferredImageInfo['oldWait'] += timeDiff
-            deferredImages.append(deferredImageInfo)
-        else: # timeout waiting for new image from camera => discard data
-            os.remove(deferredImageInfo['imgPath'])
-        os.remove(imgPath)
-        return (None,None,None,None)
-    imgDiffPath = genDiffImage(imgPath, deferredImageInfo['imgPath'], minusMinutes)
-    logging.warning('Checking camera %s.  Len %d. Diff %d', cameraID, len(deferredImages), timeDiff)
-    return (cameraID, timestamp, imgPath, imgDiffPath)
 
 
 def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes):
@@ -826,8 +728,8 @@ def main():
         assert timeRangeSeconds > 0
         assert args.collectPositves
         useArchivedImages = True
+        random.seed(0) # fixed seed guarantees same randomized ordering.  Should make this optional argument in future
 
-    deferredImages = []
     processingTimeTracker = initializeTimeTracker()
     graph = tf_helper.load_graph(settings.model_file)
     labels = tf_helper.load_labels(settings.labels_file)
@@ -840,18 +742,7 @@ def main():
             if useArchivedImages:
                 (cameraID, timestamp, imgPath, classifyImgPath) = \
                     getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMinutes)
-            elif minusMinutes:
-                (queueFull, deferredImageInfo) = getDeferrredImgageInfo(deferredImages, processingTimeTracker, minusMinutes, timeStart)
-                if not queueFull: # queue is not full, so add more to queue
-                    addToDeferredImages(dbManager, cameras, deferredImages)
-                if deferredImageInfo:  # we have a deferred image ready to process, now get latest image and subtract
-                    (cameraID, timestamp, imgPath, classifyImgPath) = \
-                        genDiffImageFromDeferred(dbManager, cameras, deferredImageInfo, deferredImages, minusMinutes)
-                    if not cameraID:
-                        continue # skip to next camera without deleting deferred image which may be reused later
-                    os.remove(deferredImageInfo['imgPath']) # no longer needed
-                else:
-                    continue # in diff mode without deferredImage, nothing more to do
+            # elif minusMinutes: to be resurrected using archive functionality
             # elif args.imgDirectory:  unused functionality -- to delete?
             #     (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
             else: # regular (non diff mode), grab image and process
