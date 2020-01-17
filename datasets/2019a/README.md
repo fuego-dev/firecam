@@ -1,6 +1,6 @@
-The 2019a dataset contains [full images containing smokes](https://drive.google.com/file/d/1x4bzhH-ZgEUUvh45EStFNrTT_wLSPC35/view?usp=sharing) and an associated file containing the [bounding box coordinates](2019a-bounding-boxes.csv) for rectangular regions with smoke within each image.
+The 2019a dataset contains both smoke and non smoke images.  The smoke side has two parts: 1) [full images containing smokes](https://drive.google.com/file/d/1x4bzhH-ZgEUUvh45EStFNrTT_wLSPC35/view?usp=sharing), and 2) an associated file containing the [bounding box coordinates](2019a-bounding-boxes.csv) for rectangular regions with smoke within each image.  The non-smoke side of the dataset contains [299x299 pixel image segments](https://drive.google.com/open?id=1YEZjbmzd_OCOArYFq2T9if8VkxfOcpEh).
 
-This dataset is used in conjuction with firecam (https://github.com/fuego-dev/firecam) repository.
+This dataset is used in conjuction with firecam (https://github.com/fuego-dev/firecam) repository, and the methodology is described in this [paper](https://doi.org/10.3390/rs12010166) published in Remote Sensing journal.
 
 ## License
 
