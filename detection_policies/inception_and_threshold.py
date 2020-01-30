@@ -103,9 +103,7 @@ class InceptionV3AndHistoricalThreshold:
             segments (list): List of dictionary containing information on each segment
         """
         positiveSegments = 0
-        ppath = pathlib.PurePath(origImgPath)
-        imgNameNoExt = str(os.path.splitext(ppath.name)[0])
-        origImg = None
+        ppath = pathlib.PurePath(imgPath)
         googleDrive = self.google_services['drive']
         for segmentInfo in segments:
             if segmentInfo['score'] > .5:
