@@ -41,6 +41,7 @@ import hashlib
 import random
 import OCR
 import dateutil
+import itertools
 
 
 def build_name_with_metadata(image_base_name,metadata):
@@ -60,10 +61,10 @@ def build_name_with_metadata(image_base_name,metadata):
     imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
 
-def build_name_with_OCR_metadata(image_base_name,metadata):
-    cameraName_chunk = metadata['Name']+"__" 
-    metadata_chunk = 'p'+str(metadata['Pan'])+'_t'+str(metadata['Tilt'])+'_z'+str(metadata['Zoom'])
-    timeStamp_chunk = metadata['Date'].replace('/','-')+'T'+metadata['Time'].replace(':',';').split('.')[0]+'__'
+def build_name_with_OCR_metadata(image_base_name, metadata):####################################################
+    cameraName_chunk = metadata['name']+"__" 
+    metadata_chunk = 'p'+str(metadata['pan'])+'_t'+str(metadata['tilt'])+'_z'+str(metadata['zoom'])
+    timeStamp_chunk = metadata['date'].replace('/','-')+'T'+metadata['time'].replace(':',';').split('.')[0]+'__'
     fileTag=image_base_name[-4:]
     imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
@@ -103,20 +104,66 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
     image_base_name = pathlib.PurePath(imgPath).name
     #implement the ocr 
-    vals = OCR.pull_metadata("Axis", filename = imgPath )
-    if len(vals) ==0:
-        logging.warning('OCR Failed image not recorded')
-        return
+    vals = OCR.pull_metadata("Axis", filename = imgPath ).split()
+    if len(vals) == 0:
+        logging.warning('OCR Failed image recorded using motor information')
+        
+    metadata = {key:None for key in ["name", "date", "time","timeStamp","pan","tilt","zoom"]}
+    """ format
     metadata = {
-                "Name" : camera_name,
-                "Date" : [elem for elem in vals if elem.count("/") == 2][0],
-                "Time" : [elem for elem in vals if elem.count(":") == 2][0],
-                "Pan" : float([elem for elem in vals if "X" in elem][0][2:]),
-                "Tilt" : float([elem for elem in vals if "Y" in elem][0][2:]),
-                "Zoom" : float([elem for elem in vals if "Z" in elem][0][2:]),
-
-
+                "name" : camera_name,
+                "date" : [elem for elem in vals if elem.count("/") == 2][0],
+                "time" : [elem for elem in vals if elem.count(":") == 2][0],
+                "timeStamp" : #unix timestamp
+                "pan" : float([elem for elem in vals if "X:" in elem][0][2:]),
+                "tilt" : float([elem for elem in vals if "Y:" in elem][0][2:]),
+                "zoom" : float([elem for elem in vals if "Z:" in elem][0][2:]),
+                 }"""
+    cases = {"pan"  :list(itertools.product(['X','x'],[':','.','_'])),
+             "tilt" :list(itertools.product(['Y','y','V','v'],[':','.','_'])),
+             "zoom" :list(itertools.product(['Z','z'],[':','.','_'])),
 }
+    status = 'ocrworking'
+    try:
+        metadata["name"] = camera_name
+        metadata["date"] = [elem for elem in vals if elem.count("/") == 2][0]
+        metadata["time"] = [elem for elem in vals if elem.count(":") == 2][0]
+        dt = dateutil.parser.parse(metadata['date']+'T'+metadata['time'].split('.')[0])
+        metadata["timeStamp"] = time.mktime(dt.timetuple())
+    except Exception as e:
+        status ='ocrfailure'
+    
+    
+    for key in ["pan","tilt","zoom"]:
+        if status ==  'ocrfailure':
+            break
+        for attempts in cases[key]:
+            if status ==  'ocrfailure':
+                break
+            try:
+                metadata[key] = float([elem for elem in vals if attempts in elem][0][2:])
+            except Exception as e:
+                try:
+                    metadata[key] = float([elem for elem in vals if attempts in elem][0][3:]) * (pull1['position'][key]/np.absolute(pull1['position'][key]))
+                except Exception as e:
+                    logging.warning('OCR Failed @'+key)
+        if metadata[key] == None:
+            status ='ocrfailure'
+
+    for key in metadata.keys():
+        if metadata[key] == None:
+            status = 'ocrfailure'
+    if status ==  'ocrfailure':# revert to use of metdata
+        logging.warning('OCR Failed image recorded using motor information')
+        metadata = {
+                "name" : camera_name,
+                "date" : None,
+                "time" : None,
+                "pan" : pull1['position']['pan'],
+                "tilt" : pull1['position']['tilt'],
+                "zoom" : pull1['position']['zoom'],
+                 }
+        metadata["timeStamp"] = img_archive.parseFilename(image_base_name)['unixTime']
 
     image_name_with_metadata = build_name_with_OCR_metadata(image_base_name,metadata)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
@@ -124,10 +171,8 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     
 
     #add to Database 
-    dt = dateutil.parser.parse(metadata['Date']+'T'+metadata['Time'].split('.')[0])
-    timeStamp = time.mktime(dt.timetuple())
     #timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
-    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['Pan'], metadata['Tilt'], metadata['Zoom'], md5)
+    img_archive.addImageToArchiveDb(dbManager, camera_name, metadata["timeStamp"], 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['pan'], metadata['tilt'], metadata['zoom'], md5)
 
 
 
