@@ -23,10 +23,8 @@ sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
 sys.path.insert(0, fuegoRoot)
 import settings
 settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
 import logging
-import gdal
+# import gdal
 
 
 def mapping_with_bounds(latLong, latLongBounds, diffLatLong, rasterSize):
@@ -39,27 +37,26 @@ def mapping_with_bounds(latLong, latLongBounds, diffLatLong, rasterSize):
         logging.warning("sorry coordinate not in data (%d > %d) or (%d < %d)", latLong, diffLatLong*rasterSize, latLong, latLongBounds)
         return None
 
-
-def main():
-    reqArgs = [
-        ["g", "geoTiffName", "File name of geotiff"],
-        ["a", "lat", "latitude of desired point", float],
-        ["o", "long", "longtitude of desired point", float],
-    ]
-    args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
-    tiffData = gdal.Open(args.geoTiffName)
-    logging.warning('x: %d, y: %d', tiffData.RasterXSize, tiffData.RasterYSize)
-    metadata = tiffData.GetGeoTransform()
-    logging.warning('metadata: %s', metadata)
-    specs =  tiffData.ReadAsArray(xoff=0, yoff=0)
-    logging.warning('specs: %s', specs)
-
-    coordX = mapping_with_bounds(args.long, metadata[0], metadata[1], tiffData.RasterXSize)
-    coordY = mapping_with_bounds(args.lat, metadata[3], metadata[5], tiffData.RasterYSize)
-    if coordX != None and coordY != None:
-        val = specs[coordX,coordY]
-        logging.warning("The value is (%s)", val)
-
-
-if __name__=="__main__":
-    main()
+# def main():
+#     reqArgs = [
+#         ["g", "geoTiffName", "File name of geotiff"],
+#         ["a", "lat", "latitude of desired point", float],
+#         ["o", "long", "longtitude of desired point", float],
+#     ]
+#     args = collect_args.collectArgs(reqArgs, optionalArgs=[], parentParsers=[goog_helper.getParentParser()])
+#     tiffData = gdal.Open(args.geoTiffName)
+#     logging.warning('x: %d, y: %d', tiffData.RasterXSize, tiffData.RasterYSize)
+#     metadata = tiffData.GetGeoTransform()
+#     logging.warning('metadata: %s', metadata)
+#     specs =  tiffData.ReadAsArray(xoff=0, yoff=0)
+#     logging.warning('specs: %s', specs)
+#
+#     coordX = mapping_with_bounds(args.long, metadata[0], metadata[1], tiffData.RasterXSize)
+#     coordY = mapping_with_bounds(args.lat, metadata[3], metadata[5], tiffData.RasterYSize)
+#     if coordX != None and coordY != None:
+#         val = specs[coordX,coordY]
+#         logging.warning("The value is (%s)", val)
+#
+#
+# if __name__=="__main__":
+#     main()
