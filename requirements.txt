@@ -1,0 +1,10 @@
+#requires python>=3.4
+
+pytest
+numpy
+python-dateutil
+google-api-python-client
+oauth2client
+requests
+ExifRead
+Pillow

@@ -2,8 +2,13 @@ __pycache__
 resources
 settings.py
 .vscode
+.idea
 .DS_Store
 credentials.json
 token.json
 local.db
 node_modules
+
+orig/
+cropped/
+venv/

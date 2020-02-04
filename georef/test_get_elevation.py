@@ -19,24 +19,28 @@ Test get_elevation
 """
 
 import get_elevation
-import pytest
+
 
 def test_mapping_with_bounds_top_left():
-    coord = get_elevation.mapping_with_bounds(10,11,0.003, 15)
+    coord = get_elevation.mapping_with_bounds(10, 11, 0.003, 15)
     assert coord == None
 
+
 def test_mapping_with_bounds_on_boundaries():
-    coord = get_elevation.mapping_with_bounds(10,10,0.003, 15)
+    coord = get_elevation.mapping_with_bounds(10, 10, 0.003, 15)
     assert coord == 0
 
+
 def test_mapping_with_bounds_outer_bounds():
-    coord = get_elevation.mapping_with_bounds(11.045,11,0.003, 15)
+    coord = get_elevation.mapping_with_bounds(11.045, 11, 0.003, 15)
     assert coord == 14
 
+
 def test_mapping_with_bounds_in_bounds():
-    coord = get_elevation.mapping_with_bounds(11.042,11,0.003, 15)
+    coord = get_elevation.mapping_with_bounds(11.042, 11, 0.003, 15)
     assert coord == 13
 
+
 def test_mapping_with_bounds_out_far_bounds():
-    coord = get_elevation.mapping_with_bounds(12,11,0.003, 15)
+    coord = get_elevation.mapping_with_bounds(12, 11, 0.003, 15)
     assert coord == None
