@@ -137,22 +137,8 @@ def cut_metadata(im, camera_type):
     """
     
     if camera_type == 'unknown':#needs update
-        1==1
-        """
-        im = load_image( im )
-        index = im.shape[1]//2
-        #attempt to identify whether there is a metadatabar present on the bottom of the image
-        #if present the metadatabar should consist of highvalue white text surrounded by a low value black border of variable height. The main distiction between hpwren and Axis cameras is this black metadata bar that covers 60%-100% of the bottom of the image present in Axis cameras.
-        #********# ********...(*)
-        ##******## ########...(*/#)
-        ###****### ########...(*#)
-        # thus a sum of half of the bottom most row of pixels should determine whether there is a metadata bar present.
-
-        if np.sum(im[im.shape[0]-1,im.shape[1]//2,:]) < 80:#check if metadata bar is present on bottom#Attempt
-            camera_type = 'Axis'
-        else:
-            camera_type = 'hpwren'
-        """
+        logging.warning('unkown has not been implemented yet')
+        return 
 
     if camera_type == 'Axis':
         #output = im[:-4]+"_cutout"+im[-4:]
@@ -176,7 +162,7 @@ def cut_metadata(im, camera_type):
         metadatastrip = im[:index,:,:]
         return metadatastrip
     return None
-  
+   
 def test_iden(filename,cam_type):
     """test function to assess the capability of the metadata location and cropping
     Args:

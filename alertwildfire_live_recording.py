@@ -48,26 +48,22 @@ def build_name_with_metadata(image_base_name,metadata):
     """reformats image name to include positional metadata
     Args:
         image_base_name (str): original image name containing only camera name and timestamp
-        metadata (dict): individual camera metadata pulled from alertwildfire_API.get_individual_camera_info
+        metadata (dict): individual camera metadata pulled from alertwildfire_API.get_individual_camera_info or OCR from image
     Returns:
         imgname (str): name of image with positionalmetadata
     """
 
-
-    cameraName_chunk = image_base_name[:-23]
-    metadata_chunk = 'p'+str(metadata['position']['pan'])+'_t'+str(metadata['position']['tilt'])+'_z'+str(metadata['position']['zoom'])
-    timeStamp_chunk = image_base_name[-23:-4]+'__'
-    fileTag=image_base_name[-4:]
-    imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
-    return imgname
-
-def build_name_with_OCR_metadata(image_base_name, metadata):####################################################
     cameraName_chunk = metadata['name']+"__" 
     metadata_chunk = 'p'+str(metadata['pan'])+'_t'+str(metadata['tilt'])+'_z'+str(metadata['zoom'])
-    timeStamp_chunk = metadata['date'].replace('/','-')+'T'+metadata['time'].replace(':',';').split('.')[0]+'__'
+    if metadata['date']:
+        timeStamp_chunk = metadata['date'].replace('/','-')+'T'+metadata['time'].replace(':',';').split('.')[0]+'__'
+    else:
+        timeStamp_chunk = image_base_name[-23:-4]+'__'
     fileTag=image_base_name[-4:]
     imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
+
+
 
 
 def capture_and_record(googleServices, dbManager, outputDir, camera_name):
@@ -119,9 +115,9 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
                 "tilt" : float([elem for elem in vals if "Y:" in elem][0][2:]),
                 "zoom" : float([elem for elem in vals if "Z:" in elem][0][2:]),
                  }"""
-    cases = {"pan"  :list(itertools.product(['X','x'],[':','.','_'])),
-             "tilt" :list(itertools.product(['Y','y','V','v'],[':','.','_'])),
-             "zoom" :list(itertools.product(['Z','z'],[':','.','_'])),
+    cases = {"pan"  :[''.join(elem) for elem in list(itertools.product(['X','x'],[':','.','_']))],
+             "tilt" :[''.join(elem) for elem in list(itertools.product(['Y','y','V','v'],[':','.','_']))],
+             "zoom" :[''.join(elem) for elem in list(itertools.product(['Z','z'],[':','.','_']))],
 }
     status = 'ocrworking'
     try:
@@ -138,15 +134,15 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
         if status ==  'ocrfailure':
             break
         for attempts in cases[key]:
-            if status ==  'ocrfailure':
-                break
             try:
                 metadata[key] = float([elem for elem in vals if attempts in elem][0][2:])
+                break
             except Exception as e:
                 try:
                     metadata[key] = float([elem for elem in vals if attempts in elem][0][3:]) * (pull1['position'][key]/np.absolute(pull1['position'][key]))
+                    break
                 except Exception as e:
-                    logging.warning('OCR Failed @'+key)
+                    logging.warning('OCR Failed @ %s, attempt %s',key,attempts)
         if metadata[key] == None:
             status ='ocrfailure'
 
@@ -165,13 +161,12 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
                  }
         metadata["timeStamp"] = img_archive.parseFilename(image_base_name)['unixTime']
 
-    image_name_with_metadata = build_name_with_OCR_metadata(image_base_name,metadata)
+    image_name_with_metadata = build_name_with_metadata(image_base_name,metadata)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
     
 
     #add to Database 
-    #timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
     img_archive.addImageToArchiveDb(dbManager, camera_name, metadata["timeStamp"], 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['pan'], metadata['tilt'], metadata['zoom'], md5)
 
 
