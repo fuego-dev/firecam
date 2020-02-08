@@ -1,4 +1,28 @@
-import numpy
+# Copyright 2018 The Fuego Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+
+
+import sys
+import os
+fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
+sys.path.insert(0, fuegoRoot)
+import settings
+settings.fuegoRoot = fuegoRoot
+import numpy as np
+import logging
 import OCR
 
 assert os.path.isfile('./test_OCR1.jpg')
@@ -14,6 +38,8 @@ def test_save_image():
     testdata = OCR.load_image('test_OCR1.jpg')
     OCR.save_image( testdata, 'test.jpg' )
     assert os.path.isfile('./test.jpg')
+    os.remove('./test.jpg')
+    assert not os.path.isfile('./test.jpg')
 
 def test_ocr_crop():
     #ocr_crop(image,outputname = None,maxHeight=60)
@@ -53,12 +79,14 @@ def test_iden(filename,cam_type):
 def test_ocr_core():
     #ocr_core(filename=None, data=None)
     testdata = OCR.load_image('test.jpg')
-    testfile = 'test.jpg'
+    testfile = './test.jpg'
     OCR.save_image( testdata, testfile)
     text = OCR.ocr_core( data=testdata )
     assert type(text )==type('')
     text = OCR.ocr_core(filename=testfile)
     assert type(text )==type('')
+    os.remove('./test.jpg')
+    assert not os.path.isfile('./test.jpg')
 
 def test_pull_metadata():
     #pull_metadata(camera_type,filename = None, save_location=False)
