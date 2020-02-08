@@ -86,6 +86,7 @@ class DbManager(object):
             ('counter', 'INT')
         ]
 
+        # no longer used?
         fires_schema = [
             ('Name', 'TEXT'),
             ('Url', 'TEXT'),
@@ -135,6 +136,8 @@ class DbManager(object):
             ('EntireImageID', 'TEXT'),
         ]
 
+        # all the detection squares ever found. anything from 0 to 1.0
+        # (0,0) = top left
         scores_schema = [
             ('CameraName', 'TEXT'),
             ('Timestamp', 'INT'),
@@ -147,6 +150,7 @@ class DbManager(object):
             ('MinusMinutes', 'INT'),
         ]
 
+        # detections between historical half and 1.0
         detections_schema = [
             ('CameraName', 'TEXT'),
             ('Timestamp', 'INT'),
@@ -161,6 +165,7 @@ class DbManager(object):
             ('ImageID', 'TEXT'),
         ]
 
+        # this is what's used to send out alert emails
         alerts_schema = [
             ('CameraName', 'TEXT'),
             ('Timestamp', 'INT'),
