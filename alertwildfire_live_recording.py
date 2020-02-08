@@ -101,6 +101,7 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
     image_base_name = pathlib.PurePath(imgPath).name
     #implement the ocr 
     vals = OCR.pull_metadata("Axis", filename = imgPath ).split()
+    logging.warning('values read by OCR %s',vals)
     if len(vals) == 0:
         logging.warning('OCR Failed image recorded using motor information')
         

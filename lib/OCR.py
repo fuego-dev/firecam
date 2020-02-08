@@ -238,12 +238,6 @@ def pull_metadata(camera_type,filename = None, save_location=False):
     return vals
 
 
-#script to run over all of the alert archive
-#open the postgress/cloud platform
-#read all uploaded images
-#download image? 
-#perform OCR
-#update name in GCP and POSTGRES
 
 
 

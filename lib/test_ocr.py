@@ -1,0 +1,70 @@
+import numpy
+import OCR
+
+assert os.path.isfile('./test_OCR1.jpg')
+assert os.path.isfile('./test_OCR2.jpg')
+
+def test_load_image():
+    #load_image( infilename )
+    testdata = OCR.load_image('test_OCR1.jpg')
+    assert type(metadatastrip) == type(np.array([]))
+
+def test_save_image():
+    #save_image( npdata, outfilename )
+    testdata = OCR.load_image('test_OCR1.jpg')
+    OCR.save_image( testdata, 'test.jpg' )
+    assert os.path.isfile('./test.jpg')
+
+def test_ocr_crop():
+    #ocr_crop(image,outputname = None,maxHeight=60)
+    metadatastrip, metabottom, metatop = OCR.ocr_crop('test_OCR1.jpg', outputname = 'test.jpg',maxHeight=60)
+    assert type(metadatastrip)==type(np.array([]))
+    assert type(metabottom)==type(1)
+    assert type(metatop)==type(1)
+    assert metatop-metabottom<20
+    assert os.path.isfile('./test.jpg')   
+
+def test_cut_metadata():
+    #cut_metadata(im, camera_type)
+    metadata = OCR.cut_metadata('test_OCR1.jpg', 'Axis')
+    assert metadata.shape[0]<20
+    metadata = OCR.cut_metadata('test_OCR2.jpg', 'hpwren')
+    assert metadata.shape[0]<20
+
+def test_iden(filename,cam_type):
+    """test function to assess the capability of the metadata location and cropping
+    Args:
+        filename (str) : filepath
+        camera_type (str): {'hpwren','Axis','unknown'} defined type of image to remove metadata from.
+    Returns:
+        saved_file_name (str): name of cropped image
+        toc (flt): time taken to perform metadatacrop
+    """
+    tic=time.time()
+    metadata = OCR.cut_metadata(filename,cam_type)
+    toc = time.time()-tic
+    saved_file_name = filename[:-4]+"_cutout"+filename[-4:]
+    OCR.save_image(metadata,saved_file_name)
+    
+    
+    logging.warning('time taken to cut metadata %s',toc)
+    return saved_file_name, toc
+
+def test_ocr_core():
+    #ocr_core(filename=None, data=None)
+    testdata = OCR.load_image('test.jpg')
+    testfile = 'test.jpg'
+    OCR.save_image( testdata, testfile)
+    text = OCR.ocr_core( data=testdata )
+    assert type(text )==type('')
+    text = OCR.ocr_core(filename=testfile)
+    assert type(text )==type('')
+
+def test_pull_metadata():
+    #pull_metadata(camera_type,filename = None, save_location=False)
+    testfile = 'test_OCR1.jpg'
+    vals = OCR.pull_metadata('Axis',filename = testfile, save_location=False)
+    assert type(vals)==type('')
+
+
+
