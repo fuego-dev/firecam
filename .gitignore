@@ -1,6 +1,6 @@
 __pycache__
-resources
-settings.py
+resources/
+settings.*
 .vscode
 .idea
 .DS_Store

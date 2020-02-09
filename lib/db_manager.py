@@ -148,17 +148,17 @@ class DbManager(object):
         ]
 
         detections_schema = [
-            ('CameraName', 'TEXT'),
-            ('Timestamp', 'INT'),
-            ('MinX', 'INT'),
-            ('MinY', 'INT'),
-            ('MaxX', 'INT'),
-            ('MaxY', 'INT'),
-            ('Score', 'REAL'),
-            ('HistAvg', 'REAL'),
-            ('HistMax', 'REAL'),
-            ('HistNumSamples', 'INT'),
-            ('ImageID', 'TEXT'),
+                ('CameraName', 'TEXT'),
+                ('Timestamp', 'INT'),
+                ('MinX', 'INT'),
+                ('MinY', 'INT'),
+                ('MaxX', 'INT'),
+                ('MaxY', 'INT'),
+                ('Score', 'REAL'),
+                ('HistAvg', 'REAL'),
+                ('HistMax', 'REAL'),
+                ('HistNumSamples', 'INT'),
+                ('ImageID', 'TEXT'),
         ]
 
         alerts_schema = [

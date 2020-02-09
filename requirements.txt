@@ -8,3 +8,6 @@ oauth2client
 requests
 ExifRead
 Pillow
+psutil
+psycopg2
+twilio
