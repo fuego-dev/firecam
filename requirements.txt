@@ -1,5 +1,8 @@
 #requires python>=3.4
-
+# which ones are for croppers
+# which ones for inference
+# which ones for training
+# which ones for post-processing
 pytest
 numpy
 python-dateutil
@@ -8,6 +11,7 @@ oauth2client
 requests
 ExifRead
 Pillow
-psutil
 psycopg2
 twilio
+psutil
+tensorflow
