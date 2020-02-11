@@ -28,6 +28,11 @@ import OCR
 assert os.path.isfile('./test_OCR1.jpg')
 assert os.path.isfile('./test_OCR2.jpg')
 
+path = tempfile.TemporaryDirectory()
+temporaryDir.name
+	assert os.path.isfile(imgPath)
+	shutil.rmtree(temporaryDir.name)
+
 def test_load_image():
     #load_image( infilename )
     testdata = OCR.load_image('test_OCR1.jpg')
@@ -36,19 +41,19 @@ def test_load_image():
 def test_save_image():
     #save_image( npdata, outfilename )
     testdata = OCR.load_image('test_OCR1.jpg')
-    OCR.save_image( testdata, 'test.jpg' )
-    assert os.path.isfile('./test.jpg')
-    os.remove('./test.jpg')
-    assert not os.path.isfile('./test.jpg')
+    OCR.save_image( testdata, path+'test.jpg' )
+    assert os.path.isfile(path+'/test.jpg')
+    os.remove(path+'/test.jpg')
+    assert not os.path.isfile(path+'/test.jpg')
 
 def test_ocr_crop():
     #ocr_crop(image,outputname = None,maxHeight=60)
-    metadatastrip, metabottom, metatop = OCR.ocr_crop('test_OCR1.jpg', outputname = 'test.jpg',maxHeight=60)
+    metadatastrip, metabottom, metatop = OCR.ocr_crop('test_OCR1.jpg', outputname = path+'test.jpg',maxHeight=60)
     assert type(metadatastrip)==type(np.array([]))
     assert type(metabottom)==type(1)
     assert type(metatop)==type(1)
     assert metatop-metabottom<20
-    assert os.path.isfile('./test.jpg')   
+    assert os.path.isfile(path+'/test.jpg')   
 
 def test_cut_metadata():
     #cut_metadata(im, camera_type)
@@ -78,15 +83,15 @@ def test_iden(filename,cam_type):
 
 def test_ocr_core():
     #ocr_core(filename=None, data=None)
-    testdata = OCR.load_image('test.jpg')
-    testfile = './test.jpg'
+    testdata = OCR.load_image(path+'test.jpg')
+    testfile = path+'/test.jpg'
     OCR.save_image( testdata, testfile)
     text = OCR.ocr_core( data=testdata )
     assert type(text )==type('')
     text = OCR.ocr_core(filename=testfile)
     assert type(text )==type('')
-    os.remove('./test.jpg')
-    assert not os.path.isfile('./test.jpg')
+    os.remove(path+'/test.jpg')
+    assert not os.path.isfile(path+'/test.jpg')
 
 def test_pull_metadata():
     #pull_metadata(camera_type,filename = None, save_location=False)
