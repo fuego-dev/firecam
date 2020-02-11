@@ -116,6 +116,18 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
                 "tilt" : float([elem for elem in vals if "Y:" in elem][0][2:]),
                 "zoom" : float([elem for elem in vals if "Z:" in elem][0][2:]),
                  }"""
+    """
+    common error cases in OCR recognition of Axis metadata
+    X= x,x,x,x,x
+    Y= v, v,V,V
+    Z= z,7,2,2,2,2,2,2,z,2,2,2,2,2,2,2,2,2
+    .=  -,:,_,(" "),(" "),(" "),(" "),(" "),(" "),(" "),(" ")
+    :=  i, -,1,1,;,1,1,2,(" "),(" "),(" "),(" "),(" "),(" ")
+    -=  ~,_,r,(","),7,r,7,7,(" "),V,v,r,7,r,(" "),(" ")
+    +=-
+    ... more cases exist for natural letters
+    Note, cannot use cases where numbers and chars are mixed because there are likely inverse cases natural to the meta data i.e. Z:->2: which looks is found in 12:12:42
+    """
     cases = {"pan"  :[''.join(elem) for elem in list(itertools.product(['X','x'],[':','.','_']))],
              "tilt" :[''.join(elem) for elem in list(itertools.product(['Y','y','V','v'],[':','.','_']))],
              "zoom" :[''.join(elem) for elem in list(itertools.product(['Z','z'],[':','.','_']))],

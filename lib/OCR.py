@@ -85,6 +85,7 @@ def ocr_crop(image,outputname = None,maxHeight=60):
     try:
         imgCroppedGray = img.crop((1, img.size[1] - maxHeight, 2*minLetterSize, img.size[1])).convert('L')#possibility to apply to hprwen under simuliar parameters
         croppedArray = np.array(imgCroppedGray)
+        img.close()
     except Exception as e:
         logging.error('Error processing image: %s', str(e))
         return
@@ -163,27 +164,6 @@ def cut_metadata(im, camera_type):
         return metadatastrip
     return None
    
-def test_iden(filename,cam_type):
-    """test function to assess the capability of the metadata location and cropping
-    Args:
-        filename (str) : filepath
-        camera_type (str): {'hpwren','Axis','unknown'} defined type of image to remove metadata from.
-    Returns:
-        saved_file_name (str): name of cropped image
-        toc (flt): time taken to perform metadatacrop
-    """
-    tic=time.time()
-    metadata = cut_metadata(filename,cam_type)
-    toc =time.time()-tic
-    saved_file_name=filename[:-4]+"_cutout"+filename[-4:]
-    #saved_file_name = "test_cut.jpg"
-    save_image(metadata,saved_file_name)
-    
-    
-    logging.warning('time taken to cut metadata %s',toc)
-    return saved_file_name, toc
-
-
 
 
 
@@ -226,12 +206,12 @@ def pull_metadata(camera_type,filename = None, save_location=False):
     if not filename:
         logging.warning('specify data location of data itself')
         return
-    tic=time.time()#####################
+    tic=time.time()
     metadata = cut_metadata(filename,camera_type)
-    logging.warning('time to complete cropping: %s',time.time()-tic)##################
-    tic=time.time()#####################
+    logging.warning('time to complete cropping: %s',time.time()-tic)
+    tic=time.time()
     vals = ocr_core(data = metadata)
-    logging.warning('time to complete OCR: %s',time.time()-tic)##################
+    logging.warning('time to complete OCR: %s',time.time()-tic)
     if save_location:
         save_image(metadata,save_location)
         logging.warning('metadata strip saved to location, %s',save_location)
