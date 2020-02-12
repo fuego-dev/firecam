@@ -85,7 +85,7 @@ def ocr_crop(image,outputname = None,maxHeight=60):
     try:
         imgCroppedGray = img.crop((1, img.size[1] - maxHeight, 2*minLetterSize, img.size[1])).convert('L')#possibility to apply to hprwen under simuliar parameters
         croppedArray = np.array(imgCroppedGray)
-        img.close()
+
     except Exception as e:
         logging.error('Error processing image: %s', str(e))
         return
@@ -122,6 +122,7 @@ def ocr_crop(image,outputname = None,maxHeight=60):
 
     logging.warning('Top = %d, bottom = %d', top, bottom)
     imgOut = img.crop((0, top, img.size[0], bottom))
+    img.close()
     if outputname:
         imgOut.save(outputname, format='JPEG')
     npdata = np.array(imgOut)
