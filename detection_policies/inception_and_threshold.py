@@ -56,7 +56,7 @@ class InceptionV3AndHistoricalThreshold:
         self.useArchivedImages = useArchivedImages
         self.graph = tf_helper.load_graph(settings.model_file)
         self.labels = tf_helper.load_labels(settings.labels_file)
-        self.tfSession = tf.Session(graph=self.graph, config=tfConfig)
+        self.tfSession = tf.compat.v1.Session(graph=self.graph, config=tfConfig)
 
 
     def _segmentImage(self, imgPath):

@@ -115,7 +115,7 @@ def main():
 
     with open('/home/fuego/Desktop/training_set_scores.csv', 'a', newline = '') as fd:
         writer = csv.writer(fd)
-        with tf.Session(graph=graph) as tfSession:
+        with tf.compat.v1.Session(graph=graph) as tfSession:
             for smoke_image in smoke_image_list:
                 smoke_score = smoke_check(tfSession, graph, labels, smoke_image)
                 writer.writerow([smoke_image[39:], smoke_score, 'smoke'])

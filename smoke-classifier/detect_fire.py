@@ -408,7 +408,7 @@ def main():
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
-    tfConfig = tf.ConfigProto()
+    tfConfig = tf.compat.v1.ConfigProto()
     tfConfig.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
     cameras = dbManager.get_sources(activeOnly=True, restrictType=args.restrictType)
     startTimeDT = dateutil.parser.parse(args.startTime) if args.startTime else None

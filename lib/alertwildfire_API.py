@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 import os
 import sys
+
 fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
 sys.path.insert(0, fuegoRoot)
 import settings
+
 settings.fuegoRoot = fuegoRoot
 import datetime
 import requests
@@ -25,16 +28,16 @@ import time
 import img_archive
 import exifread
 import urllib.parse as urlp
-baseApiUrl =urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='', query='', fragment='')#initialize
+
+baseApiUrl = urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='',
+                              query='', fragment='')  # initialize
 import logging
-
-
 
 if settings.alertwildfirekey == 'do not put real key in files in open source git repo':
     logging.warning('Please update settings.alertwildfirekey with the key provided to you')
 
 
-def getApiUrl(endpoint, queryParams = None):
+def getApiUrl(endpoint, queryParams=None):
     """builds the url of a alertwildfire request
     Args:
         endpoint (str): name of service to look at
@@ -44,13 +47,14 @@ def getApiUrl(endpoint, queryParams = None):
         
     """
     if queryParams:
-        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint, query = queryParams)
+        urlParts = baseApiUrl._replace(path=baseApiUrl.path + endpoint, query=queryParams)
     else:
-        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint)
+        urlParts = baseApiUrl._replace(path=baseApiUrl.path + endpoint)
     url = urlp.urlunparse(urlParts)
     return url
 
-def invokeApi(endpoint, queryParams = None, stream = False, url_override = False):
+
+def invokeApi(endpoint, queryParams=None, stream=False, url_override=False):
     """invokes a request of the alertwildfire system
     Args:
         endpoint (str): name of service to look at
@@ -65,9 +69,10 @@ def invokeApi(endpoint, queryParams = None, stream = False, url_override = False
     if url_override:
         url = url_override
     else:
-        url = getApiUrl(endpoint, queryParams )
-    response = requests.get(url, headers = headers, stream = stream)
+        url = getApiUrl(endpoint, queryParams)
+    response = requests.get(url, headers=headers, stream=stream)
     return response
+
 
 def extractExifTime(imgPath):
     """reads Exif tag if present in file and extracts the time information otherwise returns None
@@ -81,10 +86,12 @@ def extractExifTime(imgPath):
     f_tags = exifread.process_file(f)
     f.close()
     if "Image DateTime" in f_tags.keys():
-        timeStamp = time.mktime(datetime.datetime.strptime(str(f_tags["Image DateTime"]), '%Y:%m:%d %H:%M:%S').timetuple())
+        timeStamp = time.mktime(
+            datetime.datetime.strptime(str(f_tags["Image DateTime"]), '%Y:%m:%d %H:%M:%S').timetuple())
         return timeStamp
     else:
         return None
+
 
 def get_all_camera_info():
     """returns a list of camera objects
@@ -93,11 +100,12 @@ def get_all_camera_info():
     Returns:
         listofCameras: list of dictionaries with camera information
     """
-    response = invokeApi("/cameras", queryParams = None, stream = False)
+    response = invokeApi("/cameras", queryParams=None, stream=False)
     if response.status_code == 404:
-        return 
+        return
     listofCameras = response.json()
     return listofCameras
+
 
 def get_individual_camera_info(cameraID):
     """returns a dictionary of camera attributes
@@ -106,11 +114,12 @@ def get_individual_camera_info(cameraID):
     Returns:
         dictionary with camera information
     """
-    response = invokeApi("/cameras", queryParams = "name="+cameraID, stream = False)
+    response = invokeApi("/cameras", queryParams="name=" + cameraID, stream=False)
     if response.status_code == 404:
-        return 
+        return
     listofCameras = response.json()
     return listofCameras[0]
+
 
 def request_current_image(outputDir, cameraID):
     """downloads the current image of a particular camera 
@@ -124,7 +133,7 @@ def request_current_image(outputDir, cameraID):
     """
     camera_info = get_individual_camera_info(cameraID)
     if camera_info["image"]["time"]:
-        timeStamp = camera_info["image"]["time"]###need to convert their format
+        timeStamp = camera_info["image"]["time"]  ###need to convert their format
 
         #### this code acts to tag if the camera_info["image"]["time"] has been implemented and allows the program to run until an update that can handle this change by using the else case
         logging.warning('not yet implemented camera_info/image/time')
@@ -132,7 +141,7 @@ def request_current_image(outputDir, cameraID):
         ####
 
     elif camera_info["position"]["time"]:
-        timeStamp = camera_info["position"]["time"]###need to convert their format
+        timeStamp = camera_info["position"]["time"]  ###need to convert their format
 
         #### this code acts to tag if the camera_info["image"]["time"] has been implemented and allows the program to run until an update that can handle this change by using the else case
         logging.warning('not yet implemented camera_info/image/time')
@@ -148,7 +157,7 @@ def request_current_image(outputDir, cameraID):
         url_override = camera_info["image"]["url"]
     else:
         url_override = False
-    response = invokeApi("/currentimage", queryParams = "name="+cameraID, stream = True, url_override = url_override)
+    response = invokeApi("/currentimage", queryParams="name=" + cameraID, stream=True, url_override=url_override)
     if response.status_code == 200:
         with open(imgPath, 'wb') as f:
             for chunk in response:
@@ -159,12 +168,10 @@ def request_current_image(outputDir, cameraID):
         if exif_timeStamp:
             newimgPath = img_archive.getImgPath(outputDir, cameraID, exif_timeStamp)
             os.rename(imgPath, newimgPath)
-            imgPath=newimgPath
-        return imgPath 
+            imgPath = newimgPath
+        return imgPath
     response.close()
     return
-
-
 
 
 """#time expensive POC
@@ -191,9 +198,3 @@ def request_all_current_images(outputDir, delay_between_requests=None):
             time.sleep(delay_between_requests)
     return list_of_downloaded_img_paths
 """
-
-
-
-
-
-

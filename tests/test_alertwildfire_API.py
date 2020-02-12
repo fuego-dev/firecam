@@ -17,34 +17,40 @@
 Test alertwildfire_API
 
 """
-
-import alertwildfire_API
-import pytest
 import os
-import tempfile
 import shutil
+import sys
+import tempfile
+from pathlib import Path
+
+fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
+sys.path.insert(0, str(fuegoRoot / 'lib'))  # add the lib directory to the path
+import alertwildfire_API
+
 
 def test_get_all_camera_info():
-	#get_all_camera_info()
-	loc= alertwildfire_API.get_all_camera_info()
-	assert type(loc)==type([])
-	assert type(loc[0])==type({})
+    # get_all_camera_info()
+    loc = alertwildfire_API.get_all_camera_info()
+    assert type(loc) == type([])
+    assert type(loc[0]) == type({})
+
 
 def test_get_individual_camera_info():
-	#get_individual_camera_info(cameraID)
-	c = alertwildfire_API.get_individual_camera_info("Axis-UpperBellNorth")
-	assert type(c)==type({})
-	assert type(c["name"])==type('')
-	assert c["name"]=='Axis-UpperBellNorth'
-	c = alertwildfire_API.get_individual_camera_info("testingfailcase")
-	assert type(c)==type(None)
+    # get_individual_camera_info(cameraID)
+    c = alertwildfire_API.get_individual_camera_info("Axis-UpperBellNorth")
+    assert type(c) == type({})
+    assert type(c["name"]) == type('')
+    assert c["name"] == 'Axis-UpperBellNorth'
+    c = alertwildfire_API.get_individual_camera_info("testingfailcase")
+    assert type(c) == type(None)
+
 
 def test_request_current_image():
-	#request_current_image(outputDir, cameraID, closestTime = None, display=False)
-	temporaryDir = tempfile.TemporaryDirectory()
-	imgPath = alertwildfire_API.request_current_image(temporaryDir.name, "Axis-UpperBellNorth")
-	assert os.path.isfile(imgPath)
-	shutil.rmtree(temporaryDir.name)
+    # request_current_image(outputDir, cameraID, closestTime = None, display=False)
+    temporaryDir = tempfile.TemporaryDirectory()
+    imgPath = alertwildfire_API.request_current_image(temporaryDir.name, "Axis-UpperBellNorth")
+    assert os.path.isfile(imgPath)
+    shutil.rmtree(temporaryDir.name)
 
 
 """#time expensive
@@ -57,26 +63,7 @@ def test_request_all_current_images():
 	shutil.rmtree(temporaryDir.name)
 """
 
+
 def test_record_camera_info():
-	#record_camera_info()
-	print( "not implemented")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    # record_camera_info()
+    print("not implemented")

@@ -13,23 +13,32 @@
 # limitations under the License.
 # ==============================================================================
 
-import intersection
-import pytest
+import sys
+from pathlib import Path
+
 import numpy as np
+
+fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
+sys.path.insert(0, str(fuegoRoot / 'georef'))  # add the georef directory to the path
+
+import intersection
 
 
 def test_slope_intercept_90_degrees():
-    coord = intersection.slope_and_intercept(45,135,5,-5,5,5)
-    assert np.all(coord == [0,0])
+    coord = intersection.slope_and_intercept(45, 135, 5, -5, 5, 5)
+    assert np.all(coord == [0, 0])
+
 
 def test_slope_intercept_45_degrees():
-    coord = intersection.slope_and_intercept(45,90,5,2,5,5)
-    assert np.all(coord == [2,2])
+    coord = intersection.slope_and_intercept(45, 90, 5, 2, 5, 5)
+    assert np.all(coord == [2, 2])
+
 
 def test_slope_intercept_90_degrees_opp():
-    coord = intersection.slope_and_intercept(135,45,5,-5,-5,-5)
-    assert np.all(coord == [0,0])
+    coord = intersection.slope_and_intercept(135, 45, 5, -5, -5, -5)
+    assert np.all(coord == [0, 0])
+
 
 def test_slope_intercept_45_degrees_opp():
-    coord = intersection.slope_and_intercept(45,90,-5,-2,-5,-5)
-    assert np.all(coord == [-2,-2])
+    coord = intersection.slope_and_intercept(45, 90, -5, -2, -5, -5)
+    assert np.all(coord == [-2, -2])

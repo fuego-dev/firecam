@@ -25,9 +25,10 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
+
 def load_graph(model_file):
     graph = tf.Graph()
-    graph_def = tf.GraphDef()
+    graph_def = tf.compat.v1.GraphDef()
 
     with open(model_file, "rb") as f:
         graph_def.ParseFromString(f.read())
@@ -39,10 +40,13 @@ def load_graph(model_file):
 
 def load_labels(label_file):
     label = []
-    proto_as_ascii_lines = tf.gfile.GFile(label_file).readlines()
+    if type(label_file) is not str:
+        label_file = str(label_file)
+    proto_as_ascii_lines = tf.compat.v1.gfile.GFile(label_file).readlines()
     for l in proto_as_ascii_lines:
         label.append(l.rstrip())
     return label
+
 
 def classifySegments(tfSession, graph, labels, segments):
     input_height = 299
@@ -70,15 +74,15 @@ def classifySegments(tfSession, graph, labels, segments):
     with tf.Graph().as_default():
         input_name = "file_reader"
         output_name = "normalized"
-        file_name_placeholder = tf.placeholder(tf.string, shape=[])
-        file_reader = tf.read_file(file_name_placeholder, input_name)
-        image_reader = tf.image.decode_jpeg(file_reader, channels=3, name="jpeg_reader",dct_method="INTEGER_ACCURATE")
+        file_name_placeholder = tf.compat.v1.placeholder(tf.string, shape=[])
+        file_reader = tf.io.read_file(file_name_placeholder, input_name)
+        image_reader = tf.image.decode_jpeg(file_reader, channels=3, name="jpeg_reader", dct_method="INTEGER_ACCURATE")
         float_caster = tf.cast(image_reader, tf.float32)
         dims_expander = tf.expand_dims(float_caster, 0)
-        resized = tf.image.resize_bilinear(dims_expander, [input_height, input_width])
+        resized = tf.compat.v1.image.resize_bilinear(dims_expander, [input_height, input_width])
         normalized = tf.divide(tf.subtract(resized, [input_mean]), [input_std])
 
-        with tf.Session() as sess:
+        with tf.compat.v1.Session() as sess:
             for segmentInfo in segments:
                 imgPath = segmentInfo['imgPath']
                 # print(imgPath)

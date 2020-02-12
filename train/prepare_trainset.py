@@ -42,10 +42,12 @@ from __future__ import print_function
 
 import os
 import sys
+
 fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
 sys.path.insert(0, fuegoRoot)
 import settings
+
 settings.fuegoRoot = fuegoRoot
 import collect_args
 import goog_helper
@@ -94,6 +96,8 @@ def image_to_tfexample(image_data, image_format, height, width, class_id):
 
 
 LABELS_FILENAME = 'labels.txt'
+
+
 def write_label_file(labels_to_class_names, dataset_dir,
                      filename=LABELS_FILENAME):
     """Writes a file with the list of class names.
@@ -115,7 +119,7 @@ class ImageReader(object):
 
     def __init__(self):
         # Initializes function that decodes RGB JPEG data.
-        self._decode_jpeg_data = tf.placeholder(dtype=tf.string)
+        self._decode_jpeg_data = tf.compat.v1.placeholder(dtype=tf.string)
         self._decode_jpeg = tf.image.decode_jpeg(self._decode_jpeg_data, channels=3)
 
     def read_image_dims(self, sess, image_data):
@@ -124,7 +128,7 @@ class ImageReader(object):
 
     def decode_jpeg(self, sess, image_data):
         image = sess.run(self._decode_jpeg,
-                        feed_dict={self._decode_jpeg_data: image_data})
+                         feed_dict={self._decode_jpeg_data: image_data})
         assert len(image.shape) == 3
         assert image.shape[2] == 3
         return image
@@ -176,13 +180,13 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
     """
     assert split_name in ['train', 'validation']
 
-    numShards = int(math.ceil(len(filenames) / 9000)) # 9000 images results in ~90MB shards
+    numShards = int(math.ceil(len(filenames) / 9000))  # 9000 images results in ~90MB shards
     num_per_shard = int(math.ceil(len(filenames) / float(numShards)))
 
     with tf.Graph().as_default():
         image_reader = ImageReader()
 
-        with tf.Session('') as sess:
+        with tf.compate.v1.Session('') as sess:
 
             for shard_id in range(numShards):
                 output_filename = _get_dataset_filename(
@@ -190,10 +194,10 @@ def _convert_dataset(split_name, filenames, class_names_to_ids, dataset_dir):
 
                 with tf.python_io.TFRecordWriter(output_filename) as tfrecord_writer:
                     start_ndx = shard_id * num_per_shard
-                    end_ndx = min((shard_id+1) * num_per_shard, len(filenames))
+                    end_ndx = min((shard_id + 1) * num_per_shard, len(filenames))
                     for i in range(start_ndx, end_ndx):
                         sys.stdout.write('\r>> Converting image %d/%d shard %d' % (
-                            i+1, len(filenames), shard_id))
+                            i + 1, len(filenames), shard_id))
                         sys.stdout.flush()
 
                         # Read the filename:
@@ -224,13 +228,14 @@ def writeTFRecords(inputDir, outputDir, trainPercentage):
     class_names_to_ids = dict(zip(class_names, range(len(class_names))))
 
     # Divide into train and test:
-    randomSeed = 0 # Seed for repeatability
+    randomSeed = 0  # Seed for repeatability
     random.seed(randomSeed)
     random.shuffle(image_filenames)
     numTrainingImages = int(trainPercentage * len(image_filenames) / 100)
     training_filenames = image_filenames[:numTrainingImages]
     validation_filenames = image_filenames[numTrainingImages:]
-    logging.warning('Splitting into %d for training and %d for validation', len(training_filenames), len(validation_filenames))
+    logging.warning('Splitting into %d for training and %d for validation', len(training_filenames),
+                    len(validation_filenames))
 
     # First, convert the training and validation sets.
     _convert_dataset('train', training_filenames, class_names_to_ids, outputDir)
@@ -249,12 +254,12 @@ def main():
     optArgs = [
         ["t", "trainPercentage", "percentage of data to use for training vs. validation (default 90)"]
     ]
-    
+
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     trainPercentage = int(args.trainPercentage) if args.trainPercentage else 90
 
     writeTFRecords(args.inputDir, args.outputDir, trainPercentage)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

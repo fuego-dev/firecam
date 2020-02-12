@@ -71,7 +71,7 @@ def classifyImages(graph, labels, imageList, className, outFile):
     try:
         config = tf.ConfigProto()
         config.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
-        with tf.Session(graph=graph, config=config) as tfSession:
+        with tf.compat.v1.Session(graph=graph, config=config) as tfSession:
             for image in imageList:
                 isPositive = False
                 segments = segmentImage(image)

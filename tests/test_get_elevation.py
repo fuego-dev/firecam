@@ -17,6 +17,11 @@
 Test get_elevation
 
 """
+import sys
+from pathlib import Path
+
+fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
+sys.path.insert(0, str(fuegoRoot / 'georef'))  # add the georef directory to the path
 
 import get_elevation
 

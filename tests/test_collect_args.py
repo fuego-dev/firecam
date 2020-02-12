@@ -17,9 +17,15 @@
 Test collect_args
 
 """
+import sys
+from pathlib import Path
+
+fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
+sys.path.insert(0, str(fuegoRoot / 'lib'))  # add lib directory to the path
 
 import collect_args
 import pytest
+
 
 def testReqStr():
     requiredArgs = [
