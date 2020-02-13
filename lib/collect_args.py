@@ -23,12 +23,17 @@ import argparse
 import logging
 import sys
 
+
 # internal function for pytest that accepts cmdArgs parameter and no defaults
-def collectArgsInt(cmdArgs, requiredArgs, optionalArgs, parentParsers, silence):
-    parser = argparse.ArgumentParser(parents=parentParsers if parentParsers != None else [])
-    for arg in requiredArgs+optionalArgs:
-        parser.add_argument('-'+arg[0], '--'+arg[1], help=arg[2], type=arg[3] if len(arg)>3 else None)
+def collectArgsInt(cmdArgs, requiredArgs, optionalArgs, parentParsers, silence=True, fromfile_prefix=None):
+    parser = argparse.ArgumentParser(parents=parentParsers if parentParsers != None else [],
+                                     fromfile_prefix_chars=fromfile_prefix)
+
+    for arg in requiredArgs + optionalArgs:
+        parser.add_argument('-' + arg[0], '--' + arg[1], help=arg[2], type=arg[3] if len(arg) > 3 else None)
+    print(cmdArgs)
     args = parser.parse_args(cmdArgs)
+    print(args)
 
     vargs = vars(args)
     for arg in requiredArgs:
@@ -37,9 +42,9 @@ def collectArgsInt(cmdArgs, requiredArgs, optionalArgs, parentParsers, silence):
 
     if not silence:
         logging.warning('Using these parameters')
-        for arg in requiredArgs+optionalArgs:
+        for arg in requiredArgs + optionalArgs:
             if vargs[arg[1]] != None:
-                logging.warning(arg[2]+ ': ' + str(vargs[arg[1]]))
+                logging.warning(arg[2] + ': ' + str(vargs[arg[1]]))
     return args
 
 

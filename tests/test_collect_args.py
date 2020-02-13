@@ -27,7 +27,7 @@ import collect_args
 import pytest
 
 
-def testReqStr():
+def test_required_string_arg():
     requiredArgs = [
         ["n", "name", "some string"],
     ]
@@ -35,7 +35,7 @@ def testReqStr():
     assert args.name == 'abc'
 
 
-def testOptStr():
+def test_optional_string_arg():
     optionalArgs = [
         ["o", "name", "some string"],
     ]
@@ -43,7 +43,7 @@ def testOptStr():
     assert args.name == 'bcd'
 
 
-def testReqInt():
+def test_required_integer_arg():
     requiredArgs = [
         ["v", "value", "some integer", int],
     ]
@@ -51,10 +51,28 @@ def testReqInt():
     assert args.value == 121
 
 
-def testMissingReq():
+def test_missing_required_arg():
     requiredArgs = [
         ["n", "name", "some string"],
     ]
     # expecting OSError: reading from stdin while output is captured
     with pytest.raises(OSError):
         args = collect_args.collectArgsInt([], requiredArgs, [], None, False)
+
+
+def test_args_from_yaml():
+    required_args = [
+        ["o", "outputDir", "local directory to save images segments"],
+        ["i", "inputCsv", "csvfile with contents of Fuego Cropped Images"],
+        ["x", "compulsoryInt", "an integer argument that is compulsory", int],
+    ]
+    opt_args = [
+        ["s", "startRow", "starting row", int],
+        ["e", "endRow", "ending row", int],
+    ]
+    test_args = ["@test_args.txt"]
+    args = collect_args.collectArgsInt(test_args, required_args, opt_args, None, True, '@')
+    # test_args = ["--outputDir", "tmpimages", "--inputCsv", "file.csv", "--compulsoryInt", "10", "--endRow", "2"]
+    # args = collect_args.collectArgsInt(test_args, required_args, opt_args, None, True)
+    assert args.outputDir == "tmpimages"
+    assert args.endRow == 2

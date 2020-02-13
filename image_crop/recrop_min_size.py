@@ -327,7 +327,7 @@ def main():
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)#-##REPLACE DEP. GDRIVE W HPREWN#
             imgOrig = Image.open(localFilePath)#opens image
 
-            # if in subracted images mode, download an earlier image and subtract
+            # if in subtracted images mode, download an earlier image and subtract
             if minusMinutes:
                 nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
                 dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])

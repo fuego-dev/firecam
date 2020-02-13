@@ -1,0 +1,8 @@
+--outputDir
+tmpimages
+--inputCsv
+file.csv
+--compulsoryInt
+10
+--endRow
+2
