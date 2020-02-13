@@ -210,9 +210,12 @@ def pull_metadata(camera_type,filename = None, save_location=False):
     tic=time.time()
     metadata = cut_metadata(filename,camera_type)
     logging.warning('time to complete cropping: %s',time.time()-tic)
-    tic=time.time()
-    vals = ocr_core(data = metadata)
-    logging.warning('time to complete OCR: %s',time.time()-tic)
+    try:
+        tic=time.time()
+        vals = ocr_core(data = metadata)
+        logging.warning('time to complete OCR: %s',time.time()-tic)
+    except Exception as e:
+        vals = ''
     if save_location:
         save_image(metadata,save_location)
         logging.warning('metadata strip saved to location, %s',save_location)
