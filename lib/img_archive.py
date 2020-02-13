@@ -644,17 +644,23 @@ def getAlertImages(googleServices, dbManager, settings, outputDir, cameraID, sta
     """
     downloaded_files = []
     if startTimeDT == endTimeDT:
+        # limit search to 10 hours time range around desired time to speed up query
         sqlTemplate = """SELECT timestamp, fileid FROM archive
-        WHERE CameraName='%s'
+        WHERE CameraName='%s' and timestamp >= %s and timestamp < %s
         ORDER BY ABS(timestamp - %s)
         LIMIT 1"""
-        sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()))
+        startTimeVal = time.mktime(startTimeDT.timetuple())
+        beginTimeRange = startTimeVal - 3600 * 10 # 10 hours before
+        endTimeRange = startTimeVal + 3600 * 10 # 10 hours after
+        sqlStr = sqlTemplate % (cameraID, beginTimeRange, endTimeRange, startTimeVal)
     else:
         sqlTemplate = """SELECT distinct timestamp,fileid FROM archive
         WHERE CameraName='%s' and timestamp >= %s and timestamp < %s"""
         sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()), time.mktime(endTimeDT.timetuple()))
+    queryStart = time.time()
     dbResult = dbManager.query(sqlStr)
-    # logging.warning('dbr %d: %s', len(dbResult), str(dbResult))
+    logging.warning('Got %d results in %.2f seconds', len(dbResult), time.time() - queryStart)
+    logging.warning('Query: %s', sqlStr)
     if not dbResult:
         return []
 
