@@ -19,23 +19,20 @@ Also restart if the detection process is not making progress.
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-
-import time, datetime
-import psutil
-import subprocess
-import psutil
-import tempfile
 import logging
+import os
 import pathlib
+import subprocess
+import sys
+import tempfile
+import time
+
+import psutil
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+
 
 def findProcess(name):
     for proc in psutil.process_iter():
@@ -64,7 +61,7 @@ def startProcess(detectFire, heartbeatFileName, collectPositves, restrictType):
         pArgs += ['--restrictType', restrictType]
     proc = subprocess.Popen(pArgs)
     logging.warning('Started PID %d %s', proc.pid, pArgs)
-    heartBeat(heartbeatFileName) # reset heartbeat
+    heartBeat(heartbeatFileName)  # reset heartbeat
     return proc
 
 
@@ -95,7 +92,7 @@ def main():
     useGpu = True if args.useGpu else False
 
     if not useGpu:
-        os.environ["CUDA_VISIBLE_DEVICES"]="-1"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     scriptName = 'detect_fire.py'
     procInfos = []
     for i in range(numProcesses):
@@ -107,23 +104,24 @@ def main():
             'heartbeatFile': heartbeatFile,
             'heartbeatFileName': heartbeatFileName,
         })
-        time.sleep(10) # 10 seconds per process to allow startup
+        time.sleep(10)  # 10 seconds per process to allow startup
 
     while True:
         for procInfo in procInfos:
-            lastTS = lastHeartbeat(procInfo['heartbeatFileName']) # check heartbeat
+            lastTS = lastHeartbeat(procInfo['heartbeatFileName'])  # check heartbeat
             timestamp = int(time.time())
             proc = procInfo['proc']
             logging.debug('DBG: Process %d: %s: %d seconds since last image scanned, %d',
-                            proc.pid, procInfo['heartbeatFileName'], timestamp - lastTS, lastTS)
-            if (timestamp - lastTS) > 2*60: # warn if stuck more than 2 minutes
+                          proc.pid, procInfo['heartbeatFileName'], timestamp - lastTS, lastTS)
+            if (timestamp - lastTS) > 2 * 60:  # warn if stuck more than 2 minutes
                 logging.warning('Process %d: %d seconds since last image scanned', proc.pid, timestamp - lastTS)
-            if (timestamp - lastTS) > 4*60: # kill if stuck more than 4 minutes
+            if (timestamp - lastTS) > 4 * 60:  # kill if stuck more than 4 minutes
                 logging.warning('Killing %d', proc.pid)
                 proc.kill()
-                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves, args.restrictType)
+                procInfo['proc'] = startProcess(scriptName, procInfo['heartbeatFileName'], args.collectPositves,
+                                                args.restrictType)
         time.sleep(30)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

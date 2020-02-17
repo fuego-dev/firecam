@@ -20,22 +20,18 @@ used for non-smoke training set.
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import rect_to_squares
-import img_archive
-
-import re
-import logging
 import csv
+import logging
+import os
+import re
+
 from PIL import Image
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
+from lib import rect_to_squares
 
 
 def getCameraDir(service, cameraCache, fileName):
@@ -55,7 +51,6 @@ def checkCoords(coords, cropInfo):
     else:
         logging.warning('Skipping intersection: %s, %s', coords, cropInfo)
         return True
-
 
 
 def main():
@@ -86,7 +81,7 @@ def main():
             [cameraName, cropName] = csvRow[:2]
             if not cameraName:
                 continue
-            fileName = re.sub('_Crop[^.]+', '', cropName) # get back filename for whole image
+            fileName = re.sub('_Crop[^.]+', '', cropName)  # get back filename for whole image
             dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)
             localFilePath = os.path.join(args.outputDir, fileName)
             if not os.path.isfile(localFilePath):
@@ -102,5 +97,5 @@ def main():
             rect_to_squares.cutBoxesFixed(imgOrig, args.outputDir, fileName, lambda x: checkCoords(x, cropInfo))
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

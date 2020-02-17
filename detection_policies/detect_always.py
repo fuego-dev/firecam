@@ -19,20 +19,21 @@ This detection policy always returns a detection.  Meant for testing the code
 """
 
 import os
-import sys
+
 fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
+
 import settings
+
 settings.fuegoRoot = fuegoRoot
 
 import time
 
+
 class DetectAlways:
 
-    def __init__(self, settings, args, google_services, dbManager, tfConfig, camArchives, minusMinutes, useArchivedImages):
+    def __init__(self, settings, args, google_services, dbManager, tfConfig, camArchives, minusMinutes,
+                 useArchivedImages):
         pass
-
 
     def detect(self, image_spec):
         detectionResult = {

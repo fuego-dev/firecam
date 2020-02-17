@@ -16,18 +16,11 @@
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
 import logging
 import math
+
 import numpy as np
+
 """
 
 def main():
@@ -72,31 +65,29 @@ def determine_false_pos(coords1,coords2,coords3,coords4,lalo,lalo2, range):
 """
 
 
-
-
 def slope_and_intercept(a1, a2, lat1, lat2, long1, long2):
-#error if vertical line add a check for it
-    m1 = 1/(math.tan(math.pi/(180/a1)))
+    # error if vertical line add a check for it
+    m1 = 1 / (math.tan(math.pi / (180 / a1)))
 
-    m2 = 1/(math.tan(math.pi/(180/a2)))
+    m2 = 1 / (math.tan(math.pi / (180 / a2)))
     """
     if m1 == m2:
         logging.warning('the edge is parallel')
         if (((lat1 - lat2)*m1) + long1) == long2:
             co
             """
-    b1 = lat1 - (m1*long1)
-    b2 = lat2 - (m2*long2)
+    b1 = lat1 - (m1 * long1)
+    b2 = lat2 - (m2 * long2)
     coe = (m1 - m2)
     con = (b2 - b1)
-    x = con/coe
-    x = round(x,6)
-    y = m1*x + b1
-    y = round(y,6)
-    coord = np.array([y,x])
-    logging.warning('the coords of intersection are: (%f, %f)', coord[0],coord[1])
+    x = con / coe
+    x = round(x, 6)
+    y = m1 * x + b1
+    y = round(y, 6)
+    coord = np.array([y, x])
+    logging.warning('the coords of intersection are: (%f, %f)', coord[0], coord[1])
     return coord
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

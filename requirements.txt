@@ -7,6 +7,7 @@ pytest
 numpy
 python-dateutil
 google-api-python-client
+# googlemaps
 oauth2client
 requests
 ExifRead

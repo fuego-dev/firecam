@@ -31,8 +31,8 @@ from oauth2client import file, client, tools
 from apiclient.http import MediaIoBaseDownload
 from apiclient.http import MediaFileUpload
 
-import collect_args
-import img_archive
+from lib import collect_args
+from lib import img_archive
 
 # If modifying these scopes, delete the file token.json.
 # TODO: This is getting too big.  We should ask for different subsets for each app

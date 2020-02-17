@@ -24,26 +24,20 @@ The displayed image is shrunk to fit screen, but the cropped image are still at 
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import rect_to_squares
-
-#modules for GUI
-#from tkinter import *
+# modules for GUI
+# from tkinter import *
 import tkinter as tk
 
-#modules for image processing
+# modules for image processing
 from PIL import Image, ImageTk
+
+from lib import collect_args
+from lib import rect_to_squares
 
 
 def buttonClick(event):
     exit()
+
 
 def imageDisplay(imgOrig):
     global cadre, fen, photo2, scaleFactor
@@ -54,19 +48,19 @@ def imageDisplay(imgOrig):
     screen_height = fen.winfo_screenheight() - 100
 
     print("Image:", (imgOrig.size[0], imgOrig.size[1]), ", Screen:", (screen_width, screen_height))
-    scaleX = min(screen_width/imgOrig.size[0], 1)
-    scaleY = min(screen_height/imgOrig.size[1], 1)
+    scaleX = min(screen_width / imgOrig.size[0], 1)
+    scaleY = min(screen_height / imgOrig.size[1], 1)
     scaleFactor = min(scaleX, scaleY)
     print('scale', scaleFactor, scaleX, scaleY)
     img = imgOrig
     if (scaleFactor != 1):
-        img = imgOrig.resize((int(imgOrig.size[0]*scaleFactor), int(imgOrig.size[1]*scaleFactor)), Image.ANTIALIAS)
+        img = imgOrig.resize((int(imgOrig.size[0] * scaleFactor), int(imgOrig.size[1] * scaleFactor)), Image.ANTIALIAS)
     photo2 = ImageTk.PhotoImage(img)
     cadre = tk.Canvas(fen, width=photo2.width(), height=photo2.height(), bg="light yellow")
-    
+
     cadre.config(highlightthickness=0)
-    
-    aff=cadre.create_image(0, 0, anchor='nw', image=photo2)
+
+    aff = cadre.create_image(0, 0, anchor='nw', image=photo2)
     cadre.bind("<Button-1>", buttonClick)
     cadre.bind("<Button-2>", buttonClick)
     cadre.bind("<Button-3> ", buttonClick)
@@ -78,14 +72,16 @@ def imageDisplay(imgOrig):
 colors = ['red', 'green', 'yellow', 'blue']
 colorIndex = 0
 
+
 def showSquares(coords):
     global cadre, scaleFactor, colors, colorIndex
 
-    scaled = list(map(lambda x: int(x*scaleFactor), coords))
+    scaled = list(map(lambda x: int(x * scaleFactor), coords))
     (sx0, sy0, sx1, sy1) = scaled
-    offset = ((colorIndex%2) - 0.5)*2 # stagger to avoid overlap of lines
-    square = cadre.create_rectangle(sx0 + offset, sy0 + offset, sx1 + offset, sy1 + offset, outline=colors[colorIndex], width=2)
-    colorIndex = (colorIndex + 1 ) % len(colors)
+    offset = ((colorIndex % 2) - 0.5) * 2  # stagger to avoid overlap of lines
+    square = cadre.create_rectangle(sx0 + offset, sy0 + offset, sx1 + offset, sy1 + offset, outline=colors[colorIndex],
+                                    width=2)
+    colorIndex = (colorIndex + 1) % len(colors)
 
 
 def main():
@@ -114,5 +110,5 @@ def main():
 
 
 # for testing
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

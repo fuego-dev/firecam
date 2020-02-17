@@ -18,19 +18,15 @@ Test Google cloud function for ffmpeg
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import requests
+import logging
 import uuid
 
-import logging
+import requests
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+
 
 def callGCF(url, creds, cameraID, folderID):
     headers = {'Authorization': f'bearer {creds.id_token_jwt}'}
@@ -39,7 +35,7 @@ def callGCF(url, creds, cameraID, folderID):
         'cameraID': cameraID,
         'yearDir': 2017,
         'dateDir': 20170613,
-        'qNum': 3, # 'Q3.mp4'
+        'qNum': 3,  # 'Q3.mp4'
         'uploadDir': folderID
     }
     response = requests.post(url, headers=headers, data=data)
@@ -53,7 +49,7 @@ def main():
     optArgs = [
         ["l", "localhost", "localhost for testing"],
     ]
-    
+
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleCreds = goog_helper.getCreds(settings, args)
     googleServices = goog_helper.getGoogleServices(settings, args)
@@ -68,5 +64,5 @@ def main():
     logging.warning('New folder %s (%s) should be cleaned up', folderName, folderID)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

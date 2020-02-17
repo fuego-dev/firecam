@@ -17,13 +17,8 @@
 Test recrop_min_size
 
 """
-import sys
-from pathlib import Path
 
-fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
-sys.path.insert(0, str(fuegoRoot / 'image_crop'))  # add image_crop directory to the path
-
-import recrop_min_size
+from image_crop import recrop_min_size
 
 
 def test_imageDisplay():

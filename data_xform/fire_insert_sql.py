@@ -24,25 +24,17 @@ HPWREN with IDs:
 select fires.name, round((fires.Latitude-cameras.Latitude)*(fires.Latitude-cameras.Latitude)+(fires.Longitude-cameras.Longitude)*(fires.Longitude-cameras.Longitude),4) as distance, fires.Started, cameras.cameraIDs, case when fires.latitude > cameras.latitude then 'north' else 'south' end, round(fires.latitude - cameras.latitude,3), case when fires.longitude > cameras.longitude then 'east' else 'west' end, round(fires.longitude - cameras.longitude, 3) from fires cross join cameras where fires.started is not null and fires.adminunit is not 'MVU' and fires.adminunit is not 'NEU' and cameras.network='HPWREN' and distance < 0.08 order by distance;
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import db_manager
-
-import datetime
 import ast
-import sys
+
+import settings
+from lib import collect_args
+from lib import db_manager
+from lib import goog_helper
 
 
 def insertFires(dbManager, fileName):
     lineNumber = 1
-    skipped=[]
+    skipped = []
     with open(fileName, 'r') as myfile:
         for line in myfile:
             # print("raw", line)
@@ -69,5 +61,5 @@ def main():
     insertFires(dbManager, args.fileName)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

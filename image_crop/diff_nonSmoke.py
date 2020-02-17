@@ -19,24 +19,16 @@ diff images for training diff model
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import rect_to_squares
-import img_archive
-
 import datetime
 import logging
-import csv
-import tkinter as tk
-from PIL import Image, ImageTk
+import os
 
+from PIL import Image
+
+import settings as settings
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
 
 
 def main():
@@ -59,7 +51,7 @@ def main():
     camArchives = None
     cookieJar = img_archive.loginAjax()
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
-    timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
+    timeGapDelta = datetime.timedelta(seconds=60 * minusMinutes)
     skippedBadParse = []
     skippedArchive = []
     imageFileNames = sorted(os.listdir(args.inputDir))
@@ -74,14 +66,14 @@ def main():
             break
 
         if (fileName[:3] == 'v2_') or (fileName[:3] == 'v3_'):
-            continue # skip replicated files
+            continue  # skip replicated files
         logging.warning('Processing row %d, file: %s', rowIndex, fileName)
         parsedName = img_archive.parseFilename(fileName)
 
         if (not parsedName) or parsedName['diffMinutes'] or ('minX' not in parsedName):
             logging.warning('Skipping file with unexpected parsed data: %s, %s', fileName, str(parsedName))
             skippedBadParse.append((rowIndex, fileName, parsedName))
-            continue # skip files without crop info or with diff
+            continue  # skip files without crop info or with diff
         matchingCams = list(filter(lambda x: parsedName['cameraID'] == x['id'], camArchives))
         if len(matchingCams) != 1:
             logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
@@ -94,10 +86,11 @@ def main():
         dt -= timeGapDelta
         for dirName in archiveDirs:
             logging.warning('Searching for files in dir %s', dirName)
-            imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, parsedName['cameraID'], dirName, dt, dt, 1)
+            imgPaths = img_archive.getFilesAjax(cookieJar, settings.downloadDir, parsedName['cameraID'], dirName, dt,
+                                                dt, 1)
             if imgPaths:
                 earlierImgPath = imgPaths[0]
-                break # done
+                break  # done
         if not earlierImgPath:
             logging.warning('Skipping image without prior image: %s, %s', str(dt), fileName)
             skippedArchive.append((rowIndex, fileName, dt))
@@ -105,7 +98,8 @@ def main():
         logging.warning('Subtracting old image %s', earlierImgPath)
         earlierImg = Image.open(earlierImgPath)
         print('CR', (parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']))
-        croppedEarlyImg = earlierImg.crop((parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']))
+        croppedEarlyImg = earlierImg.crop(
+            (parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY']))
 
         imgOrig = Image.open(os.path.join(args.inputDir, fileName))
         diffImg = img_archive.diffImages(imgOrig, croppedEarlyImg)
@@ -116,5 +110,6 @@ def main():
     logging.warning('Skipped bad parse %d, %s', len(skippedBadParse), str(skippedBadParse))
     logging.warning('Skipped images without archives %d, %s', len(skippedArchive), str(skippedArchive))
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

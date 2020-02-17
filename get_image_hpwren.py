@@ -19,19 +19,14 @@ to the specified time
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import img_archive
-
 import logging
-import time, datetime, dateutil.parser
+
+import dateutil.parser
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
 
 
 def main():
@@ -60,12 +55,13 @@ def main():
     assert endTimeDT >= startTimeDT
 
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
-    files = img_archive.getHpwrenImages(googleServices, settings, outputDir, camArchives, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+    files = img_archive.getHpwrenImages(googleServices, settings, outputDir, camArchives, args.cameraID, startTimeDT,
+                                        endTimeDT, gapMinutes)
     if files:
         logging.warning('Found %d files.', len(files))
     else:
         logging.error('No matches for camera ID %s', args.cameraID)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

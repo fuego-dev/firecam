@@ -17,24 +17,17 @@
 Take the output of hpwren_kml_parse.py and write the data to 'cameras' table in sqlite DB
 
 """
-
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import db_manager
-
-import datetime
 import ast
+import os
+
+import settings
+from lib import db_manager
 
 fileName = '../cameras-hpwren.txt'
 manager = db_manager.DbManager(os.path.join(settings.fuegoRoot, 'resources/local.db'))
 
 lineNumber = 1
-skipped=[]
+skipped = []
 with open(fileName, 'r') as myfile:
     for line in myfile:
         # print("raw", line)
@@ -44,6 +37,5 @@ with open(fileName, 'r') as myfile:
         # print("parsed2", lineNumber, parsed)
         lineNumber += 1
         manager.add_data('cameras', parsed)
-
 
 print(skipped)

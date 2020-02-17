@@ -18,18 +18,15 @@ add, update, delete, and list notifictaion settings
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import db_manager
-
+import datetime
+import dateutil.parser
 import logging
-import time, datetime, dateutil.parser
+import time
+
+import settings
+from lib import collect_args
+from lib import db_manager
+
 
 def getTimeRangeStr(startTime, endTime):
     """Return a string with given time range and indication whether current time is in range
@@ -56,9 +53,11 @@ def printNoficiation(notification):
     """
     outputStr = 'User: %s' % notification['name']
     if notification['email']:
-        outputStr += ' ; Email: %s (%s)' % (notification['email'], getTimeRangeStr(notification['emailstarttime'], notification['emailendtime']))
+        outputStr += ' ; Email: %s (%s)' % (
+        notification['email'], getTimeRangeStr(notification['emailstarttime'], notification['emailendtime']))
     if notification['phone']:
-        outputStr += ' ; Phone: %s (%s)' % (notification['phone'], getTimeRangeStr(notification['phonestarttime'], notification['phoneendtime']))
+        outputStr += ' ; Phone: %s (%s)' % (
+        notification['phone'], getTimeRangeStr(notification['phonestarttime'], notification['phoneendtime']))
     logging.warning(outputStr)
 
 
@@ -90,13 +89,13 @@ def main():
     startTime = parseTimeStr(args.startTime) if args.startTime else None
     endTime = parseTimeStr(args.endTime) if args.endTime else None
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     notifications = dbManager.getNotifications()
     activeEmails = dbManager.getNotifications(filterActiveEmail=True)
     activePhones = dbManager.getNotifications(filterActivePhone=True)
     logging.warning('Num all notifications: %d.  Active emails: %d.  Active phones: %d',
-                     len(notifications), len(activeEmails), len(activePhones))
+                    len(notifications), len(activeEmails), len(activePhones))
     if args.operation == 'list':
         for n in notifications:
             printNoficiation(n)
@@ -147,5 +146,5 @@ def main():
         logging.error('Unexpected operation: %s', args.operation)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

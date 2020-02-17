@@ -18,20 +18,15 @@ year/month/day/hour/minute/timestamp fields
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import db_manager
-
-import time
-import dateutil.parser
 import logging
+import time
+
+import dateutil.parser
+
+import settings
+from lib import collect_args
+from lib import db_manager
+from lib import goog_helper
 
 
 def getUnparsedFires(dbManager):
@@ -47,7 +42,7 @@ def parseDates(dbManager, fires):
         stripped = fire['started'].replace('\\xa0', '')
         dt = dateutil.parser.parse(stripped)
         tstamp = int(time.mktime(dt.timetuple()))
-        logging.warning('FIRE: %s, started %s, stripped %s, dt %s', fire['name'],fire['started'], stripped, dt)
+        logging.warning('FIRE: %s, started %s, stripped %s, dt %s', fire['name'], fire['started'], stripped, dt)
         sqlStr = sqlTemplate % (dt.year, dt.month, dt.day, dt.hour, dt.minute, tstamp, fire['started'])
         logging.warning('sql: %s', sqlStr)
         dbManager.execute(sqlStr)
@@ -61,5 +56,5 @@ def main():
     parseDates(dbManager, fires)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

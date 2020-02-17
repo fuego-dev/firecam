@@ -23,33 +23,21 @@ This script will unzip the images, update the image metadata sheet, and upload t
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import img_archive
-
-sys.path.insert(0, os.path.join(settings.fuegoRoot, 'image_crop'))
-import crop_single
-
-import zipfile
-import tempfile
-import pathlib
 import datetime
-import dateutil.parser
-import time
-import re
 import logging
+import os
+import pathlib
 import shutil
-
-from googleapiclient.discovery import build
-from httplib2 import Http
+import tempfile
+import zipfile
 from tkinter.filedialog import askdirectory
+
+import settings
+from image_crop import crop_single
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
+
 
 def uploadToDrive(service, imgPath, cameraID, imgClass):
     parent = settings.IMG_CLASSES[imgClass]
@@ -84,19 +72,19 @@ def appendToMainSheet(service, imgPath, times, cameraID, imgClass, fireID):
     imgName = pathlib.PurePath(imgPath).name
     timeStr = datetime.datetime.fromtimestamp(times['unixTime']).strftime('%F %T')
 
-    value_input_option="USER_ENTERED" # vs "RAW"
+    value_input_option = "USER_ENTERED"  # vs "RAW"
     values = [[
         imgName,
         imgClass,
         fireID,
         cameraID,
-        timeStr, #time
-        "yes" if imgClass == 'smoke' else "no", #smoke boolean
-        "no", #fog boolean
-        "no", #rain boolean
-        "no", #glare boolean
-        "no" #snow boolean
-        ]]
+        timeStr,  # time
+        "yes" if imgClass == 'smoke' else "no",  # smoke boolean
+        "no",  # fog boolean
+        "no",  # rain boolean
+        "no",  # glare boolean
+        "no"  # snow boolean
+    ]]
     body = {
         'values': values
     }
@@ -109,7 +97,7 @@ def appendToMainSheet(service, imgPath, times, cameraID, imgClass, fireID):
 def appendToCropSheet(service, cropPath, coords, basePath):
     cropName = pathlib.PurePath(cropPath).name
     baseName = pathlib.PurePath(basePath).name
-    value_input_option="USER_ENTERED" # vs "RAW"
+    value_input_option = "USER_ENTERED"  # vs "RAW"
     values = [[
         cropName,
         coords[0],
@@ -117,7 +105,7 @@ def appendToCropSheet(service, cropPath, coords, basePath):
         coords[2],
         coords[3],
         baseName
-        ]]
+    ]]
     body = {
         'values': values
     }
@@ -143,10 +131,10 @@ def processFolder(imgDirectory, camera, fire, googleServices):
     imageFileNames = list(filter(getTimeFromName, imageFileNames))
     # print('images2', len(imageFileNames), imageFileNames)
     # we want to process in time order, so first create tuples with associated time
-    tuples=list(map(lambda x: (x,getTimeFromName(x)['unixTime']), imageFileNames))
-    lastSmokeTimestamp=None
+    tuples = list(map(lambda x: (x, getTimeFromName(x)['unixTime']), imageFileNames))
+    lastSmokeTimestamp = None
     for tuple in sorted(tuples, key=lambda x: x[1]):
-        imgName=tuple[0]
+        imgName = tuple[0]
         times = getTimeFromName(imgName)
         newPath = renameToIso(imgDirectory, imgName, times, camera)
         imgClass = 'smoke'
@@ -176,7 +164,7 @@ def main():
         ["z", "zipFile", "Name of the zip file containing the images"],
         ["d", "imgDirectory", "Name of the directory containing the images or ask:dir"],
     ]
-    args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     imgDirectory = None
     if args.imgDirectory:
         imgDirectory = args.imgDirectory
@@ -194,5 +182,5 @@ def main():
     processFolder(imgDirectory, args.camera, args.fire, googleServices)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

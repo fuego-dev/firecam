@@ -22,25 +22,22 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-
 import logging
 import time
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+
 
 # function for handling failures from batch deletion
 def delete_file(request_id, response, exception):
     if exception is not None:
         logging.error('Encountered error %d: %s', delete_file.numErrors, str(exception))
         delete_file.numErrors += 1
-        time.sleep(1) # the errors are usually about rate limits, so slowing down to reduce errors
+        time.sleep(1)  # the errors are usually about rate limits, so slowing down to reduce errors
+
+
 delete_file.numErrors = 0
 
 
@@ -57,7 +54,7 @@ def main():
         ["r", "remove", "(optional) performs remove/delete vs. download (value must be 'delete')"],
         ["m", "maxFiles", "override default of 100 for max number of files to operate on"],
     ]
-    
+
     args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     maxFiles = int(args.maxFiles) if args.maxFiles else 100
     googleServices = goog_helper.getGoogleServices(settings, args)
@@ -94,7 +91,8 @@ def main():
             batch = None
             batchCount = 0
 
-            (items, nextPageToken) = goog_helper.searchFiles(googleServices['drive'], args.dirID, args.startTime, args.endTime, args.fileName, npt=nextPageToken)
+            (items, nextPageToken) = goog_helper.searchFiles(googleServices['drive'], args.dirID, args.startTime,
+                                                             args.endTime, args.fileName, npt=nextPageToken)
             firstLast = ''
             if len(items) > 0:
                 firstLast = str(items[0]) + ' to ' + str(items[-1])
@@ -106,7 +104,7 @@ def main():
                 if operation == 'delete':
                     if batchMode:
                         if not batch:
-                            batch = googleServices['drive'].new_batch_http_request(callback = delete_file)
+                            batch = googleServices['drive'].new_batch_http_request(callback=delete_file)
                         batch.add(googleServices['drive'].files().delete(fileId=item["id"], supportsTeamDrives=True))
                         batchCount += 1
                         if batchCount == MAX_BATCH_SIZE:
@@ -124,8 +122,9 @@ def main():
             processedFiles += len(items)
             logging.warning('Processed %d of max %d. NextToken: %s', processedFiles, maxFiles, bool(nextPageToken))
             if (processedFiles >= maxFiles) or not nextPageToken:
-                break # exit if we processed enough files or no files left
+                break  # exit if we processed enough files or no files left
         logging.warning('Done')
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

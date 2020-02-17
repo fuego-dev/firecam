@@ -19,13 +19,9 @@ Test alertwildfire_API
 """
 import os
 import shutil
-import sys
 import tempfile
-from pathlib import Path
 
-fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
-sys.path.insert(0, str(fuegoRoot / 'lib'))  # add the lib directory to the path
-import alertwildfire_API
+from lib import alertwildfire_API
 
 
 def test_get_all_camera_info():

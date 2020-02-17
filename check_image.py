@@ -23,25 +23,18 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import sys
-
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import rect_to_squares
-import tf_helper
-
-import tensorflow as tf
 import tkinter as tk
-from PIL import Image, ImageTk, ImageDraw, ImageFont
 
+import numpy as np
+import tensorflow as tf
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 # alternate version that uses in-memory image segments without persisting to disk
 from skimage import io
-import numpy as np
+
+import settings
+from lib import collect_args
+from lib import rect_to_squares
+from lib import tf_helper
 
 
 def read_tensor_from_array(data,

@@ -19,20 +19,15 @@ from either public HPWREN archive, or Fuego's AlertWildfire archive
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import img_archive
-import db_manager
-
 import logging
-import time, datetime, dateutil.parser
+
+import dateutil.parser
+
+import settings
+from lib import collect_args
+from lib import db_manager
+from lib import goog_helper
+from lib import img_archive
 
 
 def main():
@@ -63,8 +58,8 @@ def main():
     files = None
     googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
 
     if args.cameraID.startswith('Axis-'):
         alertWildfire = True
@@ -76,11 +71,13 @@ def main():
 
     if hpwren:
         camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
-        gapMinutes = max(round(float(periodSeconds)/60), 1) # convert to minutes and ensure at least 1 minute
-        files = img_archive.getHpwrenImages(googleServices, settings, outputDir, camArchives, args.cameraID, startTimeDT, endTimeDT, gapMinutes)
+        gapMinutes = max(round(float(periodSeconds) / 60), 1)  # convert to minutes and ensure at least 1 minute
+        files = img_archive.getHpwrenImages(googleServices, settings, outputDir, camArchives, args.cameraID,
+                                            startTimeDT, endTimeDT, gapMinutes)
     else:
         assert alertWildfire
-        files = img_archive.getAlertImages(googleServices, dbManager, settings, outputDir, args.cameraID, startTimeDT, endTimeDT, periodSeconds)
+        files = img_archive.getAlertImages(googleServices, dbManager, settings, outputDir, args.cameraID, startTimeDT,
+                                           endTimeDT, periodSeconds)
 
     if files:
         logging.warning('Found %d files.', len(files))
@@ -88,5 +85,5 @@ def main():
         logging.error('No matches for camera ID %s', args.cameraID)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

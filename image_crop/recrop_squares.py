@@ -22,24 +22,21 @@ Optionally, for debuggins shows the boxes on screen (TODO: refactor display code
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import rect_to_squares
-import img_archive
-
 import csv
+import os
 import tkinter as tk
+
 from PIL import Image, ImageTk
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
+from lib import rect_to_squares
 
 # minimum size for squares shown inside bounding box
 MIN_SIZE = 150
+
 
 def imageDisplay(imgOrig, title=''):
     rootTk = tk.Tk()
@@ -48,18 +45,19 @@ def imageDisplay(imgOrig, title=''):
     screen_height = rootTk.winfo_screenheight() - 100
 
     print("Image:", (imgOrig.size[0], imgOrig.size[1]), ", Screen:", (screen_width, screen_height))
-    scaleX = min(screen_width/imgOrig.size[0], 1)
-    scaleY = min(screen_height/imgOrig.size[1], 1)
+    scaleX = min(screen_width / imgOrig.size[0], 1)
+    scaleY = min(screen_height / imgOrig.size[1], 1)
     scaleFactor = min(scaleX, scaleY)
     print('scale', scaleFactor, scaleX, scaleY)
     scaledImg = imgOrig
     if (scaleFactor != 1):
-        scaledImg = imgOrig.resize((int(imgOrig.size[0]*scaleFactor), int(imgOrig.size[1]*scaleFactor)), Image.ANTIALIAS)
+        scaledImg = imgOrig.resize((int(imgOrig.size[0] * scaleFactor), int(imgOrig.size[1] * scaleFactor)),
+                                   Image.ANTIALIAS)
     imgPhoto = ImageTk.PhotoImage(scaledImg)
     canvasTk = tk.Canvas(rootTk, width=imgPhoto.width(), height=imgPhoto.height(), bg="light yellow")
     canvasTk.config(highlightthickness=0)
 
-    aff=canvasTk.create_image(0, 0, anchor='nw', image=imgPhoto)
+    aff = canvasTk.create_image(0, 0, anchor='nw', image=imgPhoto)
     canvasTk.focus_set()
     canvasTk.pack(side='left', expand='yes', fill='both')
 
@@ -69,8 +67,10 @@ def imageDisplay(imgOrig, title=''):
 def buttonClick(event):
     exit()
 
+
 # use multiple colors to make it slightly easier to see the overlapping boxes
 colors = ['red', 'blue']
+
 
 def displayImageWithScores(imgOrig, segments):
     (rootTk, canvasTk, imgPhoto, scaleFactor) = imageDisplay(imgOrig)
@@ -79,11 +79,11 @@ def displayImageWithScores(imgOrig, segments):
     canvasTk.bind("<Button-3> ", buttonClick)
     for counter, coords in enumerate(segments):
         (sx0, sy0, sx1, sy1) = coords
-        offset = ((counter%2) - 0.5)*2
-        x0 = sx0*scaleFactor + offset
-        y0 = sy0*scaleFactor + offset
-        x1 = sx1*scaleFactor + offset
-        y1 = sy1*scaleFactor + offset
+        offset = ((counter % 2) - 0.5) * 2
+        x0 = sx0 * scaleFactor + offset
+        y0 = sy0 * scaleFactor + offset
+        x1 = sx1 * scaleFactor + offset
+        y1 = sy1 * scaleFactor + offset
         color = colors[counter % len(colors)]
         canvasTk.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
     rootTk.mainloop()
@@ -133,7 +133,8 @@ def main():
             if not os.path.isfile(localFilePath):
                 goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)
             imgOrig = Image.open(localFilePath)
-            squareCoords = rect_to_squares.rect_to_squares(minX, minY, maxX, maxY, imgOrig.size[0], imgOrig.size[1], MIN_SIZE)
+            squareCoords = rect_to_squares.rect_to_squares(minX, minY, maxX, maxY, imgOrig.size[0], imgOrig.size[1],
+                                                           MIN_SIZE)
             # print(squareCoords)
             imgNameNoExt = str(os.path.splitext(fileName)[0])
             for coords in squareCoords:
@@ -148,5 +149,5 @@ def main():
                 imageDisplay(imgOrig)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

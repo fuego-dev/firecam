@@ -19,21 +19,16 @@ Moves duplicate files to given directory
 """
 
 import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-
 import re
 import shutil
 
+from lib import collect_args
+from lib import goog_helper
+
+
 def checkDupes(fileName, destDir):
     lineNumber = 0
-    skipped=[]
+    skipped = []
     lastSum = None
     lastImg = None
     with open(fileName, 'r') as myfile:
@@ -46,7 +41,7 @@ def checkDupes(fileName, destDir):
                 print('Skipping line', lineNumber, line)
                 skipped.append(line)
                 continue
-            (sum,imgName) = matches[0]
+            (sum, imgName) = matches[0]
             if sum != lastSum:
                 lastSum = sum
                 lastImg = imgName
@@ -67,5 +62,5 @@ def main():
     checkDupes(args.fileName, args.destDir)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

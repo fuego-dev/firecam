@@ -29,26 +29,19 @@ Optionally, for debuggins shows the boxes on screen (TODO: refactor display code
 tags to mark changes to be implemented to ween off the dependency of sort_images.py to upload full photos to Gdrive.
 """
 
-
-
-
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import rect_to_squares
-import img_archive
-
+import csv
 import datetime
 import logging
-import csv
+import os
 import tkinter as tk
+
 from PIL import Image, ImageTk
+
+import settings
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
+
 
 def imageDisplay(imgOrig, title=''):
     rootTk = tk.Tk()
@@ -57,18 +50,19 @@ def imageDisplay(imgOrig, title=''):
     screen_height = rootTk.winfo_screenheight() - 100
 
     print("Image:", (imgOrig.size[0], imgOrig.size[1]), ", Screen:", (screen_width, screen_height))
-    scaleX = min(screen_width/imgOrig.size[0], 1)
-    scaleY = min(screen_height/imgOrig.size[1], 1)
+    scaleX = min(screen_width / imgOrig.size[0], 1)
+    scaleY = min(screen_height / imgOrig.size[1], 1)
     scaleFactor = min(scaleX, scaleY)
     print('scale', scaleFactor, scaleX, scaleY)
     scaledImg = imgOrig
     if (scaleFactor != 1):
-        scaledImg = imgOrig.resize((int(imgOrig.size[0]*scaleFactor), int(imgOrig.size[1]*scaleFactor)), Image.ANTIALIAS)
+        scaledImg = imgOrig.resize((int(imgOrig.size[0] * scaleFactor), int(imgOrig.size[1] * scaleFactor)),
+                                   Image.ANTIALIAS)
     imgPhoto = ImageTk.PhotoImage(scaledImg)
     canvasTk = tk.Canvas(rootTk, width=imgPhoto.width(), height=imgPhoto.height(), bg="light yellow")
     canvasTk.config(highlightthickness=0)
 
-    aff=canvasTk.create_image(0, 0, anchor='nw', image=imgPhoto)
+    aff = canvasTk.create_image(0, 0, anchor='nw', image=imgPhoto)
     canvasTk.focus_set()
     canvasTk.pack(side='left', expand='yes', fill='both')
 
@@ -78,8 +72,10 @@ def imageDisplay(imgOrig, title=''):
 def buttonClick(event):
     exit()
 
+
 # use multiple colors to make it slightly easier to see the overlapping boxes
 colors = ['red', 'blue']
+
 
 def displayImageWithScores(imgOrig, segments):
     (rootTk, canvasTk, imgPhoto, scaleFactor) = imageDisplay(imgOrig)
@@ -88,11 +84,11 @@ def displayImageWithScores(imgOrig, segments):
     canvasTk.bind("<Button-3> ", buttonClick)
     for counter, coords in enumerate(segments):
         (sx0, sy0, sx1, sy1) = coords
-        offset = ((counter%2) - 0.5)*2
-        x0 = sx0*scaleFactor + offset
-        y0 = sy0*scaleFactor + offset
-        x1 = sx1*scaleFactor + offset
-        y1 = sy1*scaleFactor + offset
+        offset = ((counter % 2) - 0.5) * 2
+        x0 = sx0 * scaleFactor + offset
+        y0 = sy0 * scaleFactor + offset
+        x1 = sx1 * scaleFactor + offset
+        y1 = sy1 * scaleFactor + offset
         color = colors[counter % len(colors)]
         canvasTk.create_rectangle(x0, y0, x1, y1, outline=color, width=2)
     rootTk.mainloop()
@@ -130,17 +126,17 @@ def expandMinAndMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
     diff = val1 - val0
-    center = val0 + int(diff/2)
-    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    center = val0 + int(diff / 2)
+    minimumDiff = max(minimumDiff, int(diff * growRatio))
     if diff < minimumDiff:
-        if (center - int(minimumDiff/2)) < minLimit:   # left edge limited
+        if (center - int(minimumDiff / 2)) < minLimit:  # left edge limited
             val0 = minLimit
             val1 = min(val0 + minimumDiff, maxLimit)
-        elif (center + int(minimumDiff/2)) > maxLimit: # right edge limited
+        elif (center + int(minimumDiff / 2)) > maxLimit:  # right edge limited
             val1 = maxLimit
             val0 = max(val1 - minimumDiff, minLimit)
-        else:                                          # unlimited
-            val0 = center - int(minimumDiff/2)
+        else:  # unlimited
+            val0 = center - int(minimumDiff / 2)
             val1 = min(val0 + minimumDiff, maxLimit)
     return (val0, val1)
 
@@ -149,7 +145,7 @@ def expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
     diff = val1 - val0
-    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    minimumDiff = max(minimumDiff, int(diff * growRatio))
     if diff < minimumDiff:
         if val0 + minimumDiff < maxLimit:
             minVal = val0
@@ -167,11 +163,11 @@ def expandMax75(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
     diff = val1 - val0
-    minimumDiff = max(minimumDiff, int(diff*growRatio))
-    if (diff < minimumDiff/2):
-        center = val0 + int(diff/2)
-        minVal = max(center - int(minimumDiff/4), minLimit)
-        maxVal = min(center + int(minimumDiff/4), maxLimit)
+    minimumDiff = max(minimumDiff, int(diff * growRatio))
+    if (diff < minimumDiff / 2):
+        center = val0 + int(diff / 2)
+        minVal = max(center - int(minimumDiff / 4), minLimit)
+        maxVal = min(center + int(minimumDiff / 4), maxLimit)
         return expandMax(minVal, maxVal, minimumDiff, growRatio, minLimit, maxLimit)
     else:
         return expandMax(val0, val1, minimumDiff, growRatio, minLimit, maxLimit)
@@ -181,7 +177,7 @@ def expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
     diff = val1 - val0
-    minimumDiff = max(minimumDiff, int(diff*growRatio))
+    minimumDiff = max(minimumDiff, int(diff * growRatio))
     if diff < minimumDiff:
         if val1 - minimumDiff >= minLimit:
             maxVal = val1
@@ -199,18 +195,18 @@ def expandMin75(val0, val1, minimumDiff, growRatio, minLimit, maxLimit):
     val0 = max(val0, minLimit)
     val1 = min(val1, maxLimit)
     diff = val1 - val0
-    minimumDiff = max(minimumDiff, int(diff*growRatio))
-    if (diff < minimumDiff/2):
-        center = val0 + int(diff/2)
-        minVal = max(center - int(minimumDiff/4), minLimit)
-        maxVal = min(center + int(minimumDiff/4), maxLimit)
+    minimumDiff = max(minimumDiff, int(diff * growRatio))
+    if (diff < minimumDiff / 2):
+        center = val0 + int(diff / 2)
+        minVal = max(center - int(minimumDiff / 4), minLimit)
+        maxVal = min(center + int(minimumDiff / 4), maxLimit)
         return expandMin(minVal, maxVal, minimumDiff, growRatio, minLimit, maxLimit)
     else:
         return expandMin(val0, val1, minimumDiff, growRatio, minLimit, maxLimit)
 
 
 def appendIfDifferent(array, newItem):
-    hasAlready = list(filter(lambda x: x==newItem, array))
+    hasAlready = list(filter(lambda x: x == newItem, array))
     if not hasAlready:
         array.append(newItem)
 
@@ -219,23 +215,23 @@ def getCropCoords(smokeCoords, minDiffX, minDiffY, growRatio, imgSize):
     cropCoords = []
     (minX, minY, maxX, maxY) = smokeCoords
     (imgSizeX, imgSizeY) = imgSize
-    #centered box
+    # centered box
     (newMinX, newMaxX) = expandMinAndMax(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
     (newMinY, newMaxY) = expandMinAndMax(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
-    #top left box
+    # top left box
     (newMinX, newMaxX) = expandMax75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
     (newMinY, newMaxY) = expandMax75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
-    #top right box
+    # top right box
     (newMinX, newMaxX) = expandMax75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
     (newMinY, newMaxY) = expandMin75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
-    #bottom left box
+    # bottom left box
     (newMinX, newMaxX) = expandMin75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
     (newMinY, newMaxY) = expandMax75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
-    #bottom right box
+    # bottom right box
     (newMinX, newMaxX) = expandMin75(minX, maxX, minDiffX, growRatio, 0, imgSizeX)
     (newMinY, newMaxY) = expandMin75(minY, maxY, minDiffY, growRatio, 0, imgSizeY)
     appendIfDifferent(cropCoords, (newMinX, newMinY, newMaxX, newMaxY))
@@ -265,13 +261,13 @@ def main():
     minDiffY = int(args.minDiffY) if args.minDiffY else 299
     throwSize = int(args.throwSize) if args.throwSize else 1000
     growRatio = float(args.growRatio) if args.growRatio else 1.2
-    minArea = int(args.minArea) if args.minArea else int(299*2.99)
+    minArea = int(args.minArea) if args.minArea else int(299 * 2.99)
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
 
     googleServices = goog_helper.getGoogleServices(settings, args)
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
     if minusMinutes:
-        timeGapDelta = datetime.timedelta(seconds = 60*minusMinutes)
+        timeGapDelta = datetime.timedelta(seconds=60 * minusMinutes)
     cameraCache = {}
     skippedTiny = []
     skippedHuge = []
@@ -300,40 +296,44 @@ def main():
                 continue
             # get base image from google drive that was uploaded by sort_images.py
 
-            dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)#-##REPLACE DEP. GDRIVE W HPREWN#
-            localFilePath = os.path.join(settings.downloadDir, fileName)#sets a path for that image() not yet downloadedby this iteration
+            dirID = getCameraDir(googleServices['drive'], cameraCache, fileName)  # -##REPLACE DEP. GDRIVE W HPREWN#
+            localFilePath = os.path.join(settings.downloadDir,
+                                         fileName)  # sets a path for that image() not yet downloadedby this iteration
             print('local', localFilePath)
-            if not os.path.isfile(localFilePath):# if file has not been downloaded by a previous iteration
+            if not os.path.isfile(localFilePath):  # if file has not been downloaded by a previous iteration
                 print('download', fileName)
-                #+##REPLACE DEP. GDRIVE W HPREWN#nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
-                #+##REPLACE DEP. GDRIVE W HPREWN#matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
-                #+##REPLACE DEP. GDRIVE W HPREWN#if len(matchingCams) != 1:#if we cannot determine where the image will come from we cannot use the image
-                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
-                #+##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, matchingCams))
-                #+##REPLACE DEP. GDRIVE W HPREWN#    continue
-                #+##REPLACE DEP. GDRIVE W HPREWN#archiveDirs = matchingCams[0]['dirs']
-                #+##REPLACE DEP. GDRIVE W HPREWN#logging.warning('Found %s directories', archiveDirs)
-                #+##REPLACE DEP. GDRIVE W HPREWN#time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
-                #+##REPLACE DEP. GDRIVE W HPREWN#for dirName in archiveDirs:#search directories of camera for a time near
-                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Searching for files in dir %s', dirName)
-                #+##REPLACE DEP. GDRIVE W HPREWN#    imgPaths = img_archive.downloadFilesHpwren(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
-                #+##REPLACE DEP. GDRIVE W HPREWN#    if imgPaths:
-                #+##REPLACE DEP. GDRIVE W HPREWN#        localFilePath = imgPaths[0]
-                #+##REPLACE DEP. GDRIVE W HPREWN#        break
-                #+##REPLACE DEP. GDRIVE W HPREWN#if not imgPaths:
-                #+##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping image not found: %s', fileName)
-                #+##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
-                #+##REPLACE DEP. GDRIVE W HPREWN#    continue
-                goog_helper.downloadFile(googleServices['drive'], dirID, fileName, localFilePath)#-##REPLACE DEP. GDRIVE W HPREWN#
-            imgOrig = Image.open(localFilePath)#opens image
+                # +##REPLACE DEP. GDRIVE W HPREWN#nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
+                # +##REPLACE DEP. GDRIVE W HPREWN#matchingCams = list(filter(lambda x: nameParsed['cameraID'] == x['id'], camArchives))#filter through camArchives for ids matching cameraid
+                # +##REPLACE DEP. GDRIVE W HPREWN#if len(matchingCams) != 1:#if we cannot determine where the image will come from we cannot use the image
+                # +##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping camera without archive: %d, %s', len(matchingCams), str(matchingCams))
+                # +##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, matchingCams))
+                # +##REPLACE DEP. GDRIVE W HPREWN#    continue
+                # +##REPLACE DEP. GDRIVE W HPREWN#archiveDirs = matchingCams[0]['dirs']
+                # +##REPLACE DEP. GDRIVE W HPREWN#logging.warning('Found %s directories', archiveDirs)
+                # +##REPLACE DEP. GDRIVE W HPREWN#time = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
+                # +##REPLACE DEP. GDRIVE W HPREWN#for dirName in archiveDirs:#search directories of camera for a time near
+                # +##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Searching for files in dir %s', dirName)
+                # +##REPLACE DEP. GDRIVE W HPREWN#    imgPaths = img_archive.downloadFilesHpwren(settings.downloadDir, nameParsed['cameraID'], dirName, time, time, 1, 0)
+                # +##REPLACE DEP. GDRIVE W HPREWN#    if imgPaths:
+                # +##REPLACE DEP. GDRIVE W HPREWN#        localFilePath = imgPaths[0]
+                # +##REPLACE DEP. GDRIVE W HPREWN#        break
+                # +##REPLACE DEP. GDRIVE W HPREWN#if not imgPaths:
+                # +##REPLACE DEP. GDRIVE W HPREWN#    logging.warning('Skipping image not found: %s', fileName)
+                # +##REPLACE DEP. GDRIVE W HPREWN#    skippedArchive.append((rowIndex, fileName, time))#archive that images were skipped
+                # +##REPLACE DEP. GDRIVE W HPREWN#    continue
+                goog_helper.downloadFile(googleServices['drive'], dirID, fileName,
+                                         localFilePath)  # -##REPLACE DEP. GDRIVE W HPREWN#
+            imgOrig = Image.open(localFilePath)  # opens image
 
             # if in subtracted images mode, download an earlier image and subtract
             if minusMinutes:
-                nameParsed = img_archive.parseFilename(fileName)#parses file name into dictionary of parts name,unixtime,etc.
+                nameParsed = img_archive.parseFilename(
+                    fileName)  # parses file name into dictionary of parts name,unixtime,etc.
                 dt = datetime.datetime.fromtimestamp(nameParsed['unixTime'])
                 dt -= timeGapDelta
                 earlierImgPath = None
-                files = img_archive.getHpwrenImages(googleServices, settings, settings.downloadDir, camArchives, nameParsed['cameraID'], dt, dt, 1)
+                files = img_archive.getHpwrenImages(googleServices, settings, settings.downloadDir, camArchives,
+                                                    nameParsed['cameraID'], dt, dt, 1)
                 if files:
                     earlierImgPath = files[0]
                 else:
@@ -350,7 +350,8 @@ def main():
 
             # crop the full sized image to show just the smoke, but shifted and flipped
             # shifts and flips increase number of segments for training and also prevent overfitting by perturbing data
-            cropCoords = getCropCoords((minX, minY, maxX, maxY), minDiffX, minDiffY, growRatio, (imgOrig.size[0], imgOrig.size[1]))
+            cropCoords = getCropCoords((minX, minY, maxX, maxY), minDiffX, minDiffY, growRatio,
+                                       (imgOrig.size[0], imgOrig.size[1]))
             for newCoords in cropCoords:
                 # XXXX - save work if old=new?
                 print('coords old,new', oldCoords, newCoords)
@@ -372,5 +373,6 @@ def main():
     logging.warning('Skipped huge images %d, %s', len(skippedHuge), str(skippedHuge))
     logging.warning('Skipped images without archives %d, %s', len(skippedArchive), str(skippedArchive))
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

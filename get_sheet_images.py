@@ -19,15 +19,10 @@ It then downloads those iamges.
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
 import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
+
+from lib import collect_args
+from lib import goog_helper
 
 
 def readFromMainSheet(service, cellRange):
@@ -51,10 +46,11 @@ def main():
         for [fileName] in values:
             print(fileName)
             goog_helper.downloadClassImage(googleServices['drive'], settings.IMG_CLASSES,
-                                            args.imgClass, fileName, args.outputDir)
+                                           args.imgClass, fileName, args.outputDir)
     if args.image:
-            goog_helper.downloadClassImage(googleServices['drive'], settings.IMG_CLASSES,
-                                            args.imgClass, args.image, args.outputDir)
+        goog_helper.downloadClassImage(googleServices['drive'], settings.IMG_CLASSES,
+                                       args.imgClass, args.image, args.outputDir)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

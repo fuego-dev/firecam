@@ -22,32 +22,33 @@ historical scores.
 """
 
 import os
-import sys
+
 fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
+
 import settings
+
 settings.fuegoRoot = fuegoRoot
-import goog_helper
-import tf_helper
-import rect_to_squares
+from lib import goog_helper
+from lib import tf_helper
+
+from lib import rect_to_squares
 
 import pathlib
-from PIL import Image, ImageFile, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 import logging
 import shutil
 import datetime
-import math
 import time
 
 import tensorflow as tf
 
-class InceptionV3AndHistoricalThreshold:
 
+class InceptionV3AndHistoricalThreshold:
     SEQUENCE_LENGTH = 1
     SEQUENCE_SPACING_MIN = None
 
-    def __init__(self, settings, args, google_services, dbManager, tfConfig, camArchives, minusMinutes, useArchivedImages):
+    def __init__(self, settings, args, google_services, dbManager, tfConfig, camArchives, minusMinutes,
+                 useArchivedImages):
         self.dbManager = dbManager
         self.args = args
         self.google_services = google_services
@@ -57,7 +58,6 @@ class InceptionV3AndHistoricalThreshold:
         self.graph = tf_helper.load_graph(settings.model_file)
         self.labels = tf_helper.load_labels(settings.labels_file)
         self.tfSession = tf.compat.v1.Session(graph=self.graph, config=tfConfig)
-
 
     def _segmentImage(self, imgPath):
         """Segment the given image into sections to for smoke classificaiton
@@ -74,7 +74,6 @@ class InceptionV3AndHistoricalThreshold:
         img.close()
         return segments
 
-
     def _segmentAndClassify(self, imgPath):
         """Segment the given image into squares and classify each square
 
@@ -89,7 +88,6 @@ class InceptionV3AndHistoricalThreshold:
         tf_helper.classifySegments(self.tfSession, self.graph, self.labels, segments)
         segments.sort(key=lambda x: -x['score'])
         return segments
-
 
     def _collectPositves(self, imgPath, segments):
         """Collect all positive scoring segments
@@ -120,7 +118,6 @@ class InceptionV3AndHistoricalThreshold:
             # goog_helper.uploadFile(googleDrive, settings.positivePictures, imgPath)
             logging.warning('Found %d positives in image %s', positiveSegments, ppath.name)
 
-
     def _recordScores(self, camera, timestamp, segments):
         """Record the smoke scores for each segment into SQL DB
 
@@ -147,7 +144,6 @@ class InceptionV3AndHistoricalThreshold:
             }
             dbRows.append(dbRow)
         self.dbManager.add_data('scores', dbRows)
-
 
     def _postFilter(self, camera, timestamp, segments):
         """Post classification filter to reduce false positives
@@ -184,7 +180,9 @@ class InceptionV3AndHistoricalThreshold:
 
         dt = datetime.datetime.fromtimestamp(timestamp)
         secondsInDay = (dt.hour * 60 + dt.minute) * 60 + dt.second
-        sqlStr = sqlTemplate % (camera, timestamp - 60*60*int(24*3.5), timestamp - 60*60*12, secondsInDay - 60*60, secondsInDay + 60*60)
+        sqlStr = sqlTemplate % (
+            camera, timestamp - 60 * 60 * int(24 * 3.5), timestamp - 60 * 60 * 12, secondsInDay - 60 * 60,
+            secondsInDay + 60 * 60)
         # print('sql', sqlStr, timestamp)
         dbResult = self.dbManager.query(sqlStr)
         # if len(dbResult) > 0:
@@ -192,12 +190,12 @@ class InceptionV3AndHistoricalThreshold:
         maxFireSegment = None
         maxFireScore = 0
         for segmentInfo in segments:
-            if segmentInfo['score'] < .5: # segments is sorted. we've reached end of segments >= .5
+            if segmentInfo['score'] < .5:  # segments is sorted. we've reached end of segments >= .5
                 break
             for row in dbResult:
                 if (row['minx'] == segmentInfo['MinX'] and row['miny'] == segmentInfo['MinY'] and
-                    row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
-                    threshold = (row['maxs'] + 1)/2 # threshold is halfway between max and 1
+                        row['maxx'] == segmentInfo['MaxX'] and row['maxy'] == segmentInfo['MaxY']):
+                    threshold = (row['maxs'] + 1) / 2  # threshold is halfway between max and 1
                     # Segments with historical value above 0.8 are too noisy, so discard them by setting
                     # threshold at least .2 above max.  Also requires .7 to reach .9 vs just .85
                     threshold = max(threshold, row['maxs'] + 0.2)
@@ -211,11 +209,9 @@ class InceptionV3AndHistoricalThreshold:
 
         return maxFireSegment
 
-
     def _drawRect(self, imgDraw, x0, y0, x1, y1, width, color):
         for i in range(width):
-            imgDraw.rectangle((x0+i,y0+i,x1-i,y1-i),outline=color)
-
+            imgDraw.rectangle((x0 + i, y0 + i, x1 - i, y1 - i), outline=color)
 
     def _drawFireBox(self, imgPath, fireSegment):
         """Draw bounding box with fire detection with score on image
@@ -234,24 +230,24 @@ class InceptionV3AndHistoricalThreshold:
         y0 = fireSegment['MinY']
         x1 = fireSegment['MaxX']
         y1 = fireSegment['MaxY']
-        centerX = (x0 + x1)/2
-        centerY = (y0 + y1)/2
+        centerX = (x0 + x1) / 2
+        centerY = (y0 + y1) / 2
         color = "red"
-        lineWidth=3
+        lineWidth = 3
         self._drawRect(imgDraw, x0, y0, x1, y1, lineWidth, color)
 
-        fontSize=80
+        fontSize = 80
         font = ImageFont.truetype(os.path.join(settings.fuegoRoot, 'lib/Roboto-Regular.ttf'), size=fontSize)
         scoreStr = '%.2f' % fireSegment['score']
         textSize = imgDraw.textsize(scoreStr, font=font)
-        imgDraw.text((centerX - textSize[0]/2, centerY - textSize[1]), scoreStr, font=font, fill=color)
+        imgDraw.text((centerX - textSize[0] / 2, centerY - textSize[1]), scoreStr, font=font, fill=color)
 
         color = "blue"
-        fontSize=70
+        fontSize = 70
         font = ImageFont.truetype(os.path.join(settings.fuegoRoot, 'lib/Roboto-Regular.ttf'), size=fontSize)
         scoreStr = '%.2f' % fireSegment['HistMax']
         textSize = imgDraw.textsize(scoreStr, font=font)
-        imgDraw.text((centerX - textSize[0]/2, centerY), scoreStr, font=font, fill=color)
+        imgDraw.text((centerX - textSize[0] / 2, centerY), scoreStr, font=font, fill=color)
 
         filePathParts = os.path.splitext(imgPath)
         annotatedFile = filePathParts[0] + '_Score' + filePathParts[1]
@@ -259,7 +255,6 @@ class InceptionV3AndHistoricalThreshold:
         del imgDraw
         img.close()
         return annotatedFile
-
 
     def _recordDetection(self, camera, timestamp, imgPath, annotatedFile, fireSegment):
         """Record that a smoke/fire has been detected
@@ -305,7 +300,6 @@ class InceptionV3AndHistoricalThreshold:
         self.dbManager.add_data('detections', dbRow)
         return driveFileIDs
 
-
     def detect(self, image_spec):
         # This detection policy only uses a single image, so just take the last one
         last_image_spec = image_spec[-1]
@@ -336,5 +330,3 @@ class InceptionV3AndHistoricalThreshold:
             os.remove(segmentInfo['imgPath'])
 
         return detectionResult
-
-

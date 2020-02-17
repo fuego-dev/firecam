@@ -13,21 +13,16 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-import sys
-
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-
-settings.fuegoRoot = fuegoRoot
 import datetime
-import requests
+import os
 import time
-import img_archive
-import exifread
 import urllib.parse as urlp
+
+import exifread
+import requests
+
+import settings
+from lib import img_archive
 
 baseApiUrl = urlp.ParseResult(scheme='https', netloc='data.alertwildfire.org', path='/api/firecams/v0', params='',
                               query='', fragment='')  # initialize

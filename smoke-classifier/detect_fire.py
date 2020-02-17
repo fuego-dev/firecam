@@ -23,35 +23,31 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import rect_to_squares
-import goog_helper
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' # quiet down tensorflow logging (must be done before tf_helper)
-import tf_helper
-import db_manager
-import email_helper
-import sms_helper
-import img_archive
-from detection_policies import policies
-
-import logging
-import pathlib
-import tempfile
-import shutil
-import time, datetime, dateutil.parser
-import random
-import re
+import datetime
+import dateutil.parser
 import hashlib
+import logging
+import os
+import pathlib
+import random
+import shutil
+import tempfile
+import time
 from urllib.request import urlretrieve
+
 import tensorflow as tf
-from PIL import Image, ImageFile, ImageDraw, ImageFont
+from PIL import Image, ImageFile
+
+import settings
+from detection_policies import policies
+from lib import collect_args
+from lib import db_manager
+from lib import email_helper
+from lib import goog_helper
+from lib import img_archive
+from lib import sms_helper
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # quiet down tensorflow logging (must be done before tf_helper)
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
@@ -94,7 +90,10 @@ def getNextImage(dbManager, cameras, cameraID=None):
         return getNextImage(dbManager, cameras)
     camera['md5'] = md5
     return (camera['name'], timestamp, imgPath, md5)
+
+
 getNextImage.tmpDir = None
+
 
 # XXXXX Use a fixed stable directory for testing
 # from collections import namedtuple
@@ -136,6 +135,8 @@ def getNextImageFromDir(imgDirectory):
         return (parsed['cameraID'], parsed['unixTime'], destPath, md5)
     logging.warning('Finished processing all images in directory. Exiting')
     exit(0)
+
+
 getNextImageFromDir.files = None
 getNextImageFromDir.index = -1
 getNextImageFromDir.tmpDir = None
@@ -157,7 +158,7 @@ def checkAndUpdateAlerts(dbManager, camera, timestamp, driveFileIDs):
     # from long lasting fires.
     sqlTemplate = """SELECT * FROM detections
     where CameraName='%s' and timestamp > %s and timestamp < %s"""
-    sqlStr = sqlTemplate % (camera, timestamp - 60*60, timestamp)
+    sqlStr = sqlTemplate % (camera, timestamp - 60 * 60, timestamp)
 
     dbResult = dbManager.query(sqlStr)
     if len(dbResult) > 0:
@@ -205,7 +206,7 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
         timestamp (int): time.time() value when image was taken
     """
     dbManager = constants['dbManager']
-    subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score']*100), cameraID)
+    subject = 'Possible (%d%%) fire in camera %s' % (int(fireSegment['score'] * 100), cameraID)
     body = 'Please check the attached images for fire.'
     # commenting out links to google drive because they appear as extra attachments causing confusion
     # and some email recipients don't even have permissions to access drive.
@@ -215,12 +216,12 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
     #     body += driveBody
 
     # emails are sent from settings.fuegoEmail and bcc to everyone with active emails in notifications SQL table
-    dbResult = dbManager.getNotifications(filterActiveEmail = True)
+    dbResult = dbManager.getNotifications(filterActiveEmail=True)
     emails = [x['email'] for x in dbResult]
     if len(emails) > 0:
         # attach images spanning a few minutes so reviewers can evaluate based on progression
-        startTimeDT = datetime.datetime.fromtimestamp(timestamp - 3*60)
-        endTimeDT = datetime.datetime.fromtimestamp(timestamp - 1*60)
+        startTimeDT = datetime.datetime.fromtimestamp(timestamp - 3 * 60)
+        endTimeDT = datetime.datetime.fromtimestamp(timestamp - 1 * 60)
         with tempfile.TemporaryDirectory() as tmpDirName:
             oldImages = img_archive.getHpwrenImages(constants['googleServices'], settings, tmpDirName,
                                                     constants['camArchives'], cameraID, startTimeDT, endTimeDT, 1)
@@ -228,7 +229,8 @@ def emailFireNotification(constants, cameraID, imgPath, annotatedFile, driveFile
             attachments.append(imgPath)
             if annotatedFile:
                 attachments.append(annotatedFile)
-            email_helper.sendEmail(constants['googleServices']['mail'], settings.fuegoEmail, emails, subject, body, attachments)
+            email_helper.sendEmail(constants['googleServices']['mail'], settings.fuegoEmail, emails, subject, body,
+                                   attachments)
 
 
 def smsFireNotification(dbManager, cameraID):
@@ -239,7 +241,7 @@ def smsFireNotification(dbManager, cameraID):
         cameraID (str): camera name
     """
     message = 'Fuego fire notification in camera %s. Please check email for details' % cameraID
-    dbResult = dbManager.getNotifications(filterActivePhone = True)
+    dbResult = dbManager.getNotifications(filterActivePhone=True)
     phones = [x['phone'] for x in dbResult]
     if len(phones) > 0:
         for phone in phones:
@@ -336,7 +338,7 @@ def initializeTimeTracker():
     return {
         'totalTime': 0.0,
         'numSamples': 0,
-        'timePerSample': 3 # start off with estimate of 3 seconds per camera
+        'timePerSample': 3  # start off with estimate of 3 seconds per camera
     }
 
 
@@ -357,10 +359,10 @@ def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMi
         getArchivedImages.tmpDir = tempfile.TemporaryDirectory()
         logging.warning('TempDir %s', getArchivedImages.tmpDir.name)
 
-    cameraID = cameras[int(len(cameras)*random.random())]['name']
-    timeDT = startTimeDT + datetime.timedelta(seconds = random.random()*timeRangeSeconds)
+    cameraID = cameras[int(len(cameras) * random.random())]['name']
+    timeDT = startTimeDT + datetime.timedelta(seconds=random.random() * timeRangeSeconds)
     if minusMinutes:
-        prevTimeDT = timeDT + datetime.timedelta(seconds = -60 * minusMinutes)
+        prevTimeDT = timeDT + datetime.timedelta(seconds=-60 * minusMinutes)
     else:
         prevTimeDT = timeDT
     files = img_archive.getHpwrenImages(constants['googleServices'], settings, getArchivedImages.tmpDir.name,
@@ -370,13 +372,13 @@ def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMi
         return (None, None, None, None)
     if minusMinutes:
         if len(files) > 1:
-            if files[0] >= files[1]: # files[0] is supposed to be earlier than files[1]
+            if files[0] >= files[1]:  # files[0] is supposed to be earlier than files[1]
                 logging.warning('unexpected file order %s', str(files))
                 for file in files:
                     os.remove(file)
                 return (None, None, None, None)
             imgDiffPath = genDiffImage(files[1], files[0], minusMinutes)
-            os.remove(files[0]) # no longer needed
+            os.remove(files[0])  # no longer needed
             parsedName = img_archive.parseFilename(files[1])
             return (cameraID, parsedName['unixTime'], files[1], imgDiffPath)
         else:
@@ -388,6 +390,8 @@ def getArchivedImages(constants, cameras, startTimeDT, timeRangeSeconds, minusMi
         parsedName = img_archive.parseFilename(files[0])
         return (cameraID, parsedName['unixTime'], files[0], files[0])
     return (None, None, None, None)
+
+
 getArchivedImages.tmpDir = None
 
 
@@ -406,10 +410,10 @@ def main():
     minusMinutes = int(args.minusMinutes) if args.minusMinutes else 0
     googleServices = goog_helper.getGoogleServices(settings, args)
     dbManager = db_manager.DbManager(sqliteFile=settings.db_file,
-                                    psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
-                                    psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
+                                     psqlHost=settings.psqlHost, psqlDb=settings.psqlDb,
+                                     psqlUser=settings.psqlUser, psqlPasswd=settings.psqlPasswd)
     tfConfig = tf.compat.v1.ConfigProto()
-    tfConfig.gpu_options.per_process_gpu_memory_fraction = 0.1 #hopefully reduces segfaults
+    tfConfig.gpu_options.per_process_gpu_memory_fraction = 0.1  # hopefully reduces segfaults
     cameras = dbManager.get_sources(activeOnly=True, restrictType=args.restrictType)
     startTimeDT = dateutil.parser.parse(args.startTime) if args.startTime else None
     endTimeDT = dateutil.parser.parse(args.endTime) if args.endTime else None
@@ -417,8 +421,9 @@ def main():
     useArchivedImages = False
     camArchives = img_archive.getHpwrenCameraArchives(googleServices['sheet'], settings)
     DetectionPolicyClass = policies.get_policies()[settings.detectionPolicy]
-    detectionPolicy = DetectionPolicyClass(settings, args, googleServices, dbManager, tfConfig, camArchives, minusMinutes, useArchivedImages)
-    constants = { # dictionary of constants to reduce parameters in various functions
+    detectionPolicy = DetectionPolicyClass(settings, args, googleServices, dbManager, tfConfig, camArchives,
+                                           minusMinutes, useArchivedImages)
+    constants = {  # dictionary of constants to reduce parameters in various functions
         'args': args,
         'googleServices': googleServices,
         'camArchives': camArchives,
@@ -427,11 +432,11 @@ def main():
 
     if startTimeDT or endTimeDT:
         assert startTimeDT and endTimeDT
-        timeRangeSeconds = (endTimeDT-startTimeDT).total_seconds()
+        timeRangeSeconds = (endTimeDT - startTimeDT).total_seconds()
         assert timeRangeSeconds > 0
         assert args.collectPositves
         useArchivedImages = True
-        random.seed(0) # fixed seed guarantees same randomized ordering.  Should make this optional argument in future
+        random.seed(0)  # fixed seed guarantees same randomized ordering.  Should make this optional argument in future
 
     processingTimeTracker = initializeTimeTracker()
     while True:
@@ -443,11 +448,11 @@ def main():
         # elif minusMinutes: to be resurrected using archive functionality
         # elif args.imgDirectory:  unused functionality -- to delete?
         #     (cameraID, timestamp, imgPath, md5) = getNextImageFromDir(args.imgDirectory)
-        else: # regular (non diff mode), grab image and process
+        else:  # regular (non diff mode), grab image and process
             (cameraID, timestamp, imgPath, md5) = getNextImage(dbManager, cameras)
             classifyImgPath = imgPath
         if not cameraID:
-            continue # skip to next camera
+            continue  # skip to next camera
         timeFetch = time.time()
 
         image_spec = [{}]
@@ -459,7 +464,8 @@ def main():
         timeDetect = time.time()
         if detectionResult['fireSegment']:
             if checkAndUpdateAlerts(dbManager, cameraID, timestamp, detectionResult['driveFileIDs']):
-                alertFire(constants, cameraID, imgPath, detectionResult['annotatedFile'], detectionResult['driveFileIDs'], detectionResult['fireSegment'], timestamp)
+                alertFire(constants, cameraID, imgPath, detectionResult['annotatedFile'],
+                          detectionResult['driveFileIDs'], detectionResult['fireSegment'], timestamp)
         deleteImageFiles(imgPath, imgPath, detectionResult['annotatedFile'])
         if (args.heartbeat):
             heartBeat(args.heartbeat)
@@ -470,8 +476,9 @@ def main():
             if not detectionResult['timeMid']:
                 detectionResult['timeMid'] = timeDetect
             logging.warning('Timings: fetch=%.2f, detect0=%.2f, detect1=%.2f post=%.2f',
-                timeFetch-timeStart, detectionResult['timeMid']-timeFetch, timeDetect-detectionResult['timeMid'], timePost-timeDetect)
+                            timeFetch - timeStart, detectionResult['timeMid'] - timeFetch,
+                            timeDetect - detectionResult['timeMid'], timePost - timeDetect)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

@@ -20,22 +20,17 @@ the augmented data.
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-
 import ast
+
 import googlemaps
+
+from lib import collect_args
+from lib import goog_helper
+
 
 def getCoords(gmaps, fileName):
     lineNumber = 1
-    skipped=[]
+    skipped = []
     with open(fileName, 'r') as myfile:
         for line in myfile:
             # print("raw", line)
@@ -64,5 +59,5 @@ def main():
     getCoords(gmaps, args.fileName)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

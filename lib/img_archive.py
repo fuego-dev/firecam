@@ -1,4 +1,3 @@
-# Copyright 2018 The Fuego Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,16 +17,19 @@ Library code to manage image archives
 
 """
 
-import goog_helper
-
-import os
+import datetime
+import dateutil.parser
 import logging
-import urllib.request
-import time, datetime, dateutil.parser
-from html.parser import HTMLParser
-import requests
+import os
 import re
+import time
+import urllib.request
+from html.parser import HTMLParser
+
+import requests
 from PIL import Image, ImageMath
+
+from lib import goog_helper
 
 
 def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
@@ -45,7 +47,7 @@ def getImgPath(outputDir, cameraID, timestamp, cropCoords=None, diffMinutes=0):
         String to full path name
     """
     timeStr = datetime.datetime.fromtimestamp(timestamp).isoformat()
-    timeStr = timeStr.replace(':', ';') # make windows happy
+    timeStr = timeStr.replace(':', ';')  # make windows happy
     imgName = '__'.join([cameraID, timeStr])
     if diffMinutes:
         imgName += ('_Diff%d' % diffMinutes)
@@ -69,7 +71,7 @@ def repackFileName(parsedName):
     """
     cropCoords = None
     if 'minX' in parsedName:
-        cropCoords=(parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY'])
+        cropCoords = (parsedName['minX'], parsedName['minY'], parsedName['maxX'], parsedName['maxY'])
     return getImgPath('', parsedName['cameraID'], parsedName['unixTime'],
                       cropCoords=cropCoords,
                       diffMinutes=parsedName['diffMinutes'])
@@ -105,7 +107,8 @@ def parseFilename(fileName):
             'minutes': match[3],
             'seconds': match[4]
         }
-        isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'],hour=parsed['hours'],min=parsed['minutes'],sec=parsed['seconds'])
+        isoStr = '{date}T{hour}:{min}:{sec}'.format(date=parsed['date'], hour=parsed['hours'], min=parsed['minutes'],
+                                                    sec=parsed['seconds'])
         dt = dateutil.parser.parse(isoStr)
         unixTime = time.mktime(dt.timetuple())
         parsed['diffMinutes'] = int(match[6] or 0)
@@ -141,11 +144,11 @@ class HpwrenHTMLParser(HTMLParser):
     """Dervied class from HTMLParser to pull out file information from HTML directory listing pages
         Allows caller to specify fileType (extension) the caller cares about
     """
+
     def __init__(self, fileType):
         self.table = []
         self.filetype = fileType
         super().__init__()
-
 
     def handle_starttag(self, tag, attrs):
         """Handler for HTML starting tag (<).
@@ -157,7 +160,7 @@ class HpwrenHTMLParser(HTMLParser):
             # print('Found <a> %s', len(attrs), attrs)
             for attr in attrs:
                 # print('Found attr %s', len(attr), attr)
-                if len(attr) == 2 and attr[0]=='href' and attr[1][-4:] == self.filetype:
+                if len(attr) == 2 and attr[0] == 'href' and attr[1][-4:] == self.filetype:
                     self.table.append(attr[1])
 
     def getTable(self):
@@ -260,7 +263,7 @@ def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime, verboseL
         return imgPath
 
     closestFile = str(closestTime) + '.jpg'
-    urlParts = urlPartsQ[:] # copy URL parts array
+    urlParts = urlPartsQ[:]  # copy URL parts array
     urlParts.append(closestFile)
     # logging.warning('File URLparts %s', urlParts)
     url = '/'.join(urlParts)
@@ -270,7 +273,7 @@ def downloadHttpFileAtTime(outputDir, urlPartsQ, cameraID, closestTime, verboseL
     resp = requests.get(url, stream=True)
     with open(imgPath, 'wb') as f:
         for chunk in resp.iter_content(chunk_size=8192):
-            if chunk: # filter out keep-alive new chunks
+            if chunk:  # filter out keep-alive new chunks
                 f.write(chunk)
     resp.close()
     return imgPath
@@ -309,7 +312,7 @@ def getMp4Url(urlPartsDate, qNum, verboseLogs):
     Returns:
         URL to Q diretory
     """
-    urlPartsMp4 = urlPartsDate[:] # copy URL
+    urlPartsMp4 = urlPartsDate[:]  # copy URL
     urlPartsMp4.append('MP4')
     files = readUrlDir(urlPartsMp4, verboseLogs, '.mp4')
     if verboseLogs:
@@ -390,6 +393,8 @@ def getDriveMp4(googleServices, settings, hpwrenSource, qNum):
 
 
 outputDirCheckOnly = '/CHECK:WITHOUT:DOWNLOAD'
+
+
 def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapMinutes, verboseLogs):
     """Download HPWREN images from given given date time range with specified gaps
 
@@ -408,20 +413,21 @@ def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapM
     """
     startTimeDT = hpwrenSource['startTimeDT']
     endTimeDT = hpwrenSource['endTimeDT']
-    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month, date=startTimeDT.day)
+    dateDirName = '{year}{month:02d}{date:02d}'.format(year=startTimeDT.year, month=startTimeDT.month,
+                                                       date=startTimeDT.day)
     hpwrenSource['dateDirName'] = dateDirName
-    urlPartsDate = hpwrenSource['urlParts'][:] # copy URL
+    urlPartsDate = hpwrenSource['urlParts'][:]  # copy URL
     urlPartsDate.append(dateDirName)
     hpwrenSource['urlPartsDate'] = urlPartsDate
 
-    timeGapDelta = datetime.timedelta(seconds = 60*gapMinutes)
+    timeGapDelta = datetime.timedelta(seconds=60 * gapMinutes)
     imgTimes = None
-    lastQNum = 0 # 0 never matches because Q numbers start with 1
+    lastQNum = 0  # 0 never matches because Q numbers start with 1
     curTimeDT = startTimeDT
     downloaded_files = []
     while curTimeDT <= endTimeDT:
-        qNum = 1 + int(curTimeDT.hour/3)
-        urlPartsQ = urlPartsDate[:] # copy URL
+        qNum = 1 + int(curTimeDT.hour / 3)
+        urlPartsQ = urlPartsDate[:]  # copy URL
         urlPartsQ.append('Q' + str(qNum))
         if qNum != lastQNum:
             # List times of files in Q dir and cache
@@ -445,11 +451,12 @@ def downloadFilesForDate(googleServices, settings, outputDir, hpwrenSource, gapM
             downloaded_files.append(outputDirCheckOnly)
         else:
             desiredTime = time.mktime(curTimeDT.timetuple())
-            closestEntry = min(imgTimes, key=lambda x: abs(x['time']-desiredTime))
+            closestEntry = min(imgTimes, key=lambda x: abs(x['time'] - desiredTime))
             closestTime = closestEntry['time']
             downloaded = None
             if useHttp:
-                downloaded = downloadHttpFileAtTime(outputDir, urlPartsQ, hpwrenSource['cameraID'], closestTime, verboseLogs)
+                downloaded = downloadHttpFileAtTime(outputDir, urlPartsQ, hpwrenSource['cameraID'], closestTime,
+                                                    verboseLogs)
             else:
                 downloaded = downloadDriveFileAtTime(googleServices['drive'], outputDir, hpwrenSource, closestEntry)
             if downloaded and verboseLogs:
@@ -644,25 +651,31 @@ def getAlertImages(googleServices, dbManager, settings, outputDir, cameraID, sta
     """
     downloaded_files = []
     if startTimeDT == endTimeDT:
+        # limit search to 10 hours time range around desired time to speed up query
         sqlTemplate = """SELECT timestamp, fileid FROM archive
-        WHERE CameraName='%s'
+        WHERE CameraName='%s' and timestamp >= %s and timestamp < %s
         ORDER BY ABS(timestamp - %s)
         LIMIT 1"""
-        sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()))
+        startTimeVal = time.mktime(startTimeDT.timetuple())
+        beginTimeRange = startTimeVal - 3600 * 10  # 10 hours before
+        endTimeRange = startTimeVal + 3600 * 10  # 10 hours after
+        sqlStr = sqlTemplate % (cameraID, beginTimeRange, endTimeRange, startTimeVal)
     else:
         sqlTemplate = """SELECT distinct timestamp,fileid FROM archive
         WHERE CameraName='%s' and timestamp >= %s and timestamp < %s"""
         sqlStr = sqlTemplate % (cameraID, time.mktime(startTimeDT.timetuple()), time.mktime(endTimeDT.timetuple()))
+    queryStart = time.time()
     dbResult = dbManager.query(sqlStr)
-    # logging.warning('dbr %d: %s', len(dbResult), str(dbResult))
+    logging.warning('Got %d results in %.2f seconds', len(dbResult), time.time() - queryStart)
+    logging.warning('Query: %s', sqlStr)
     if not dbResult:
         return []
 
-    timeGapDelta = datetime.timedelta(seconds = periodSeconds)
+    timeGapDelta = datetime.timedelta(seconds=periodSeconds)
     curTimeDT = startTimeDT
     while curTimeDT <= endTimeDT:
         curTimeDT += timeGapDelta
-        closestEntry = min(dbResult, key=lambda x: abs(x['timestamp']-time.mktime(curTimeDT.timetuple())))
+        closestEntry = min(dbResult, key=lambda x: abs(x['timestamp'] - time.mktime(curTimeDT.timetuple())))
         fileId = closestEntry['fileid']
         fileName = fileId.split('/')[-1]
         localFilePath = os.path.join(outputDir, fileName)

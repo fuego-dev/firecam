@@ -19,19 +19,14 @@ add, delete, enable, disable, stats, or list cameras in detection system
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import db_manager
-
+import datetime
 import logging
 import random
-import datetime
+
+import settings
+from lib import collect_args
+from lib import db_manager
+
 
 def execCameraSql(dbManager, sqlTemplate, cameraID, isQuery):
     sqlStr = sqlTemplate % cameraID
@@ -133,5 +128,5 @@ def main():
     exit(1)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

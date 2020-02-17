@@ -1,10 +1,8 @@
-#url
-#requests
-#parse.
-#save?/upload to a google folder
-#write continual check program
-
-
+# url
+# requests
+# parse.
+# save?/upload to a google folder
+# write continual check program
 
 
 # Copyright 2018 The Fuego Authors.
@@ -23,32 +21,25 @@
 # ==============================================================================
 
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot 
-import requests
-import goog_helper
-import collect_args
-import dateutil
 import csv
 import logging
 import time
 import urllib.parse as urlp
 
+import requests
+
+import settings
+from lib import collect_args
+from lib import goog_helper
 
 if settings.forest_service_url == 'do not put real url in files in open source git repo':
     logging.warning('Please update settings.forest_service_url with the url provided to you')
-baseApiUrl = urlp.urlparse(settings.forest_service_url)#initialize
+baseApiUrl = urlp.urlparse(settings.forest_service_url)  # initialize
 if settings.forest_service_key == 'do not put real key in files in open source git repo':
     logging.warning('Please update settings.forest_service_key with the key provided to you')
 
 
-
-def getApiUrl(endpoint, queryParams = None):
+def getApiUrl(endpoint, queryParams=None):
     """builds the url of a forestry request
     Args:
         endpoint (str): name of service to look at
@@ -58,13 +49,14 @@ def getApiUrl(endpoint, queryParams = None):
         
     """
     if queryParams:
-        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint, query = queryParams)
+        urlParts = baseApiUrl._replace(path=baseApiUrl.path + endpoint, query=queryParams)
     else:
-        urlParts = baseApiUrl._replace(path = baseApiUrl.path+endpoint)
+        urlParts = baseApiUrl._replace(path=baseApiUrl.path + endpoint)
     url = urlp.urlunparse(urlParts)
     return url
 
-def invokeApi(endpoint, queryParams = None, stream = False, url_override = False):
+
+def invokeApi(endpoint, queryParams=None, stream=False, url_override=False):
     """invokes a request of the forestry system
     Args:
         endpoint (str): name of service to look at
@@ -79,11 +71,12 @@ def invokeApi(endpoint, queryParams = None, stream = False, url_override = False
     if url_override:
         url = url_override
     else:
-        url = getApiUrl(endpoint, queryParams )
-    response = requests.get(url, headers = headers, stream = stream)
+        url = getApiUrl(endpoint, queryParams)
+    response = requests.get(url, headers=headers, stream=stream)
     return response
 
-def get_forestryDB(timefrom = None, timeto = None ):
+
+def get_forestryDB(timefrom=None, timeto=None):
     """organizes DB query input and output
     Args:
         timefrom (str): the start time in the format 'YYYY-MM-DDThh:mm:ss'
@@ -91,12 +84,13 @@ def get_forestryDB(timefrom = None, timeto = None ):
     Returns:
         features in DB or NONE
     """
-    Params = "from="+timefrom+"&to="+timeto
-    response = invokeApi("", queryParams = Params, stream = False)
+    Params = "from=" + timefrom + "&to=" + timeto
+    response = invokeApi("", queryParams=Params, stream=False)
     if response.status_code == 404:
-        return 
+        return
 
     return response.json()['features']
+
 
 def unpack_forestryDB(objects):
     """unpacks hierarchical structure of Forestry DB objects into a easily savable format
@@ -106,21 +100,19 @@ def unpack_forestryDB(objects):
         values  (list): list of values saved in dict object
     """
     values = [
-    objects['properties']['ig_test'],
-    objects['properties']['ig_date'],
-    objects['properties']['created'],
-    objects['properties']['id'],
-    objects['properties']['ig_time'],
-    objects['properties']['ig_confidence'],
-    objects['properties']['ig_identity'],
-    objects['geometry']['coordinates'][0],
-    objects['geometry']['coordinates'][1],
-    objects['geometry']['type'],
-    objects['type']
+        objects['properties']['ig_test'],
+        objects['properties']['ig_date'],
+        objects['properties']['created'],
+        objects['properties']['id'],
+        objects['properties']['ig_time'],
+        objects['properties']['ig_confidence'],
+        objects['properties']['ig_identity'],
+        objects['geometry']['coordinates'][0],
+        objects['geometry']['coordinates'][1],
+        objects['geometry']['type'],
+        objects['type']
     ]
     return values
-
-
 
 
 def main():
@@ -138,58 +130,59 @@ def main():
         ["s", "start_time_override", "override the start time"],
         ["e", "end_time_override", "override the end time"]
     ]
-    args = collect_args.collectArgs(reqArgs,  optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
+    args = collect_args.collectArgs(reqArgs, optionalArgs=optArgs, parentParsers=[goog_helper.getParentParser()])
     googleServices = goog_helper.getGoogleServices(settings, args)
-    if args.start_time_override and  args.end_time_override:
+    if args.start_time_override and args.end_time_override:
         startTimeDT = args.start_time_override
         endTimeDT = args.end_time_override
     if args.start_time_override and not args.end_time_override:
-        logging.warning("Please provide a start (-s) and end (-e) time in the format of 'YYYY-MM-DDThh:mm:ss' to your search")
-        return 
+        logging.warning(
+            "Please provide a start (-s) and end (-e) time in the format of 'YYYY-MM-DDThh:mm:ss' to your search")
+        return
 
     if args.continual_monitoring:
         csvFile = open('forestryDB_continual.csv', 'w')
         writer = csv.writer(csvFile)
-        header1 = ["properties","","","","","","","geometry","","","type"]
-        header2 = ["ig_test","ig_date","created","id","ig_time","ig_confidence","ig_identity","coordinates","","type"]
+        header1 = ["properties", "", "", "", "", "", "", "geometry", "", "", "type"]
+        header2 = ["ig_test", "ig_date", "created", "id", "ig_time", "ig_confidence", "ig_identity", "coordinates", "",
+                   "type"]
         writer.writerow(header1)
         writer.writerow(header2)
         csvFile.close()
         while True:
             csvFile = open('forestryDB_continual.csv', 'a')
             writer = csv.writer(csvFile)
-            startTimeDT = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(time.time()-10*60))
-            endTimeDT = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(time.time()))       
-            data = get_forestryDB(timefrom = startTimeDT, timeto = endTimeDT)
+            startTimeDT = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(time.time() - 10 * 60))
+            endTimeDT = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(time.time()))
+            data = get_forestryDB(timefrom=startTimeDT, timeto=endTimeDT)
             tic = time.time()
-            logging.warning('found %s fires',len(data))
+            logging.warning('found %s fires', len(data))
             for elem in data:
-                #upload_data 
+                # upload_data
                 values = unpack_forestryDB(elem)
                 writer.writerow(values)
             csvFile.close()
-            time.sleep(10*60-(time.time()-tic))
+            time.sleep(10 * 60 - (time.time() - tic))
     else:
-        data = get_forestryDB(timefrom = startTimeDT, timeto = endTimeDT)
+        data = get_forestryDB(timefrom=startTimeDT, timeto=endTimeDT)
         if data == None:
             logging.warning("request could not be made")
-            return 
-        file_name = 'forestryDBfrom'+startTimeDT+'to'+endTimeDT+'.csv'
-        csvFile = open(file_name.replace(":",";").replace(" ","T"), 'w')
+            return
+        file_name = 'forestryDBfrom' + startTimeDT + 'to' + endTimeDT + '.csv'
+        csvFile = open(file_name.replace(":", ";").replace(" ", "T"), 'w')
         writer = csv.writer(csvFile)
-        header1 = ["properties","","","","","","","geometry","","","type"]
-        header2 = ["ig_test","ig_date","created","id","ig_time","ig_confidence","ig_identity","coordinates","","type"]
+        header1 = ["properties", "", "", "", "", "", "", "geometry", "", "", "type"]
+        header2 = ["ig_test", "ig_date", "created", "id", "ig_time", "ig_confidence", "ig_identity", "coordinates", "",
+                   "type"]
         writer.writerow(header1)
         writer.writerow(header2)
         for elem in data:
-            #upload_data 
+            # upload_data
             values = unpack_forestryDB(elem)
             writer.writerow(values)
 
         csvFile.close()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
-
-    

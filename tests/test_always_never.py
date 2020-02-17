@@ -18,13 +18,7 @@ Test always and never policies
 
 """
 
-import sys
-from pathlib import Path
-
-fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
-sys.path.insert(0, str(fuegoRoot / 'detection_policies'))  # add detection_policies directory to the path
-
-import detect_never, detect_always
+from detection_policies import detect_never, detect_always
 
 
 def testNever():

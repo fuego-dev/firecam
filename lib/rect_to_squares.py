@@ -19,13 +19,14 @@ Simple utility to break up rectangle into squares
 
 """
 
+import math
 import os
 import pathlib
-import math
-import collect_args
-import logging
+
+from lib import collect_args
 
 MIN_SQUARE_SIZE = 150
+
 
 def rect_to_squares(selectionX0, selectionY0, selectionX1, selectionY1, limitX, limitY, minSize):
     """
@@ -42,54 +43,56 @@ def rect_to_squares(selectionX0, selectionY0, selectionX1, selectionY1, limitX, 
     maxX = max(selectionX0, selectionX1)
     minY = min(selectionY0, selectionY1)
     maxY = max(selectionY0, selectionY1)
-    centroidX = (minX + maxX)/2
-    centroidY = (minY + maxY)/2
+    centroidX = (minX + maxX) / 2
+    centroidY = (minY + maxY) / 2
 
     diffX = maxX - minX
     diffY = maxY - minY
     diffMin = min(diffX, diffY)
     diffMax = max(diffX, diffY)
-    if (diffMin < 1): # must be at least 1 pixel in each dimension to avoid div by zero
+    if (diffMin < 1):  # must be at least 1 pixel in each dimension to avoid div by zero
         return []
 
-    aspectRatio = diffX/diffY
+    aspectRatio = diffX / diffY
     flip = False
     if (aspectRatio < 1):  # vertical rectangle
         flip = True
-        aspectRatio = 1./aspectRatio
+        aspectRatio = 1. / aspectRatio
     # print("Rect: " + str((minX, minY, maxX, maxY, diffX, diffY, flip, aspectRatio)))
 
     # number of squares is simply the rounded aspect ratio with contraint of minimimum size
     numSquares = max(round(aspectRatio), 1)
-    if (diffMax/numSquares < minSize):
-        numSquares = max(math.floor(diffMax/minSize), 1)
+    if (diffMax / numSquares < minSize):
+        numSquares = max(math.floor(diffMax / minSize), 1)
 
-    offset = diffMax/numSquares
-    squareSize = max(diffMax/numSquares, minSize)
-    squareSize = squareSize * 1.1 # give them 10% overlap
+    offset = diffMax / numSquares
+    squareSize = max(diffMax / numSquares, minSize)
+    squareSize = squareSize * 1.1  # give them 10% overlap
     squareCoords = []
     for i in range(numSquares):
         squareCentroidX = centroidX
         squareCentroidY = centroidY
 
         if (flip):
-            squareCentroidY += offset*i - offset*(numSquares-1)/2
+            squareCentroidY += offset * i - offset * (numSquares - 1) / 2
         else:
-            squareCentroidX += offset*i - offset*(numSquares-1)/2
+            squareCentroidX += offset * i - offset * (numSquares - 1) / 2
 
-        sx0 = int(max(squareCentroidX - squareSize/2, 0))
-        sy0 = int(max(squareCentroidY - squareSize/2, 0))
-        sx1 = int(min(squareCentroidX + squareSize/2, limitX))
-        sy1 = int(min(squareCentroidY + squareSize/2, limitY))
+        sx0 = int(max(squareCentroidX - squareSize / 2, 0))
+        sy0 = int(max(squareCentroidY - squareSize / 2, 0))
+        sx1 = int(min(squareCentroidX + squareSize / 2, limitX))
+        sy1 = int(min(squareCentroidY + squareSize / 2, limitY))
         # print("Square: ", (sx0, sy0, sx1, sy1))
         squareCoords.append((sx0, sy0, sx1, sy1))
 
     return squareCoords
 
+
 # Divide large picture into ~50 boxes, so sqrt(50) =~ 7
-MAX_ROWS=7
+MAX_ROWS = 7
 # Also want to maintain approximate minimum of 300 pixels to match inception v3 299 size
-MIN_ROW_HEIGHT=300
+MIN_ROW_HEIGHT = 300
+
 
 def cutBoxesOld(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     segments = []
@@ -100,12 +103,12 @@ def cutBoxesOld(imgOrig, outputDirectory, imageFileName, callBackFn=None):
     else:
         approxSize = MIN_ROW_HEIGHT
 
-    level = max(int(imgOrig.size[1]/approxSize),1)
+    level = max(int(imgOrig.size[1] / approxSize), 1)
     offsetY = imgOrig.size[1] / level
     # print('Sizes', imgOrig.size[0], imgOrig.size[1], approxSize, level, offsetY)
     for i in range(level):
         minY = max(i * offsetY, 0)
-        maxY = min((i+1) * offsetY, imgOrig.size[1])
+        maxY = min((i + 1) * offsetY, imgOrig.size[1])
         # print(i, minY, maxY)
         squares = rect_to_squares(0, minY, imgOrig.size[0], maxY, imgOrig.size[0], imgOrig.size[1], MIN_SQUARE_SIZE)
         # print(squares)
@@ -145,18 +148,18 @@ def getSegmentRanges(fullSize, segmentSize):
     overlapRatio = 1.1
     if fullSize <= segmentSize:
         return [(0, fullSize)]
-    firstCenter = int(segmentSize/2)
-    lastCenter = fullSize - int(segmentSize/2)
+    firstCenter = int(segmentSize / 2)
+    lastCenter = fullSize - int(segmentSize / 2)
     assert lastCenter > firstCenter
     flexSize = lastCenter - firstCenter
-    numSegments = math.ceil(flexSize / (segmentSize/overlapRatio))
+    numSegments = math.ceil(flexSize / (segmentSize / overlapRatio))
     offset = flexSize / numSegments
     ranges = []
     for i in range(numSegments):
         center = firstCenter + round(i * offset)
-        start = center - int(segmentSize/2)
+        start = center - int(segmentSize / 2)
         end = min(start + segmentSize, fullSize)
-        ranges.append((start,end))
+        ranges.append((start, end))
     ranges.append((fullSize - segmentSize, fullSize))
     # print('ranges', fullSize, segmentSize, ranges)
     # lastC = 0
@@ -232,5 +235,5 @@ def test():
 
 
 # for testing
-if __name__=="__main__":
+if __name__ == "__main__":
     test()

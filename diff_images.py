@@ -19,19 +19,12 @@ result = (128 + a/2) - b/2
 
 """
 
-import sys
-import os
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import img_archive
-
-import logging
 from PIL import Image
+
+from lib import collect_args
+from lib import goog_helper
+from lib import img_archive
+
 
 def main():
     reqArgs = [
@@ -50,5 +43,5 @@ def main():
     imgOut.save(args.imgOutput, format='JPEG')
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()

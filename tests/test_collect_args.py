@@ -17,14 +17,11 @@
 Test collect_args
 
 """
-import sys
 from pathlib import Path
 
-fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
-sys.path.insert(0, str(fuegoRoot / 'lib'))  # add lib directory to the path
-
-import collect_args
 import pytest
+
+from lib import collect_args
 
 
 def test_required_string_arg():
@@ -70,7 +67,8 @@ def test_args_from_yaml():
         ["s", "startRow", "starting row", int],
         ["e", "endRow", "ending row", int],
     ]
-    test_args = ["@test_args.txt"]
+    test_yaml = str(Path(__file__).parent / 'test_args.txt')
+    test_args = [f"@{test_yaml}"]
     args = collect_args.collectArgsInt(test_args, required_args, opt_args, None, True, '@')
     # test_args = ["--outputDir", "tmpimages", "--inputCsv", "file.csv", "--compulsoryInt", "10", "--endRow", "2"]
     # args = collect_args.collectArgsInt(test_args, required_args, opt_args, None, True)

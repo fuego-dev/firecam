@@ -13,15 +13,9 @@
 # limitations under the License.
 # ==============================================================================
 
-import sys
-from pathlib import Path
-
 import numpy as np
 
-fuegoRoot = Path(__file__).parent.parent  # get the firecam directory
-sys.path.insert(0, str(fuegoRoot / 'georef'))  # add the georef directory to the path
-
-import intersection
+from georef import intersection
 
 
 def test_slope_intercept_90_degrees():

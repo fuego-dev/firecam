@@ -18,17 +18,10 @@ List of all poicies
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-
-from . import inception_and_threshold
 from . import detect_always
 from . import detect_never
+from . import inception_and_threshold
+
 
 def get_policies():
     return {
@@ -36,4 +29,3 @@ def get_policies():
         'always': detect_always.DetectAlways,
         'never': detect_never.DetectNever,
     }
-

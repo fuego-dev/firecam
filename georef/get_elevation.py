@@ -16,14 +16,9 @@
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
 import logging
+
+
 # import gdal
 
 
@@ -34,7 +29,8 @@ def mapping_with_bounds(latLong, latLongBounds, diffLatLong, rasterSize):
     if 0 <= pix <= rasterSize:
         return pix
     else:
-        logging.warning("sorry coordinate not in data (%d > %d) or (%d < %d)", latLong, diffLatLong*rasterSize, latLong, latLongBounds)
+        logging.warning("sorry coordinate not in data (%d > %d) or (%d < %d)", latLong, diffLatLong * rasterSize,
+                        latLong, latLongBounds)
         return None
 
 # def main():

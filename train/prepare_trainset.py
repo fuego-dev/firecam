@@ -40,23 +40,16 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
+import math
 import os
+import random
 import sys
 
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-
-import math
-import random
-import logging
-
 import tensorflow as tf
+
+from lib import collect_args
+from lib import goog_helper
 
 
 def int64_feature(values):

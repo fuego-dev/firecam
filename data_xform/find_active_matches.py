@@ -18,23 +18,20 @@ Find fire camera location matches and ensure that archives have data for specifi
 
 """
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import collect_args
-import goog_helper
-import db_manager
-import img_archive
-
-import time, datetime
-import dateutil.parser
-import logging
 import csv
+import datetime
+import logging
 import math
+import time
+
+import dateutil.parser
+
+
+from lib import collect_args
+from lib import db_manager
+from lib import goog_helper
+from lib import img_archive
+import settings
 
 def getLocationMatches(dbManager, longitude, latitude, startTime):
     sqlTemplate = """SELECT fires.name, fires.timestamp, cameras.cameraIDs,
@@ -76,12 +73,12 @@ def isCamArchiveAvailable(camArchives, cameraID, timeDT):
         found = img_archive.downloadFilesHpwren(None, None, img_archive.outputDirCheckOnly, hpwrenSource, 1, False)
         if found:
             return True
-        
+
     return False
 
 
 def outputRow(outputCsv, locMatch, timeDT, availCams):
-    angleEast = int(math.atan2(locMatch['lat_diff'], locMatch['long_diff'])*180/math.pi)
+    angleEast = int(math.atan2(locMatch['lat_diff'], locMatch['long_diff']) * 180 / math.pi)
     heading = 90 - angleEast
     if heading < 0:
         heading += 360
@@ -115,7 +112,7 @@ def main():
     locMatches = getLocationMatches(dbManager, args.longitude, args.latitude, args.startTime)
     totalMatches = len(locMatches)
     numOutput = 0
-    for rowNum,locMatch in enumerate(locMatches):
+    for rowNum, locMatch in enumerate(locMatches):
         timeDT = datetime.datetime.fromtimestamp(locMatch['timestamp'])
         cams = locMatch['cameraids'].split(',')
         availCams = []
@@ -131,5 +128,6 @@ def main():
 
     logging.warning('Processed %d, output %d', totalMatches, numOutput)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()

@@ -13,16 +13,12 @@
 # limitations under the License.
 # ==============================================================================
 
-import os
-import sys
-fuegoRoot = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(fuegoRoot, 'lib'))
-sys.path.insert(0, fuegoRoot)
-import settings
-settings.fuegoRoot = fuegoRoot
-import alertwildfire_API
-import collect_args
 import time
+
+import settings
+from lib import alertwildfire_API
+from lib import collect_args
+
 
 def main():
     """requests the continual recording of a a particular alertwildfire camera and saves images to outputDir
@@ -51,17 +47,17 @@ def main():
         args.interval = 1
 
     list_of_downloaded_img_paths = []
-    start_time= time.time()
-    end_time = start_time+float(args.duration)*60
+    start_time = time.time()
+    end_time = start_time + float(args.duration) * 60
     next_interval = start_time
     while True:
         path = alertwildfire_API.request_current_image(args.outputDir, args.cameraID)
         list_of_downloaded_img_paths.append(path)
-        next_interval +=float(args.interval)*60
-        if next_interval> end_time:
+        next_interval += float(args.interval) * 60
+        if next_interval > end_time:
             return list_of_downloaded_img_paths
-        time.sleep(int(next_interval-time.time()))
+        time.sleep(int(next_interval - time.time()))
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
