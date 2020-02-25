@@ -1,4 +1,7 @@
-# FUEGO wildfire detection
+# This repository is deprecated.  Team Fuego has disbanded and multiple team members have moved on to closed source [Fireball International](http://fireball.international/).  However, the open source project continues on at [Open Climate Tech - Firecam](https://github.com/open-climate-tech/firecam).
+
+
+## FUEGO wildfire detection
 
 [Fuego wildfire detection](https://fuego.ssl.berkeley.edu/smoke-detection/) system leverages machine learning techniques to detect smoke in images from real time cameras from vantage points.  This repository contains all the code for collecting training data, training the model, and fetching images from cameras, checking for smoke, and notifying interested folks.  The repository also contains datasets used for training the model.
 
