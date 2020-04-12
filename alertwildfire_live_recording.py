@@ -39,26 +39,31 @@ import logging
 import db_manager
 import hashlib
 import random
-
-
+import OCR
+import dateutil
+import itertools
 
 
 def build_name_with_metadata(image_base_name,metadata):
     """reformats image name to include positional metadata
     Args:
         image_base_name (str): original image name containing only camera name and timestamp
-        metadata (dict): individual camera metadata pulled from alertwildfire_API.get_individual_camera_info
+        metadata (dict): individual camera metadata pulled from alertwildfire_API.get_individual_camera_info or OCR from image
     Returns:
         imgname (str): name of image with positionalmetadata
     """
 
-
-    cameraName_chunk = image_base_name[:-23]
-    metadata_chunk = 'p'+str(metadata['position']['pan'])+'_t'+str(metadata['position']['tilt'])+'_z'+str(metadata['position']['zoom'])
-    timeStamp_chunk = image_base_name[-23:-4]+'__'
+    cameraName_chunk = metadata['name']+"__" 
+    metadata_chunk = 'p'+str(metadata['pan'])+'_t'+str(metadata['tilt'])+'_z'+str(metadata['zoom'])
+    if metadata['date']:
+        timeStamp_chunk = metadata['date'].replace('/','-')+'T'+metadata['time'].replace(':',';').split('.')[0]+'__'
+    else:
+        timeStamp_chunk = image_base_name[-23:-4]+'__'
     fileTag=image_base_name[-4:]
     imgname = cameraName_chunk+timeStamp_chunk+metadata_chunk+fileTag
     return imgname
+
+
 
 
 def capture_and_record(googleServices, dbManager, outputDir, camera_name):
@@ -77,7 +82,7 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
         
         imgPath = alertwildfire_API.request_current_image(outputDir, camera_name) 
         pull2 = alertwildfire_API.get_individual_camera_info(camera_name)
-        if pull1['position'] == pull1['position']:
+        if pull1['position'] == pull2['position']:
             success = True
         else:
             pull1 = pull2
@@ -94,15 +99,88 @@ def capture_and_record(googleServices, dbManager, outputDir, camera_name):
 
 
     image_base_name = pathlib.PurePath(imgPath).name
-    image_name_with_metadata = build_name_with_metadata(image_base_name,pull1)
+    #implement the ocr 
+    vals = OCR.pull_metadata("Axis", filename = imgPath ).split()
+    logging.warning('values read by OCR %s',vals)
+    if len(vals) == 0:
+        logging.warning('OCR Failed image recorded using motor information')
+        
+    metadata = {key:None for key in ["name", "date", "time","timeStamp","pan","tilt","zoom"]}
+    """ format
+    metadata = {
+                "name" : camera_name,
+                "date" : [elem for elem in vals if elem.count("/") == 2][0],
+                "time" : [elem for elem in vals if elem.count(":") == 2][0],
+                "timeStamp" : #unix timestamp
+                "pan" : float([elem for elem in vals if "X:" in elem][0][2:]),
+                "tilt" : float([elem for elem in vals if "Y:" in elem][0][2:]),
+                "zoom" : float([elem for elem in vals if "Z:" in elem][0][2:]),
+                 }"""
+    """
+    common error cases in OCR recognition of Axis metadata
+    X= x,x,x,x,x
+    Y= v, v,V,V
+    Z= z,7,2,2,2,2,2,2,z,2,2,2,2,2,2,2,2,2
+    .=  -,:,_,(" "),(" "),(" "),(" "),(" "),(" "),(" "),(" ")
+    :=  i, -,1,1,;,1,1,2,(" "),(" "),(" "),(" "),(" "),(" ")
+    -=  ~,_,r,(","),7,r,7,7,(" "),V,v,r,7,r,(" "),(" ")
+    +=-
+    ... more cases exist for natural letters
+    Note, cannot use cases where numbers and chars are mixed because there are likely inverse cases natural to the meta data i.e. Z:->2: which looks is found in 12:12:42
+    """
+    cases = {"pan"  :[''.join(elem) for elem in list(itertools.product(['X','x'],[':','.','_']))],
+             "tilt" :[''.join(elem) for elem in list(itertools.product(['Y','y','V','v'],[':','.','_']))],
+             "zoom" :[''.join(elem) for elem in list(itertools.product(['Z','z'],[':','.','_']))],
+}
+    status = 'ocrworking'
+    try:
+        metadata["name"] = camera_name
+        metadata["date"] = [elem for elem in vals if elem.count("/") == 2][0]
+        metadata["time"] = [elem for elem in vals if elem.count(":") == 2][0]
+        dt = dateutil.parser.parse(metadata['date']+'T'+metadata['time'].split('.')[0])
+        metadata["timeStamp"] = time.mktime(dt.timetuple())
+    except Exception as e:
+        status ='ocrfailure'
+    
+    
+    for key in ["pan","tilt","zoom"]:
+        if status ==  'ocrfailure':
+            break
+        for attempts in cases[key]:
+            try:
+                metadata[key] = float([elem for elem in vals if attempts in elem][0][2:])
+                break
+            except Exception as e:
+                try:
+                    metadata[key] = float([elem for elem in vals if attempts in elem][0][3:]) * (pull1['position'][key]/np.absolute(pull1['position'][key]))
+                    break
+                except Exception as e:
+                    logging.warning('OCR Failed @ %s, attempt %s',key,attempts)
+        if metadata[key] == None:
+            status ='ocrfailure'
+
+    for key in metadata.keys():
+        if metadata[key] == None:
+            status = 'ocrfailure'
+    if status ==  'ocrfailure':# revert to use of metdata
+        logging.warning('OCR Failed image recorded using motor information')
+        metadata = {
+                "name" : camera_name,
+                "date" : None,
+                "time" : None,
+                "pan" : pull1['position']['pan'],
+                "tilt" : pull1['position']['tilt'],
+                "zoom" : pull1['position']['zoom'],
+                 }
+        metadata["timeStamp"] = img_archive.parseFilename(image_base_name)['unixTime']
+
+    image_name_with_metadata = build_name_with_metadata(image_base_name,metadata)
     cloud_file_path =  'alert_archive/' + camera_name + '/' + image_name_with_metadata
     goog_helper.uploadBucketObject(googleServices["storage"], settings.archive_storage_bucket, cloud_file_path, imgPath)
     
 
-    #add to Database
-    timeStamp = img_archive.parseFilename(image_base_name)['unixTime']
-    img_archive.addImageToArchiveDb(dbManager, camera_name, timeStamp, 'gs://'+settings.archive_storage_bucket, cloud_file_path, pull1['position']['pan'], pull1['position']['tilt'], pull1['position']['zoom'], md5)
-
+    #add to Database 
+    img_archive.addImageToArchiveDb(dbManager, camera_name, metadata["timeStamp"], 'gs://'+settings.archive_storage_bucket, cloud_file_path, metadata['pan'], metadata['tilt'], metadata['zoom'], md5)
 
 
 
@@ -171,7 +249,7 @@ def test_System_response_time(googleServices, dbManager, trial_length = 10):
 
 
 def main():
-    """directs the funtionality of the process ie start a cleanup, record all cameras on 2min refresh, record a subset of cameras, manage multiprocessed recording of cameras
+    """directs the funtionality of the process ie start a cleanup, record all cameras on (2min refresh/rotating,1min cadence/stationary, record a subset of cameras, manage multiprocessed recording of cameras
     Args:
         -c  cleaning_threshold" (flt): time in hours to store data
         -o  cameras_overide    (str): list of specific cameras to watch
